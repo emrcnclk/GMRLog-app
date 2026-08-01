@@ -1,0 +1,1510 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG List API
+  version: 1.0.0
+  description: |
+    User-created ranked and unranked game lists.
+
+    Supports ordering, collaboration, social interactions,
+    discovery, statistics and export.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Lists
+    description: User game list management
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Lists
+  ################################################################################
+
+  /lists:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Get lists
+
+      operationId: getLists
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: visibility
+
+          in: query
+
+          schema:
+
+            $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Create list
+
+      operationId: createList
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateListRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/List'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Discover
+  ################################################################################
+
+  /lists/trending:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Trending lists
+
+      operationId: trendingLists
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Trending lists
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListPage'
+
+  /lists/featured:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Featured lists
+
+      operationId: featuredLists
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Featured lists
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListPage'
+
+  /lists/popular:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Popular lists
+
+      operationId: popularLists
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Popular lists
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListPage'
+
+  /lists/{listId}:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Get list
+
+      operationId: getList
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/List'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Lists
+
+      summary: Update list
+
+      operationId: updateList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateListRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/List'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Lists
+
+      summary: Delete list
+
+      operationId: deleteList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # List Items
+  ################################################################################
+
+  /lists/{listId}/items:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Get list items
+
+      operationId: getListItems
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListItemPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Add game
+
+      operationId: addListItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AddListItemRequest'
+
+      responses:
+
+        "201":
+
+          description: Added
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListItem'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /lists/{listId}/items/{gameId}:
+
+    patch:
+
+      tags:
+        - Lists
+
+      summary: Update list item
+
+      operationId: updateListItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateListItemRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListItem'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Lists
+
+      summary: Remove list item
+
+      operationId: removeListItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Ranking
+  ################################################################################
+
+  /lists/{listId}/reorder:
+
+    patch:
+
+      tags:
+        - Lists
+
+      summary: Reorder list
+
+      operationId: reorderList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReorderListRequest'
+
+      responses:
+
+        "200":
+
+          description: Reordered
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListItemPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Like
+  ################################################################################
+
+  /lists/{listId}/likes:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Like list
+
+      operationId: likeList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Liked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Lists
+
+      summary: Unlike list
+
+      operationId: unlikeList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Unliked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Follow
+  ################################################################################
+
+  /lists/{listId}/follow:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Follow list
+
+      operationId: followList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Followed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Lists
+
+      summary: Unfollow list
+
+      operationId: unfollowList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Unfollowed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Bookmark
+  ################################################################################
+
+  /lists/{listId}/bookmark:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Bookmark list
+
+      operationId: bookmarkList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Bookmarked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Lists
+
+      summary: Remove bookmark
+
+      operationId: removeBookmark
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Clone
+  ################################################################################
+
+  /lists/{listId}/clone:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Clone list
+
+      operationId: cloneList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "201":
+
+          description: Cloned
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/List'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Comments
+  ################################################################################
+
+  /lists/{listId}/comments:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Get comments
+
+      operationId: getListComments
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Comments
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/CommentPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Create comment
+
+      operationId: createListComment
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: './REVIEW_API.yaml#/components/schemas/CreateCommentRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/Comment'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Statistics
+  ################################################################################
+
+  /lists/{listId}/statistics:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: List statistics
+
+      operationId: listStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "200":
+
+          description: Statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Activity
+  ################################################################################
+
+  /lists/{listId}/activity:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: List activity
+
+      operationId: listActivity
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Activity
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListActivityPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Share
+  ################################################################################
+
+  /lists/{listId}/share:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Share list
+
+      operationId: shareList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      responses:
+
+        "200":
+
+          description: Share link
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ShareListResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Export
+  ################################################################################
+
+  /lists/{listId}/export:
+
+    get:
+
+      tags:
+        - Lists
+
+      summary: Export list
+
+      operationId: exportList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+        - name: format
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum:
+              - json
+              - csv
+              - pdf
+
+            default: json
+
+      responses:
+
+        "200":
+
+          description: Export
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ListExport'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Report
+  ################################################################################
+
+  /lists/{listId}/report:
+
+    post:
+
+      tags:
+        - Lists
+
+      summary: Report list
+
+      operationId: reportList
+
+      parameters:
+
+        - $ref: '#/components/parameters/ListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: './REVIEW_API.yaml#/components/schemas/ReportReviewRequest'
+
+      responses:
+
+        "202":
+
+          description: Report submitted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    ListId:
+
+      name: listId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    List:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        owner:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        title:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        description:
+
+          type: string
+
+        coverImage:
+
+          type: string
+
+          format: uri
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+        ranked:
+
+          type: boolean
+
+        collaborative:
+
+          type: boolean
+
+        gameCount:
+
+          type: integer
+
+        followers:
+
+          type: integer
+
+        likes:
+
+          type: integer
+
+        bookmarks:
+
+          type: integer
+
+        comments:
+
+          type: integer
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    ListPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/List'
+
+
+            total:
+
+              type: integer
+
+    ListItem:
+
+      type: object
+
+      properties:
+
+        rank:
+
+          type: integer
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        note:
+
+          type: string
+
+        rating:
+
+          type: number
+
+        addedAt:
+
+          type: string
+
+          format: date-time
+
+    ListItemPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ListItem'
+
+
+    CreateListRequest:
+
+      type: object
+
+      required:
+
+        - title
+
+      properties:
+
+        title:
+
+          type: string
+
+          minLength: 2
+
+          maxLength: 100
+
+        description:
+
+          type: string
+
+        ranked:
+
+          type: boolean
+
+        collaborative:
+
+          type: boolean
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+    UpdateListRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/CreateListRequest'
+
+    AddListItemRequest:
+
+      type: object
+
+      required:
+
+        - gameId
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        rank:
+
+          type: integer
+
+        note:
+
+          type: string
+
+        rating:
+
+          type: number
+
+    UpdateListItemRequest:
+
+      type: object
+
+      properties:
+
+        rank:
+
+          type: integer
+
+        note:
+
+          type: string
+
+        rating:
+
+          type: number
+
+    ReorderListRequest:
+
+      type: object
+
+      required:
+
+        - gameIds
+
+      properties:
+
+        gameIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    ListStatistics:
+
+      type: object
+
+      properties:
+
+        gameCount:
+
+          type: integer
+
+        averageRating:
+
+          type: number
+
+        totalPlaytime:
+
+          type: integer
+
+        followers:
+
+          type: integer
+
+        likes:
+
+          type: integer
+
+        bookmarks:
+
+          type: integer
+
+        views:
+
+          type: integer
+
+        shares:
+
+          type: integer
+
+    ListActivity:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          type: string
+
+          enum:
+            - CREATED
+            - UPDATED
+            - ITEM_ADDED
+            - ITEM_REMOVED
+            - REORDERED
+            - LIKED
+            - FOLLOWED
+            - BOOKMARKED
+            - COMMENT_ADDED
+            - CLONED
+
+        actor:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    ListActivityPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ListActivity'
+
+
+    ShareListResponse:
+
+      type: object
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+    ListExport:
+
+      type: object
+
+      properties:
+
+        downloadUrl:
+
+          type: string
+
+          format: uri
+
+        format:
+
+          type: string
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+x-tagGroups:
+
+  - name: Lists
+
+    tags:
+
+      - Lists
+
+################################################################################
+# File End — LIST_API.yaml
+################################################################################

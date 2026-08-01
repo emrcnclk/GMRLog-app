@@ -1,0 +1,54 @@
+---
+description: GMRLOG OS ana bağlam — her oturumda önce README ve docs okunur
+alwaysApply: true
+---
+
+# GMRLOG OS — Cursor Integration
+
+`/docs` dizini tek doğruluk kaynağıdır (Single Source of Truth). Dokümantasyon ile kod çelişirse dokümantasyon önceliklidir.
+
+## Kod üretmeden önce
+
+1. `docs/00_PROJECT/NORTH_STAR.md` — **LOCKED** ürün yönü (North Star Question)
+2. `README.md` — GMRLOG OS giriş noktası
+3. `docs/00_PROJECT/MONOREPO_STRUCTURE.md` — repo yapısı, `@gmrlog/*` import aliases
+4. UI / UX / frontend: Master; IA `F2.1`; `F3`/`F4` CLOSED; `F5_1`–`F5_5` (**DRAFT** product architecture — F5.5 closes series upon LOCK); yazı `F3_11`; evrim `F2.29` · DS `F4_12`; build rules `F5_5`
+5. İlgili `docs/` klasörleri — görevle eşleşen tüm dokümanlar
+6. `.cursor/rules/` — alan bazlı kurallar (frontend, backend, api, vb.)
+
+## Zorunlu kurallar
+
+- Her özellik North Star Question’ı geçmeli: *“Does this make GMRLOG a better digital home for gaming culture?”*
+- UI/UX/frontend kararları Master Design Direction’ı geçmeli: *“Does this make GMRLOG more recognizable?”*
+- UX etkileşim kararları F3.1–F3.12’yi geçmeli; F3.12 acceptance/audit/governance zorunlu
+- Görsel UI kararları F4.1’i geçmeli: clarify > decorate; premium = restraint; Digital Home · recognizability · anti-manipulation
+- Renk kararları F4.2’yi geçmeli: meaning before beauty; neutral-first; semantic families; color-alone yasak; engagement rengi anayasaya aykırı
+- Tipografi kararları F4.3’ü geçmeli: reading before decoration; semantic type roles; long-form first-class; shouting typography yasak
+- Layout/spacing kararları F4.4’ü geçmeli: space before decoration; reading corridors; meaning adapts not hierarchy; engagement crowding yasak
+- Surface/elevation kararları F4.5’i geçmeli: surfaces = places; elevation = structure not power; inhabited Digital Home; effects-only depth yasak
+- İkon/illustration kararları F4.6’yı geçmeli: symbol before style; semantic roles; icon alone yasak; culture over costume; engagement symbols yasak
+- Component kararları F4.7’yi geçmeli: function before form; one responsibility; predictability; dark patterns / engagement-first components yasak
+- Design System / reusable UI object kararları F4.8’i geçmeli: taxonomy · SRP · composition · ownership · states · admission governance; COMPONENT_LIBRARY buna itaat eder
+- Motion/transition kararları F4.9’u geçmeli: movement before decoration; continuity · interruptibility · reduced motion; engagement/casino/dopamine motion yasak; ms/easing yok
+- Token kararları F4.10’u geçmeli: meaning before values; primitive→semantic→component→theme; components consume semantics; raw/hardcoded values yasak
+- Responsive/adaptive layout kararları F4.11’i geçmeli: canvas adapts · meaning/identity does not; device classes ≠ products; anti-fragmentation; breakpoint/px yok
+- Design System evrim/governance kararları F4.12’yi geçmeli: tek otorite · SSOT · component/token/naming never fork · breaking-change review · silent drift yasak
+- F4 UI Constitution `F4_13` ile kapalı; yeni F4 anayasa sprint’i yalnızca formal amendment; production F5 altında F1–F4’e itaat eder
+- Ürün yapısı / navigation ownership `F5_1` DRAFT SSOT; F2.1 structural freeze’i yeniden yazmaz; yeni tab / URL / engineering yok
+- Implementation `F5_5` kurallarına uyar: reuse > duplication; semantic tokens; F5.3 ekransız UI yok; F5.4 davranış; LOCK sonrası yeni mimari yalnızca amendment
+- Yeni özellik F2.29 Feature Acceptance Framework’ü geçmeli (Digital Home · culture · agency · Trust · identity · anti-manipulation · architecture fit)
+- `docs/00_PROJECT/CODING_STANDARDS.md` — strict TS, no `any`, naming, layer rules
+- Dokümante edilmemiş API, tablo veya mimari sınır icat etme
+- Dokümante edilmiş bileşenleri yeniden kullan; composition > duplication
+- Naming convention ve design token'lara uy
+- Production-ready, typed, tested, accessible, secure kod üret
+- Dokümantasyonda tanımlı olmayan kararları uydurma; eksikse kullanıcıya sor
+- F2 / F3 / F4 anayasal sprint’lerini yeniden açma (core philosophy değişmedikçe · F4 için formal amendment); F5+ production/implementation’a geç
+
+## Docs yapısı
+
+`00_PROJECT` … `16_CURSOR` — her klasör bağımsız bir mühendislik disiplini
+
+## İletişim
+
+Kullanıcıyla Türkçe; kod ve teknik terimler İngilizce kalabilir.

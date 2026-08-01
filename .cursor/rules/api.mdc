@@ -1,0 +1,45 @@
+---
+description: API tasarım kuralları — GMRLOG OS
+globs: docs/08_API/**,**/*.{ts,py,go}
+alwaysApply: false
+---
+
+# API Kuralları
+
+Önce oku: `docs/08_API/API_SPECIFICATION.md`, `docs/06_BACKEND/`, `docs/07_DATABASE/`
+
+## Onaylı stack
+
+- **Base:** `/api/v1` — prod `https://api.gmrlog.com/v1`, dev `http://localhost:4000/api/v1`
+- **Auth:** JWT Bearer + refresh rotation; OAuth (Google, Steam, Discord, Apple)
+- **Realtime:** Socket.IO + Redis adapter — `docs/06_BACKEND/REALTIME_ARCHITECTURE.md`
+- Event naming: `domain:event` (e.g. `message:new`, `feed:update`, `notification:new`)
+- Payload: `{ event, timestamp, payload }`; JWT required for private events
+- Namespaces: `/`, `/feed`, `/messages`, `/notifications`, `/developers`, `/admin`
+- Rooms: `user:{id}`, `conversation:{id}`, `game:{id}`, etc.
+- **Client:** `packages/api` (generated from OpenAPI)
+
+## Response format
+
+Success: `{ success: true, data, meta?, pagination? }`
+Error: `{ success: false, error: { code, message, status, requestId, timestamp }, fieldErrors? }`
+
+Detay: `docs/08_API/ERROR_CODES.md` — tüm domain error code'ları
+
+## Pagination & queries
+
+- Cursor: `?cursor=&limit=20` (max 100)
+- Sort/filter per `API_SPECIFICATION.md`
+
+## Client error handling
+
+- 401 → login redirect | 403 → permission screen | 404 → not found
+- 422 → highlight fields | 429 → retry timer (+ `Retry-After`)
+- 500/503 → generic error / retry
+- Backend stable codes; client localizes messages
+
+## Davranış
+
+- Yalnızca spec'teki endpoint ve error code'ları kullan
+- Server errors internal detail expose etme
+- Rate limits uygula (`security.mdc`)

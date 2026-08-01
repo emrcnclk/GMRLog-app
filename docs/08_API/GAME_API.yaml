@@ -1,0 +1,4296 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Game API
+  version: 1.0.0
+  description: |
+    Game catalog API powering the GMRLOG platform.
+
+    Owns game metadata, platforms, genres, companies, releases, ratings,
+    media, achievements, DLC and catalog collections (IGDB).
+
+    Search lives in SEARCH_API. Recommendations and similar games live in AI_API.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local
+
+tags:
+  - name: Games
+    description: Game catalog endpoints
+
+  - name: Discover
+    description: Discovery and trending
+
+  - name: Releases
+    description: Release information
+
+  - name: Media
+    description: Screenshots, videos and artwork
+
+  - name: Companies
+    description: Developers and publishers
+
+  - name: Ratings
+    description: Scores and ratings
+
+  - name: Achievements
+    description: Achievements and trophies
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Game Details
+  ################################################################################
+
+  /games/{gameId}:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Get game details
+
+      operationId: getGame
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Game details
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Game'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # D3.25 Catalog Metadata (docs/18_CATALOG/) — additive
+  # /games/{gameId}/media already existed below under "Media Hub" as an
+  # unimplemented stub; it is reconciled there to match the real D3.25
+  # implementation rather than duplicated here.
+  ################################################################################
+
+  /games/{gameId}/similar:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Provider-declared similar games
+
+      description: |
+        Entries not yet present in the catalog return `gameId: null` with the
+        provider's title, so the relationship is visible before the target
+        game exists.
+
+      operationId: listGameSimilar
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Provider-declared related games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/GameRelatedGame'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/metadata:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Catalog enrichment status and attribution
+
+      description: Read-only. Does not trigger enrichment.
+
+      operationId: getGameMetadataStatus
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Enrichment lifecycle status
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameMetadataStatus'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # D3.24 Game Hub
+  ################################################################################
+
+  /games/{gameId}/hub:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Game Hub summary and tab counts
+
+      operationId: getGameHub
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Hub summary
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameHub'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/feed:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Game Hub hybrid timeline
+
+      operationId: getGameHubFeed
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Game-scoped feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './SOCIAL_API.yaml#/components/schemas/FeedPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/guides:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Guide posts for a game
+
+      operationId: listGameGuides
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Guide posts
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/collections:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Collections containing the game
+
+      operationId: listGameCollections
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Collections
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/tier-lists:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Tier lists containing the game
+
+      operationId: listGameTierLists
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Tier lists
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/communities:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Communities tagged for the game
+
+      operationId: listGameCommunities
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Communities
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/players:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Public players with the game in library
+
+      operationId: listGamePlayers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Players
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Trending Games
+  ################################################################################
+
+  /games/trending:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Trending games
+
+      operationId: getTrendingGames
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Trending games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameSearchPage'
+
+  ################################################################################
+  # Upcoming Games
+  ################################################################################
+
+  /games/upcoming:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Upcoming games
+
+      operationId: getUpcomingGames
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Upcoming releases
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameSearchPage'
+
+  ################################################################################
+  # Recently Released
+  ################################################################################
+
+  /games/recent:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Recently released games
+
+      operationId: getRecentlyReleasedGames
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Recent releases
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameSearchPage'
+
+  ################################################################################
+  # Platforms
+  ################################################################################
+
+  /platforms:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List supported platforms
+
+      operationId: getPlatforms
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Platform list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PlatformPage'
+
+  /platforms/{platformId}:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Get platform details
+
+      operationId: getPlatform
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/PlatformId'
+
+      responses:
+
+        "200":
+
+          description: Platform details
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Platform'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Genres
+  ################################################################################
+
+  /genres:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List genres
+
+      operationId: getGenres
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Genre list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GenrePage'
+
+  /genres/{genreId}/games:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Get games by genre
+
+      operationId: getGamesByGenre
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GenreId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameSearchPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Themes
+  ################################################################################
+
+  /themes:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List themes
+
+      operationId: getThemes
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Theme list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ThemePage'
+
+  ################################################################################
+  # Game Modes
+  ################################################################################
+
+  /game-modes:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List game modes
+
+      operationId: getGameModes
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Game modes
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameModePage'
+
+  ################################################################################
+  # Perspectives
+  ################################################################################
+
+  /player-perspectives:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List player perspectives
+
+      operationId: getPlayerPerspectives
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Player perspectives
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PerspectivePage'
+
+  ################################################################################
+  # Franchises
+  ################################################################################
+
+  /franchises:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List franchises
+
+      operationId: getFranchises
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Franchises
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FranchisePage'
+
+  /franchises/{franchiseId}/games:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: Games in franchise
+
+      operationId: getFranchiseGames
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/FranchiseId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Franchise games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameSearchPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # IGDB Catalog Collections (metadata)
+  ################################################################################
+
+  /catalog/collections:
+
+    get:
+
+      tags:
+        - Games
+
+      summary: List collections
+
+      operationId: gameGetIgdbCollections
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Collections
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionPage'
+
+  ################################################################################
+  # Releases
+  ################################################################################
+
+  /games/{gameId}/releases:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get game releases
+
+      operationId: getGameReleases
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Game releases
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReleasePage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Editions
+  ################################################################################
+
+  /games/{gameId}/editions:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get game editions
+
+      operationId: getGameEditions
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Game editions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/EditionPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # DLC
+  ################################################################################
+
+  /games/{gameId}/dlcs:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get downloadable content
+
+      operationId: getGameDlcs
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: DLC list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/DlcPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Expansions
+  ################################################################################
+
+  /games/{gameId}/expansions:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get expansions
+
+      operationId: getGameExpansions
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Expansion list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ExpansionPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Bundles
+  ################################################################################
+
+  /games/{gameId}/bundles:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get bundles containing this game
+
+      operationId: getBundles
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Bundle list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/BundlePage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Alternative Versions
+  ################################################################################
+
+  /games/{gameId}/versions:
+
+    get:
+
+      tags:
+        - Releases
+
+      summary: Get alternative versions
+
+      operationId: getAlternativeVersions
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Alternative versions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameVersionPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Covers
+  ################################################################################
+
+  /games/{gameId}/cover:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Get game cover
+
+      operationId: getGameCover
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Game cover
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameCover'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Screenshots
+  ################################################################################
+
+  /games/{gameId}/screenshots:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Get screenshots
+
+      operationId: getGameScreenshots
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Screenshot gallery
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ScreenshotPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Artwork
+  ################################################################################
+
+  /games/{gameId}/artworks:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Get artworks
+
+      operationId: getGameArtworks
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Artwork gallery
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ArtworkPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Videos
+  ################################################################################
+
+  /games/{gameId}/videos:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Get videos
+
+      operationId: getGameVideos
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Videos
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/VideoPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Trailers
+  ################################################################################
+
+  /games/{gameId}/trailers:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Get trailers
+
+      operationId: getGameTrailers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Trailer list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TrailerPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Media Hub — implemented D3.25 (docs/18_CATALOG/MEDIA_INGESTION.md).
+  # Reconciled from a pre-D3.25 stub that returned an unimplemented
+  # `GameMedia` package object; the real implementation returns a flat,
+  # ordered list of mirrored assets.
+  ################################################################################
+
+  /games/{gameId}/media:
+
+    get:
+
+      tags:
+        - Media
+
+      summary: Mirrored catalog artwork for a game
+
+      description: |
+        Serves persisted media only. Never waits on a metadata provider —
+        see docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md §5.
+
+      operationId: listGameMedia
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Mirrored media, ordered by kind then sortOrder
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/GameMediaItem'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Developers
+  ################################################################################
+
+  /games/{gameId}/developers:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Get game developers
+
+      operationId: getGameDevelopers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Developers
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanyPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Publishers
+  ################################################################################
+
+  /games/{gameId}/publishers:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Get game publishers
+
+      operationId: getGamePublishers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Publishers
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanyPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Supporting Studios
+  ################################################################################
+
+  /games/{gameId}/supporting-studios:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Supporting studios
+
+      operationId: getSupportingStudios
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Supporting studios
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanyPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Game Engine
+  ################################################################################
+
+  /games/{gameId}/engine:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Game engine
+
+      operationId: getGameEngine
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Engine
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameEngine'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Credits
+  ################################################################################
+
+  /games/{gameId}/credits:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Full game credits
+
+      operationId: getGameCredits
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Credits
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameCredits'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Official Links
+  ################################################################################
+
+  /games/{gameId}/links:
+
+    get:
+
+      tags:
+        - Companies
+
+      summary: Official game links
+
+      operationId: getGameLinks
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Official links
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLinks'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Community Rating
+  ################################################################################
+
+  /games/{gameId}/ratings:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Get game ratings
+
+      operationId: getGameRatings
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Rating statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameRatings'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Critic Scores
+  ################################################################################
+
+  /games/{gameId}/critic-scores:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Get critic scores
+
+      operationId: getCriticScores
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Critic scores
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CriticScores'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Rating Distribution
+  ################################################################################
+
+  /games/{gameId}/rating-distribution:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Rating distribution
+
+      operationId: getRatingDistribution
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Rating histogram
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/RatingDistribution'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Review Summary
+  ################################################################################
+
+  /games/{gameId}/review-summary:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Review summary
+
+      operationId: getReviewSummary
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: AI generated review summary
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewSummary'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Popularity
+  ################################################################################
+
+  /games/{gameId}/popularity:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Popularity metrics
+
+      operationId: getPopularity
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Popularity
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamePopularity'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Player Statistics
+  ################################################################################
+
+  /games/{gameId}/statistics:
+
+    get:
+
+      tags:
+        - Ratings
+
+      summary: Community statistics
+
+      operationId: getGameStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Achievements
+  ################################################################################
+
+  /games/{gameId}/achievements:
+
+    get:
+
+      tags:
+        - Achievements
+
+      summary: Get game achievements
+
+      operationId: getGameAchievements
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+        - name: platform
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/PlatformType'
+
+      responses:
+
+        "200":
+
+          description: Achievement list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AchievementPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Achievement Statistics
+  ################################################################################
+
+  /games/{gameId}/achievement-stats:
+
+    get:
+
+      tags:
+        - Achievements
+
+      summary: Achievement statistics
+
+      operationId: getAchievementStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Achievement statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AchievementStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Platform Integration
+  ################################################################################
+
+  /games/{gameId}/platform-data:
+
+    get:
+
+      tags:
+        - Achievements
+
+      summary: Platform specific metadata
+
+      operationId: getPlatformData
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Platform metadata
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamePlatformData'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # HowLongToBeat
+  ################################################################################
+
+  /games/{gameId}/howlongtobeat:
+
+    get:
+
+      tags:
+        - Achievements
+
+      summary: Completion times
+
+      operationId: getHowLongToBeat
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Completion estimates
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/HowLongToBeat'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Completion Statistics
+  ################################################################################
+
+  /games/{gameId}/completion:
+
+    get:
+
+      tags:
+        - Achievements
+
+      summary: Completion statistics
+
+      operationId: getCompletionStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Completion statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompletionStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # News
+  ################################################################################
+
+  /games/{gameId}/news:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Game news
+
+      operationId: getGameNews
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: News
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameNewsPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Events
+  ################################################################################
+
+  /games/{gameId}/events:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Events
+
+      operationId: getGameEvents
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Events
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameEventPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Store Availability
+  ################################################################################
+
+  /games/{gameId}/stores:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Available stores
+
+      operationId: getStoreAvailability
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Store list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/StoreAvailabilityPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Price History
+  ################################################################################
+
+  /games/{gameId}/price-history:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Historical prices
+
+      operationId: getPriceHistory
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Price history
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PriceHistory'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Subscription Availability
+  ################################################################################
+
+  /games/{gameId}/subscriptions:
+
+    get:
+
+      tags:
+        - Discover
+
+      summary: Subscription services
+
+      operationId: getSubscriptions
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Subscription availability
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SubscriptionAvailability'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    GameId:
+
+      name: gameId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    PlatformId:
+
+      name: platformId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: integer
+
+    GenreId:
+
+      name: genreId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: integer
+
+    FranchiseId:
+
+      name: franchiseId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: integer
+
+  schemas:
+
+    GameHub:
+
+      type: object
+
+      required: [gameId, title, tabCounts]
+
+      properties:
+
+        gameId:
+
+          type: string
+
+        title:
+
+          type: string
+
+        tabCounts:
+
+          type: object
+
+          required:
+            - reviews
+            - screenshots
+            - guides
+            - collections
+            - tierLists
+            - events
+            - communities
+            - players
+
+          properties:
+
+            reviews: { type: integer }
+            screenshots: { type: integer }
+            guides: { type: integer }
+            collections: { type: integer }
+            tierLists: { type: integer }
+            events: { type: integer }
+            communities: { type: integer }
+            players: { type: integer }
+
+    Game:
+
+      allOf:
+
+        - $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        - type: object
+
+          properties:
+
+            description:
+
+              type: string
+
+            storyline:
+
+              type: string
+
+            releaseStatus:
+
+              type: string
+
+            igdbId:
+
+              type: integer
+
+            metacriticScore:
+
+              type: integer
+
+            opencriticScore:
+
+              type: integer
+
+            hltbMain:
+
+              type: integer
+
+            hltbCompletionist:
+
+              type: integer
+
+            # D3.25 — additive catalog metadata (docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md).
+            # `description`/`igdbId` above predate D3.25 as unimplemented aspiration;
+            # both are now real. `storyline`/`releaseStatus`/`metacriticScore`/
+            # `opencriticScore`/`hltbMain`/`hltbCompletionist` remain unimplemented —
+            # out of D3.25 scope, left for the doc-truth pass (audit Sprint 1).
+
+            heroUrl:
+
+              type: string
+
+              nullable: true
+
+            summary:
+
+              type: string
+
+              nullable: true
+
+            trailerUrl:
+
+              type: string
+
+              nullable: true
+
+            externalRating:
+
+              type: number
+
+              nullable: true
+
+            externalRatingCount:
+
+              type: integer
+
+              nullable: true
+
+            steamAppId:
+
+              type: integer
+
+              nullable: true
+
+            rawgId:
+
+              type: integer
+
+              nullable: true
+
+            tags:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameTag'
+
+            developers:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/CompanyRef'
+
+            publishers:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/CompanyRef'
+
+            franchise:
+
+              $ref: '#/components/schemas/NamedRef'
+
+              nullable: true
+
+            series:
+
+              $ref: '#/components/schemas/NamedRef'
+
+              nullable: true
+
+            screenshots:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameMediaItem'
+
+            metadata:
+
+              $ref: '#/components/schemas/GameMetadataStatus'
+
+    NamedRef:
+
+      type: object
+
+      required:
+        - id
+        - name
+        - slug
+
+      properties:
+
+        id:
+
+          type: string
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+    GameTag:
+
+      allOf:
+
+        - $ref: '#/components/schemas/NamedRef'
+
+        - type: object
+
+          properties:
+
+            kind:
+
+              type: string
+
+              enum: [theme, mode, perspective, keyword]
+
+    CompanyRef:
+
+      $ref: '#/components/schemas/NamedRef'
+
+    GameMediaItem:
+
+      type: object
+
+      required:
+        - id
+        - kind
+
+      properties:
+
+        id:
+
+          type: string
+
+        kind:
+
+          type: string
+
+          enum: [screenshot, cover, banner, video, hero, artwork, logo, trailer]
+
+        url:
+
+          type: string
+
+          nullable: true
+
+        width:
+
+          type: integer
+
+          nullable: true
+
+        height:
+
+          type: integer
+
+          nullable: true
+
+        sortOrder:
+
+          type: integer
+
+    GameRelatedGame:
+
+      type: object
+
+      required:
+        - kind
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          nullable: true
+
+        title:
+
+          type: string
+
+          nullable: true
+
+        slug:
+
+          type: string
+
+          nullable: true
+
+        coverImageUrl:
+
+          type: string
+
+          nullable: true
+
+        kind:
+
+          type: string
+
+          enum: [similar, dlc, expansion, remake, remaster, prequel, sequel]
+
+    GameMetadataStatus:
+
+      type: object
+
+      required:
+        - status
+
+      properties:
+
+        status:
+
+          type: string
+
+          enum: [pending, enriching, complete, partial, failed, stale]
+
+        provider:
+
+          type: string
+
+          nullable: true
+
+          enum: [igdb, steam, rawg, manual, null]
+
+        refreshedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        attribution:
+
+          type: string
+
+          nullable: true
+
+    GameSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+            total:
+
+              type: integer
+
+    Platform:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        abbreviation:
+
+          type: string
+
+        logo:
+
+          type: string
+
+        generation:
+
+          type: string
+
+        manufacturer:
+
+          type: string
+
+        releaseDate:
+
+          type: string
+
+          format: date
+
+    PlatformPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Platform'
+
+
+    Genre:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+    GenrePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Genre'
+
+
+    Theme:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+    ThemePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Theme'
+
+
+    GameMode:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+    GameModePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameMode'
+
+
+    PlayerPerspective:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+    PerspectivePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/PlayerPerspective'
+
+
+    Franchise:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+    FranchisePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Franchise'
+
+
+    Collection:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+    CollectionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Collection'
+
+
+    Release:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        platform:
+
+          $ref: '#/components/schemas/Platform'
+
+        region:
+
+          type: string
+
+        releaseDate:
+
+          type: string
+
+          format: date
+
+        publisher:
+
+          type: string
+
+    ReleasePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Release'
+
+
+    Edition:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        description:
+
+          type: string
+
+        includesBaseGame:
+
+          type: boolean
+
+        includedDlcs:
+
+          type: array
+
+          items:
+
+            type: string
+
+    EditionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Edition'
+
+
+    Dlc:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        title:
+
+          type: string
+
+        releaseDate:
+
+          type: string
+
+          format: date
+
+        standalone:
+
+          type: boolean
+
+    DlcPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Dlc'
+
+
+    Expansion:
+
+      allOf:
+
+        - $ref: '#/components/schemas/Dlc'
+
+        - type: object
+
+          properties:
+
+            estimatedPlaytimeHours:
+
+              type: integer
+
+    ExpansionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Expansion'
+
+
+    Bundle:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        title:
+
+          type: string
+
+        gameCount:
+
+          type: integer
+
+    BundlePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Bundle'
+
+
+    GameVersion:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        type:
+
+          type: string
+
+          enum:
+            - ORIGINAL
+            - REMASTER
+            - REMAKE
+            - DEFINITIVE
+            - DIRECTORS_CUT
+            - GOTY
+            - COMPLETE
+            - DELUXE
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+    GameVersionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameVersion'
+
+
+    GameCover:
+
+      type: object
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        thumbnail:
+
+          type: string
+
+          format: uri
+
+        width:
+
+          type: integer
+
+        height:
+
+          type: integer
+
+    Screenshot:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        image:
+
+          type: string
+
+          format: uri
+
+        thumbnail:
+
+          type: string
+
+          format: uri
+
+        width:
+
+          type: integer
+
+        height:
+
+          type: integer
+
+    ScreenshotPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Screenshot'
+
+
+    Artwork:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        image:
+
+          type: string
+
+          format: uri
+
+        artist:
+
+          type: string
+
+          nullable: true
+
+    ArtworkPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Artwork'
+
+
+    Video:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        provider:
+
+          type: string
+
+          enum:
+            - YOUTUBE
+            - VIMEO
+
+        videoId:
+
+          type: string
+
+        duration:
+
+          type: integer
+
+        title:
+
+          type: string
+
+    VideoPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Video'
+
+
+    Trailer:
+
+      allOf:
+
+        - $ref: '#/components/schemas/Video'
+
+        - type: object
+
+          properties:
+
+            official:
+
+              type: boolean
+
+            language:
+
+              type: string
+
+    TrailerPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Trailer'
+
+
+    GameMedia:
+
+      type: object
+
+      properties:
+
+        cover:
+
+          $ref: '#/components/schemas/GameCover'
+
+        screenshots:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/Screenshot'
+
+        artworks:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/Artwork'
+
+        trailers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/Trailer'
+
+        videos:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/Video'
+
+    Company:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        logo:
+
+          type: string
+
+          format: uri
+
+        country:
+
+          type: string
+
+        founded:
+
+          type: integer
+
+        website:
+
+          type: string
+
+          format: uri
+
+    CompanyPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Company'
+
+
+    GameEngine:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        version:
+
+          type: string
+
+        developer:
+
+          type: string
+
+    CreditPerson:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: integer
+
+        name:
+
+          type: string
+
+        role:
+
+          type: string
+
+        company:
+
+          type: string
+
+    GameCredits:
+
+      type: object
+
+      properties:
+
+        directors:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        producers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        writers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        designers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        programmers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        artists:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        composers:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+        voiceActors:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/CreditPerson'
+
+    GameLinks:
+
+      type: object
+
+      properties:
+
+        website:
+
+          type: string
+
+          format: uri
+
+        steam:
+
+          type: string
+
+          format: uri
+
+        epic:
+
+          type: string
+
+          format: uri
+
+        gog:
+
+          type: string
+
+          format: uri
+
+        playstation:
+
+          type: string
+
+          format: uri
+
+        xbox:
+
+          type: string
+
+          format: uri
+
+        nintendo:
+
+          type: string
+
+          format: uri
+
+        trailer:
+
+          type: string
+
+          format: uri
+
+        discord:
+
+          type: string
+
+          format: uri
+
+        reddit:
+
+          type: string
+
+          format: uri
+
+        wiki:
+
+          type: string
+
+          format: uri
+
+    GameRatings:
+
+      type: object
+
+      properties:
+
+        averageRating:
+
+          type: number
+
+        totalRatings:
+
+          type: integer
+
+        weightedRating:
+
+          type: number
+
+        recommendationRate:
+
+          type: number
+
+        communityScore:
+
+          type: number
+
+        criticScore:
+
+          type: number
+
+    CriticScores:
+
+      type: object
+
+      properties:
+
+        metacritic:
+
+          type: integer
+
+        opencritic:
+
+          type: integer
+
+        ign:
+
+          type: number
+
+        gamespot:
+
+          type: number
+
+        pcgamer:
+
+          type: number
+
+        eurogamer:
+
+          type: number
+
+    RatingDistribution:
+
+      type: object
+
+      properties:
+
+        half:
+
+          type: integer
+
+        one:
+
+          type: integer
+
+        oneHalf:
+
+          type: integer
+
+        two:
+
+          type: integer
+
+        twoHalf:
+
+          type: integer
+
+        three:
+
+          type: integer
+
+        threeHalf:
+
+          type: integer
+
+        four:
+
+          type: integer
+
+        fourHalf:
+
+          type: integer
+
+        five:
+
+          type: integer
+
+    ReviewSummary:
+
+      type: object
+
+      properties:
+
+        positive:
+
+          type: array
+
+          items:
+
+            type: string
+
+        negative:
+
+          type: array
+
+          items:
+
+            type: string
+
+        commonPraise:
+
+          type: string
+
+        commonCriticism:
+
+          type: string
+
+        spoilerFree:
+
+          type: boolean
+
+    GamePopularity:
+
+      type: object
+
+      properties:
+
+        trendingRank:
+
+          type: integer
+
+        weeklyPlayers:
+
+          type: integer
+
+        monthlyPlayers:
+
+          type: integer
+
+        wishlistCount:
+
+          type: integer
+
+        backlogCount:
+
+          type: integer
+
+        completedCount:
+
+          type: integer
+
+        currentlyPlaying:
+
+          type: integer
+
+        droppedCount:
+
+          type: integer
+
+        replayCount:
+
+          type: integer
+
+    GameStatistics:
+
+      type: object
+
+      properties:
+
+        reviewCount:
+
+          type: integer
+
+        logCount:
+
+          type: integer
+
+        collectionCount:
+
+          type: integer
+
+        listCount:
+
+          type: integer
+
+        tierListCount:
+
+          type: integer
+
+        screenshotCount:
+
+          type: integer
+
+        averagePlaytime:
+
+          type: number
+
+        averageCompletion:
+
+          type: number
+
+    PlatformType:
+
+      type: string
+
+      enum:
+        - STEAM
+        - PLAYSTATION
+        - XBOX
+        - EPIC
+        - GOG
+        - NINTENDO
+
+    Achievement:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        platformId:
+
+          type: string
+
+        title:
+
+          type: string
+
+        description:
+
+          type: string
+
+        hidden:
+
+          type: boolean
+
+        icon:
+
+          type: string
+
+          format: uri
+
+        rarity:
+
+          type: number
+
+        globalUnlockRate:
+
+          type: number
+
+        points:
+
+          type: integer
+
+    AchievementPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Achievement'
+
+
+    AchievementStatistics:
+
+      type: object
+
+      properties:
+
+        totalAchievements:
+
+          type: integer
+
+        averageUnlockRate:
+
+          type: number
+
+        ultraRare:
+
+          type: integer
+
+        rare:
+
+          type: integer
+
+        common:
+
+          type: integer
+
+        totalGamersCompleted:
+
+          type: integer
+
+    GamePlatformData:
+
+      type: object
+
+      properties:
+
+        steamAppId:
+
+          type: integer
+
+        epicNamespace:
+
+          type: string
+
+        gogId:
+
+          type: integer
+
+        xboxProductId:
+
+          type: string
+
+        playstationConceptId:
+
+          type: string
+
+        nintendoTitleId:
+
+          type: string
+
+        steamCloud:
+
+          type: boolean
+
+        steamWorkshop:
+
+          type: boolean
+
+        crossPlatformSave:
+
+          type: boolean
+
+        crossPlay:
+
+          type: boolean
+
+    HowLongToBeat:
+
+      type: object
+
+      properties:
+
+        mainStory:
+
+          type: number
+
+        mainExtra:
+
+          type: number
+
+        completionist:
+
+          type: number
+
+        allStyles:
+
+          type: number
+
+    CompletionStatistics:
+
+      type: object
+
+      properties:
+
+        completedUsers:
+
+          type: integer
+
+        completionRate:
+
+          type: number
+
+        averageCompletionHours:
+
+          type: number
+
+        averageAchievementCompletion:
+
+          type: number
+
+    GameRecommendation:
+
+      type: object
+
+      properties:
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        score:
+
+          type: number
+
+        reason:
+
+          type: string
+
+    GameRecommendationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameRecommendation'
+
+
+    GameNews:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        title:
+
+          type: string
+
+        publishedAt:
+
+          type: string
+
+          format: date-time
+
+        source:
+
+          type: string
+
+        url:
+
+          type: string
+
+          format: uri
+
+    GameNewsPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameNews'
+
+
+    GameEvent:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        title:
+
+          type: string
+
+        startDate:
+
+          type: string
+
+          format: date-time
+
+        endDate:
+
+          type: string
+
+          format: date-time
+
+        type:
+
+          type: string
+
+          enum:
+            - TOURNAMENT
+            - SEASON
+            - DLC
+            - PATCH
+            - LIVE_EVENT
+
+    GameEventPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameEvent'
+
+
+    StoreAvailability:
+
+      type: object
+
+      properties:
+
+        store:
+
+          type: string
+
+        available:
+
+          type: boolean
+
+        price:
+
+          type: number
+
+        currency:
+
+          type: string
+
+        discount:
+
+          type: integer
+
+        url:
+
+          type: string
+
+          format: uri
+
+    StoreAvailabilityPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/StoreAvailability'
+
+
+    PricePoint:
+
+      type: object
+
+      properties:
+
+        date:
+
+          type: string
+
+          format: date
+
+        price:
+
+          type: number
+
+        discount:
+
+          type: integer
+
+    PriceHistory:
+
+      type: object
+
+      properties:
+
+        lowestPrice:
+
+          type: number
+
+        highestPrice:
+
+          type: number
+
+        currentPrice:
+
+          type: number
+
+        history:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/PricePoint'
+
+    SubscriptionAvailability:
+
+      type: object
+
+      properties:
+
+        gamePass:
+
+          type: boolean
+
+        playstationPlus:
+
+          type: boolean
+
+        eaPlay:
+
+          type: boolean
+
+        ubisoftPlus:
+
+          type: boolean
+
+        netflixGames:
+
+          type: boolean
+
+        primeGaming:
+
+          type: boolean
+
+x-tagGroups:
+
+  - name: Games
+
+    tags:
+
+      - Games
+      - Search
+      - Discover
+      - Releases
+      - Media
+      - Companies
+      - Ratings
+      - Achievements

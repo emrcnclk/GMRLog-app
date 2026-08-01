@@ -1,0 +1,27 @@
+components:
+  schemas:
+    GameSummary:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        cover:
+          type: string
+          nullable: true
+        releaseDate:
+          type: string
+          format: date
+        averageRating:
+          type: number
+        communityRating:
+          type: number
+        popularity:
+          type: number

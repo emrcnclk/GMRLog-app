@@ -1,0 +1,1595 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Review API
+  version: 1.0.0
+  description: |
+    Review management endpoints for GMRLOG.
+
+    Supports structured game reviews with dimensional scores,
+    pros/cons, tags, mood, completion data and rich media.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Reviews
+    description: Game review CRUD and discovery
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Create Review
+  ################################################################################
+
+  /reviews:
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Create review
+
+      operationId: createReview
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateReviewRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Review'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  ################################################################################
+  # Review Detail
+  ################################################################################
+
+  /reviews/{reviewId}:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Review detail
+
+      operationId: getReview
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Review
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Review'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Reviews
+
+      summary: Update review
+
+      operationId: updateReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateReviewRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Review'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Reviews
+
+      summary: Delete review
+
+      operationId: deleteReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # User Reviews
+  ################################################################################
+
+  /users/{userId}/reviews:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: User reviews
+
+      operationId: getUserReviews
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Reviews
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Game Reviews
+  ################################################################################
+
+  /games/{gameId}/reviews:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Game reviews
+
+      operationId: getGameReviews
+
+      security: []
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Reviews
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Like Review
+  ################################################################################
+
+  /reviews/{reviewId}/likes:
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Like review
+
+      operationId: likeReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "204":
+
+          description: Review liked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+    delete:
+
+      tags:
+        - Reviews
+
+      summary: Remove like
+
+      operationId: unlikeReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "204":
+
+          description: Like removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Comments
+  ################################################################################
+
+  /reviews/{reviewId}/comments:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Review comments
+
+      operationId: getReviewComments
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Comments
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CommentPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Create comment
+
+      operationId: createComment
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateCommentRequest'
+
+      responses:
+
+        "201":
+
+          description: Comment created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Comment'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Replies
+  ################################################################################
+
+  /comments/{commentId}/replies:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Replies
+
+      operationId: getReplies
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CommentId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Replies
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CommentPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Reply
+
+      operationId: createReply
+
+      parameters:
+
+        - $ref: '#/components/parameters/CommentId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateCommentRequest'
+
+      responses:
+
+        "201":
+
+          description: Reply created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Comment'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Report Review
+  ################################################################################
+
+  /reviews/{reviewId}/report:
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Report review
+
+      operationId: reportReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReportReviewRequest'
+
+      responses:
+
+        "202":
+
+          description: Report submitted
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Share Review
+  ################################################################################
+
+  /reviews/{reviewId}/share:
+
+    post:
+
+      tags:
+        - Reviews
+
+      summary: Generate share link
+
+      operationId: shareReview
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Share information
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ShareReviewResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Review Rating Breakdown
+  ################################################################################
+
+  /reviews/{reviewId}/ratings:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Get detailed rating breakdown
+
+      operationId: getReviewRatings
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Rating breakdown
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewRatingBreakdown'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Review Tags
+  ################################################################################
+
+  /reviews/{reviewId}/tags:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Get review tags
+
+      operationId: getReviewTags
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Tags
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewTagPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Pros & Cons
+  ################################################################################
+
+  /reviews/{reviewId}/pros-cons:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Get pros and cons
+
+      operationId: getReviewProsCons
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Pros & Cons
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewProsCons'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Review Metadata
+  ################################################################################
+
+  /reviews/{reviewId}/metadata:
+
+    get:
+
+      tags:
+        - Reviews
+
+      summary: Review metadata
+
+      operationId: getReviewMetadata
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReviewId'
+
+      responses:
+
+        "200":
+
+          description: Metadata
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewMetadata'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    ReviewId:
+
+      name: reviewId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    CommentId:
+
+      name: commentId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    ReviewMood:
+
+      type: string
+
+      enum:
+        - RELAXING
+        - INTENSE
+        - COZY
+        - EMOTIONAL
+        - HORRIFYING
+        - HILARIOUS
+        - MELANCHOLIC
+        - ADRENALINE
+        - THOUGHT_PROVOKING
+        - NOSTALGIC
+
+    ReviewVisibility:
+
+      type: string
+
+      enum:
+        - PUBLIC
+        - FOLLOWERS
+        - PRIVATE
+
+    ReviewPlayStatus:
+
+      type: string
+
+      enum:
+        - PLAYING
+        - COMPLETED
+        - DROPPED
+        - BACKLOG
+        - WISHLIST
+        - PAUSED
+        - REPLAYING
+
+    ReviewScores:
+
+      type: object
+
+      properties:
+
+        story:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        gameplay:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        artDirection:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        music:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        performance:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        accessibility:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+        replayability:
+
+          type: number
+
+          minimum: 0
+
+          maximum: 100
+
+    Review:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        author:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        rating:
+
+          type: number
+
+          minimum: 0.5
+
+          maximum: 5
+
+        scores:
+
+          $ref: '#/components/schemas/ReviewScores'
+
+        title:
+
+          type: string
+
+        body:
+
+          type: string
+
+        spoiler:
+
+          type: boolean
+
+        recommended:
+
+          type: boolean
+
+        pros:
+
+          type: array
+
+          items:
+
+            type: string
+
+        cons:
+
+          type: array
+
+          items:
+
+            type: string
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+        mood:
+
+          $ref: '#/components/schemas/ReviewMood'
+
+        completionHours:
+
+          type: number
+
+        completionPercent:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        platform:
+
+          type: string
+
+        achievementProgress:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        visibility:
+
+          $ref: '#/components/schemas/ReviewVisibility'
+
+        language:
+
+          type: string
+
+          description: BCP-47 language tag (e.g. en, tr, en-US)
+
+        playStatus:
+
+          $ref: '#/components/schemas/ReviewPlayStatus'
+
+        playTime:
+
+          type: number
+
+          minimum: 0
+
+          description: Hours played associated with this review
+
+        likes:
+
+          type: integer
+
+        comments:
+
+          type: integer
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    ReviewPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Review'
+
+
+    CreateReviewRequest:
+
+      type: object
+
+      required:
+
+        - gameId
+        - rating
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        rating:
+
+          type: number
+
+          minimum: 0.5
+
+          maximum: 5
+
+        scores:
+
+          $ref: '#/components/schemas/ReviewScores'
+
+        title:
+
+          type: string
+
+        body:
+
+          type: string
+
+        spoiler:
+
+          type: boolean
+
+        recommended:
+
+          type: boolean
+
+        pros:
+
+          type: array
+
+          items:
+
+            type: string
+
+        cons:
+
+          type: array
+
+          items:
+
+            type: string
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+        mood:
+
+          $ref: '#/components/schemas/ReviewMood'
+
+        completionHours:
+
+          type: number
+
+        completionPercent:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        platform:
+
+          type: string
+
+        achievementProgress:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        visibility:
+
+          $ref: '#/components/schemas/ReviewVisibility'
+
+        language:
+
+          type: string
+
+          description: BCP-47 language tag (e.g. en, tr, en-US)
+
+        playStatus:
+
+          $ref: '#/components/schemas/ReviewPlayStatus'
+
+        playTime:
+
+          type: number
+
+          minimum: 0
+
+    UpdateReviewRequest:
+
+      type: object
+
+      properties:
+
+        rating:
+
+          type: number
+
+          minimum: 0.5
+
+          maximum: 5
+
+        scores:
+
+          $ref: '#/components/schemas/ReviewScores'
+
+        title:
+
+          type: string
+
+        body:
+
+          type: string
+
+        spoiler:
+
+          type: boolean
+
+        recommended:
+
+          type: boolean
+
+        pros:
+
+          type: array
+
+          items:
+
+            type: string
+
+        cons:
+
+          type: array
+
+          items:
+
+            type: string
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+        mood:
+
+          $ref: '#/components/schemas/ReviewMood'
+
+        completionHours:
+
+          type: number
+
+        completionPercent:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        platform:
+
+          type: string
+
+        achievementProgress:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        visibility:
+
+          $ref: '#/components/schemas/ReviewVisibility'
+
+        language:
+
+          type: string
+
+          description: BCP-47 language tag (e.g. en, tr, en-US)
+
+        playStatus:
+
+          $ref: '#/components/schemas/ReviewPlayStatus'
+
+        playTime:
+
+          type: number
+
+          minimum: 0
+
+    Comment:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        author:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        body:
+
+          type: string
+
+        likes:
+
+          type: integer
+
+        replyCount:
+
+          type: integer
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    CommentPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Comment'
+
+
+    CreateCommentRequest:
+
+      type: object
+
+      required:
+
+        - body
+
+      properties:
+
+        body:
+
+          type: string
+
+          maxLength: 5000
+
+    ReportReviewRequest:
+
+      type: object
+
+      required:
+
+        - reason
+
+      properties:
+
+        reason:
+
+          type: string
+
+          enum:
+            - SPAM
+            - HARASSMENT
+            - HATE
+            - MISINFORMATION
+            - SPOILER
+            - NSFW
+            - COPYRIGHT
+            - OTHER
+
+        details:
+
+          type: string
+
+    ShareReviewResponse:
+
+      type: object
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+    ReviewRatingBreakdown:
+
+      type: object
+
+      properties:
+
+        overall:
+
+          type: number
+
+          minimum: 0.5
+
+          maximum: 5
+
+        story:
+
+          type: number
+
+        gameplay:
+
+          type: number
+
+        graphics:
+
+          type: number
+
+        soundtrack:
+
+          type: number
+
+        performance:
+
+          type: number
+
+        accessibility:
+
+          type: number
+
+        replayability:
+
+          type: number
+
+        innovation:
+
+          type: number
+
+        difficulty:
+
+          type: number
+
+    ReviewTag:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        name:
+
+          type: string
+
+        category:
+
+          type: string
+
+    ReviewTagPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ReviewTag'
+
+
+    ReviewProsCons:
+
+      type: object
+
+      properties:
+
+        pros:
+
+          type: array
+
+          items:
+
+            type: string
+
+        cons:
+
+          type: array
+
+          items:
+
+            type: string
+
+    ReviewMetadata:
+
+      type: object
+
+      properties:
+
+        recommended:
+
+          type: boolean
+
+        spoiler:
+
+          type: boolean
+
+        completed:
+
+          type: boolean
+
+        completionPercentage:
+
+          type: integer
+
+        playtimeHours:
+
+          type: number
+
+        platform:
+
+          type: string
+
+        difficulty:
+
+          type: string
+
+        mood:
+
+          type: array
+
+          items:
+
+            type: string
+
+        language:
+
+          type: string
+
+        gameVersion:
+
+          type: string
+
+        reviewedAt:
+
+          type: string
+
+          format: date-time
+
+x-tagGroups:
+
+  - name: Reviews
+
+    tags:
+
+      - Reviews

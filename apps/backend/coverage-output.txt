@@ -1,0 +1,581 @@
+
+> @gmrlog/backend@0.0.0 test:coverage
+> node ../../node_modules/vitest/vitest.mjs run --coverage
+
+
+ RUN  v4.1.10 D:/Desktop/GMRLog/apps/backend
+      Coverage enabled with v8
+
+{"level":40,"time":"2026-07-31T18:21:28.346Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/conversations","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:28.357Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/conversations","statusCode":200,"durationMs":3,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:28.363Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/conversations","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:28.366Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/conversations","durationMs":1,"error":"Conversation requires at least two participants","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.366Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/conversations","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:28.368Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/conversations","durationMs":0,"error":"User not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.368Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/conversations","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:28.369Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/conversations/conversation-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:28.371Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"GET","url":"/conversations/conversation-1","durationMs":0,"error":"Conversation not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.371Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"GET","url":"/conversations/conversation-1","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:28.374Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"GET","url":"/conversations/conversation-1/messages","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:28.376Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/conversations/conversation-1/messages","durationMs":0,"error":"Conversation not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.376Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","method":"GET","url":"/conversations/conversation-1/messages","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:28.378Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"POST","url":"/conversations/conversation-1/messages","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:28.380Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"POST","url":"/conversations/conversation-1/messages","durationMs":0,"error":"Message media is not supported yet","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.380Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","method":"POST","url":"/conversations/conversation-1/messages","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:28.381Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"POST","url":"/conversations/conversation-1/messages","durationMs":0,"error":"Conversation not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.381Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","method":"POST","url":"/conversations/conversation-1/messages","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:28.383Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"POST","url":"/conversations/conversation-1/messages","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:28.383Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","method":"POST","url":"/conversations/conversation-1/messages","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:34.158Z","service":"gmrlog-backend","environment":"development","context":"IntegrationsWorkerService","msg":"Integration BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:21:34.192Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","correlationId":"req-1","method":"GET","url":"/integrations/providers","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.203Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/integrations/steam/connect","statusCode":201,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.212Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/integrations/steam/connect","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.213Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"GET","url":"/integrations/steam/status","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.217Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/integrations/steam/connect","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.219Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/integrations","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.221Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/integrations/steam/connect","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.294Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/integrations/int-1/sync","statusCode":201,"durationMs":73,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.300Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"POST","url":"/integrations/import/csv","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.303Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"POST","url":"/integrations/import/csv","statusCode":201,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.305Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"GET","url":"/integrations/history","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.307Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"POST","url":"/integrations/steam/connect","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:34.309Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"GET","url":"/integrations/steam/profile","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:34.310Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","method":"GET","url":"/integrations/providers","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:37.748Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/feed","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:37.760Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/feed?limit=1","statusCode":200,"durationMs":4,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:37.764Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/feed","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:41.132Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/reactions","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:41.142Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/reactions","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:41.146Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/reactions","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:41.146Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/reactions","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:41.147Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/reactions","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:41.147Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/reactions","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:41.149Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/reactions","durationMs":0,"error":"Comment not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:41.149Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/reactions","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:41.150Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/reactions","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:41.152Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/reactions","durationMs":0,"error":"Reaction already exists for this target and kind","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:41.152Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/reactions","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:41.154Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/reactions","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:41.154Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","method":"DELETE","url":"/reactions/reaction-3","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:41.156Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"DELETE","url":"/reactions/reaction-3","durationMs":0,"error":"Only the actor may remove this reaction","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:41.156Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","method":"DELETE","url":"/reactions/reaction-3","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:41.157Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"POST","url":"/reactions","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:41.159Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"DELETE","url":"/reactions/reaction-4","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.702Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","correlationId":"req-1","method":"GET","url":"/discover","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.709Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/discover/popular","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.711Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/discover/trending?window=7d","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.712Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"GET","url":"/discover/hidden-gems","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.713Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"GET","url":"/discover/recommended","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.714Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/discover/collections","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.715Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"GET","url":"/discover/games","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.716Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"GET","url":"/discover/communities","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:43.719Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/discover/communities","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:43.720Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"GET","url":"/discover/communities?cursor=invalid","durationMs":1,"error":"Invalid cursor","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:43.721Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","method":"GET","url":"/discover/communities?cursor=invalid","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:43.722Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"GET","url":"/discover/events","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:43.723Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/discover/similar-games/missing-game","durationMs":0,"error":"Game not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:43.723Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","method":"GET","url":"/discover/similar-games/missing-game","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:43.724Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"GET","url":"/discover/similar-users/missing-user","durationMs":0,"error":"User not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:43.724Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","method":"GET","url":"/discover/similar-users/missing-user","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:46.547Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","correlationId":"req-1","method":"GET","url":"/events/event-1","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:46.557Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/events/event-1/participation","statusCode":204,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:46.558Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/events/event-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:46.559Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"GET","url":"/events/missing","durationMs":1,"error":"Event not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:46.560Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"GET","url":"/events/missing","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:46.561Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/events/event-1/participation","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:46.562Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/events/event-1/participation","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:46.564Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/events/event-1/participation","durationMs":0,"error":"Already participating in this event","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:46.564Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/events/event-1/participation","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:46.565Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/events/event-1/participation","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:46.566Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"DELETE","url":"/events/event-1/participation","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:46.567Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"DELETE","url":"/events/event-1/participation","durationMs":0,"error":"Event participation not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:46.567Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","method":"DELETE","url":"/events/event-1/participation","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:46.569Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"POST","url":"/events/event-1/participation","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:46.569Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","method":"POST","url":"/events/event-1/participation","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:46.571Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"POST","url":"/events/event-1/rsvp","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:46.572Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"POST","url":"/events/event-1/rsvp","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:46.573Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"POST","url":"/events/event-1/rsvp","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:46.574Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","method":"POST","url":"/events/event-1/rsvp","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:46.575Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"POST","url":"/events/event-1/invite","statusCode":204,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:49.603Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/comments","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:49.613Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/comments","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:49.617Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/comments","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:49.617Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/comments","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:49.618Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/comments","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:49.619Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/comments","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:49.620Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.621Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/reviews/review-1/comments","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.624Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.624Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"GET","url":"/posts/post-1/comments","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.626Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.628Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"PATCH","url":"/comments/comment-4","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.630Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.630Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/collections/collection-1/comments","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.632Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:49.633Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"DELETE","url":"/comments/comment-6","durationMs":0,"error":"Only the author may delete this comment","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:49.633Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","method":"DELETE","url":"/comments/comment-6","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:49.634Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"POST","url":"/comments","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.636Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"DELETE","url":"/comments/comment-7","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:49.636Z","service":"gmrlog-backend","environment":"development","requestId":"req-h","correlationId":"req-h","method":"GET","url":"/reviews/review-1/comments","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:52.448Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/reviews","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:52.460Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/reviews","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:52.464Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/reviews","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:52.464Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/reviews","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:52.466Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/reviews","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:52.468Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/reviews","durationMs":0,"error":"A review already exists for this game","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:52.468Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/reviews","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:52.470Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/reviews","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.471Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"GET","url":"/reviews/review-3","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.473Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/reviews","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.474Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/games/game-1/reviews","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.476Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"POST","url":"/reviews","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.478Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"PATCH","url":"/reviews/review-5","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.479Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"POST","url":"/reviews","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:52.481Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"PATCH","url":"/reviews/review-6","durationMs":0,"error":"Only the author may modify this review","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:52.481Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","method":"PATCH","url":"/reviews/review-6","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:52.483Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"POST","url":"/reviews","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:52.484Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"DELETE","url":"/reviews/review-7","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:52.485Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"GET","url":"/reviews/review-7","durationMs":0,"error":"Review not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:52.485Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","method":"GET","url":"/reviews/review-7","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:55.223Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/activity","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:55.235Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/activity?limit=1","statusCode":200,"durationMs":4,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:55.240Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/activity","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:55.243Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"GET","url":"/activity?cursor=not-valid","durationMs":1,"error":"Invalid cursor","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:55.243Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"GET","url":"/activity?cursor=not-valid","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:55.245Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"GET","url":"/activity?from=not-a-date","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:55.245Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"GET","url":"/activity?from=not-a-date","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:58.392Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/posts","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.402Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/posts","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.406Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/posts","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.406Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/posts","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:58.408Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/posts","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.408Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/posts","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:21:58.409Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/posts","durationMs":0,"error":"Referenced upload is not a confirmed upload","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.409Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/posts","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.411Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/posts","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.413Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/posts","durationMs":0,"error":"Must be a community member to associate a post","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.413Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/posts","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.414Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.415Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/posts/post-3","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.416Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"GET","url":"/games/game-1/posts","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.419Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.420Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"PATCH","url":"/posts/post-4","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.421Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"PATCH","url":"/posts/post-4","durationMs":0,"error":"Only the author may modify this post","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.421Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","method":"PATCH","url":"/posts/post-4","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.423Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.424Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"DELETE","url":"/posts/post-5","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.425Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"GET","url":"/posts/post-5","durationMs":0,"error":"Post not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.425Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","method":"GET","url":"/posts/post-5","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.425Z","service":"gmrlog-backend","environment":"development","requestId":"req-h","correlationId":"req-h","method":"GET","url":"/games/game-1/posts","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.427Z","service":"gmrlog-backend","environment":"development","requestId":"req-i","correlationId":"req-i","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.429Z","service":"gmrlog-backend","environment":"development","requestId":"req-j","correlationId":"req-j","method":"POST","url":"/posts/post-6/repost","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.430Z","service":"gmrlog-backend","environment":"development","requestId":"req-k","correlationId":"req-k","method":"POST","url":"/posts/post-6/repost","durationMs":0,"error":"Post already reposted","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.430Z","service":"gmrlog-backend","environment":"development","requestId":"req-k","method":"POST","url":"/posts/post-6/repost","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.431Z","service":"gmrlog-backend","environment":"development","requestId":"req-l","correlationId":"req-l","method":"DELETE","url":"/posts/post-6/repost","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.432Z","service":"gmrlog-backend","environment":"development","requestId":"req-m","correlationId":"req-m","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.434Z","service":"gmrlog-backend","environment":"development","requestId":"req-n","correlationId":"req-n","method":"POST","url":"/posts/post-8/pin","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.435Z","service":"gmrlog-backend","environment":"development","requestId":"req-o","correlationId":"req-o","method":"POST","url":"/posts/post-8/pin","durationMs":0,"error":"Only the author may modify this post","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.435Z","service":"gmrlog-backend","environment":"development","requestId":"req-o","method":"POST","url":"/posts/post-8/pin","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.436Z","service":"gmrlog-backend","environment":"development","requestId":"req-p","correlationId":"req-p","method":"DELETE","url":"/posts/post-8/pin","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.439Z","service":"gmrlog-backend","environment":"development","requestId":"req-q","correlationId":"req-q","method":"POST","url":"/posts","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.441Z","service":"gmrlog-backend","environment":"development","requestId":"req-r","correlationId":"req-r","method":"POST","url":"/posts/post-9/bookmark","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.442Z","service":"gmrlog-backend","environment":"development","requestId":"req-s","correlationId":"req-s","method":"GET","url":"/bookmarks","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.444Z","service":"gmrlog-backend","environment":"development","requestId":"req-t","correlationId":"req-t","method":"DELETE","url":"/posts/post-9/bookmark","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.445Z","service":"gmrlog-backend","environment":"development","requestId":"req-u","correlationId":"req-u","method":"POST","url":"/posts","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.446Z","service":"gmrlog-backend","environment":"development","requestId":"req-v","method":"POST","url":"/posts/post-11/bookmark","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.448Z","service":"gmrlog-backend","environment":"development","requestId":"req-w","correlationId":"req-w","method":"POST","url":"/posts","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:21:58.449Z","service":"gmrlog-backend","environment":"development","requestId":"req-x","correlationId":"req-x","method":"POST","url":"/posts/post-12/poll/vote","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:21:58.450Z","service":"gmrlog-backend","environment":"development","requestId":"req-y","correlationId":"req-y","method":"POST","url":"/posts/post-12/poll/vote","durationMs":0,"error":"Already voted on this poll","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:21:58.451Z","service":"gmrlog-backend","environment":"development","requestId":"req-y","method":"POST","url":"/posts/post-12/poll/vote","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:21:58.451Z","service":"gmrlog-backend","environment":"development","requestId":"req-z","correlationId":"req-z","method":"GET","url":"/posts/post-12","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:01.709Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/collections","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:01.719Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/collections","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:01.724Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/collections","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.724Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/collections","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:01.726Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/collections","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.726Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/collections","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:01.728Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/collections","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:01.729Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/collections","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:01.731Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"GET","url":"/collections/collection-2","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:01.732Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/collections","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:01.734Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"PATCH","url":"/collections/collection-3","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:01.736Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"PATCH","url":"/collections/collection-3","durationMs":1,"error":"Only the owner may modify this collection","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.737Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","method":"PATCH","url":"/collections/collection-3","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:01.738Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"DELETE","url":"/collections/collection-3","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:01.740Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/collections/collection-3","durationMs":1,"error":"Collection not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.740Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","method":"GET","url":"/collections/collection-3","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:01.742Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"POST","url":"/collections","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:01.745Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"PUT","url":"/collections/collection-4/entries","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:01.750Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"PUT","url":"/collections/collection-4/entries","durationMs":0,"error":"Duplicate game in collection entries","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.750Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","method":"PUT","url":"/collections/collection-4/entries","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:01.752Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"PUT","url":"/collections/collection-4/entries","durationMs":0,"error":"Game not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:01.752Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","method":"PUT","url":"/collections/collection-4/entries","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:04.780Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/me","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:04.790Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/me","durationMs":2,"error":"Authentication required","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:04.790Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","method":"GET","url":"/me","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:04.793Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/me","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:04.797Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"PATCH","url":"/me","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:04.799Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"PATCH","url":"/me","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:04.801Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"PATCH","url":"/me","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:04.801Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","method":"PATCH","url":"/me","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:04.803Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"PATCH","url":"/me","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:04.803Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"PATCH","url":"/me","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:04.804Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"PATCH","url":"/me","durationMs":0,"error":"Referenced upload is not a confirmed upload","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:04.804Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","method":"PATCH","url":"/me","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:04.806Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/settings","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:04.808Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"PATCH","url":"/settings/appearance","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:04.809Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"PATCH","url":"/settings/accessibility","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:04.811Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"PATCH","url":"/settings/appearance","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:04.811Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","method":"PATCH","url":"/settings/appearance","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:04.813Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"GET","url":"/connected-accounts","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:08.041Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","correlationId":"req-1","method":"GET","url":"/search?q=culture","statusCode":200,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:08.049Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/search","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:08.050Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","method":"GET","url":"/search","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:08.051Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"GET","url":"/search?q=culture&cursor=invalid","durationMs":0,"error":"Invalid cursor","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:08.051Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"GET","url":"/search?q=culture&cursor=invalid","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:08.054Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"GET","url":"/search?q=culture","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:08.055Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"GET","url":"/search?q=missing-term","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:11.576Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","correlationId":"req-1","method":"GET","url":"/communities","statusCode":200,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.587Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","method":"POST","url":"/communities","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.592Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/communities","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.595Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/communities","durationMs":1,"error":"Community slug is already in use","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.595Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/communities","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.597Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"PATCH","url":"/communities/community-1","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.600Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"PATCH","url":"/communities/community-1","durationMs":0,"error":"Community membership required","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.600Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","method":"PATCH","url":"/communities/community-1","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.601Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"DELETE","url":"/communities/community-1","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.602Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"GET","url":"/communities/community-1","durationMs":0,"error":"Community not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.602Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","method":"GET","url":"/communities/community-1","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:11.603Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"DELETE","url":"/communities/community-1","durationMs":0,"error":"Community membership required","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.604Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","method":"DELETE","url":"/communities/community-1","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.605Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"GET","url":"/communities/community-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.606Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"GET","url":"/communities/community-1","durationMs":0,"error":"Community not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.606Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","method":"GET","url":"/communities/community-1","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.607Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/communities/community-1/members","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.608Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","method":"POST","url":"/communities/community-1/membership","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.610Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"POST","url":"/communities/community-1/membership","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.611Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"POST","url":"/communities/community-1/membership","durationMs":0,"error":"Already a member of this community","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.611Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","method":"POST","url":"/communities/community-1/membership","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:11.613Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"POST","url":"/communities/community-1/membership","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:11.615Z","service":"gmrlog-backend","environment":"development","requestId":"req-h","correlationId":"req-h","method":"DELETE","url":"/communities/community-1/membership","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:11.616Z","service":"gmrlog-backend","environment":"development","requestId":"req-i","correlationId":"req-i","method":"DELETE","url":"/communities/community-1/membership","durationMs":0,"error":"Community membership not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:11.616Z","service":"gmrlog-backend","environment":"development","requestId":"req-i","method":"DELETE","url":"/communities/community-1/membership","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:14.561Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/follows","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:14.571Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/follows","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:14.575Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/follows","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:14.577Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/follows","durationMs":1,"error":"Already following this user","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:14.577Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/follows","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:14.579Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/follows","durationMs":0,"error":"Cannot follow yourself","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:14.579Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/follows","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:14.580Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/follows","durationMs":0,"error":"User not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:14.580Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","method":"POST","url":"/follows","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:14.582Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"DELETE","url":"/follows/user-2","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:14.584Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"DELETE","url":"/follows/user-2","durationMs":0,"error":"Follow relationship not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:14.584Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","method":"DELETE","url":"/follows/user-2","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:14.585Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/users/user-1/followers","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:14.586Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"GET","url":"/users/user-1/following","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:14.587Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","method":"GET","url":"/me/followers","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:14.589Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/me/followers","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:17.752Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/notifications","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:17.765Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/notifications?limit=1","statusCode":200,"durationMs":4,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:17.773Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/notifications/read","statusCode":204,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:17.777Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/notifications/read","durationMs":1,"error":"Notification not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:17.777Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/notifications/read","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:17.779Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/notifications/read","durationMs":0,"error":"Notification not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:17.779Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"POST","url":"/notifications/read","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:17.782Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/notifications/read","statusCode":204,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:17.785Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/notifications/read","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:17.785Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/notifications/read","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:21.089Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"GET","url":"/library","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:21.101Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"GET","url":"/library","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.107Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"PUT","url":"/library/entries/game-1","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:21.111Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"PUT","url":"/library/entries/game-1","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:21.111Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"PUT","url":"/library/entries/game-1","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:21.113Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"PUT","url":"/library/entries/game-1","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:21.113Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","method":"PUT","url":"/library/entries/game-1","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:21.114Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"PUT","url":"/library/entries/missing","durationMs":0,"error":"Game not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:21.114Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","method":"PUT","url":"/library/entries/missing","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:21.116Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"PUT","url":"/library/entries/game-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.117Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"PUT","url":"/library/entries/game-2","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.120Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"GET","url":"/library/entries","statusCode":200,"durationMs":1,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.122Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"PUT","url":"/library/entries/game-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.124Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"PUT","url":"/library/entries/game-2","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.126Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/library/entries?filter[status]=wishlist","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.127Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"PUT","url":"/library/entries/game-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.129Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"GET","url":"/library/entries/game-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.130Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"PUT","url":"/library/entries/game-1","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:21.131Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"DELETE","url":"/library/entries/game-1","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:21.132Z","service":"gmrlog-backend","environment":"development","requestId":"req-h","correlationId":"req-h","method":"GET","url":"/library/entries/game-1","durationMs":0,"error":"Library entry not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:21.133Z","service":"gmrlog-backend","environment":"development","requestId":"req-h","method":"GET","url":"/library/entries/game-1","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:23.962Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/tier-lists","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:23.974Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/tier-lists","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:23.980Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/tier-lists","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:23.980Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/tier-lists","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:23.981Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/tier-lists","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:23.982Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/tier-lists","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:23.983Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/tier-lists","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:23.985Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"GET","url":"/tier-lists","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:23.986Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"GET","url":"/tier-lists/tier-2","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:23.988Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/tier-lists","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:23.989Z","service":"gmrlog-backend","environment":"development","requestId":"req-9","correlationId":"req-9","method":"PATCH","url":"/tier-lists/tier-3","statusCode":200,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:23.991Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","correlationId":"req-a","method":"PATCH","url":"/tier-lists/tier-3","durationMs":0,"error":"Only the owner may modify this tier list","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:23.991Z","service":"gmrlog-backend","environment":"development","requestId":"req-a","method":"PATCH","url":"/tier-lists/tier-3","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:23.992Z","service":"gmrlog-backend","environment":"development","requestId":"req-b","correlationId":"req-b","method":"DELETE","url":"/tier-lists/tier-3","statusCode":204,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:23.993Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","correlationId":"req-c","method":"GET","url":"/tier-lists/tier-3","durationMs":0,"error":"Tier list not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:23.993Z","service":"gmrlog-backend","environment":"development","requestId":"req-c","method":"GET","url":"/tier-lists/tier-3","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:23.995Z","service":"gmrlog-backend","environment":"development","requestId":"req-d","correlationId":"req-d","method":"POST","url":"/tier-lists","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:23.998Z","service":"gmrlog-backend","environment":"development","requestId":"req-e","correlationId":"req-e","method":"PUT","url":"/tier-lists/tier-4/slots","statusCode":200,"durationMs":2,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:24.000Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","correlationId":"req-f","method":"PUT","url":"/tier-lists/tier-4/slots","durationMs":0,"error":"Duplicate game on tier list board","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:24.000Z","service":"gmrlog-backend","environment":"development","requestId":"req-f","method":"PUT","url":"/tier-lists/tier-4/slots","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:24.002Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","correlationId":"req-g","method":"PUT","url":"/tier-lists/tier-4/slots","durationMs":0,"error":"Game not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:24.002Z","service":"gmrlog-backend","environment":"development","requestId":"req-g","method":"PUT","url":"/tier-lists/tier-4/slots","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:27.247Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/uploads/grants","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:27.259Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/uploads/grants","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:27.264Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/uploads/grants","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:27.264Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/uploads/grants","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:27.266Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/uploads/grants","durationMs":0,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:27.266Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/uploads/grants","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:27.268Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/uploads/grants","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":30,"time":"2026-07-31T18:22:27.270Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/uploads/confirmations","statusCode":201,"durationMs":1,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:27.271Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/uploads/confirmations","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:27.273Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","correlationId":"req-8","method":"POST","url":"/uploads/confirmations","durationMs":0,"error":"Upload grant not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:27.273Z","service":"gmrlog-backend","environment":"development","requestId":"req-8","method":"POST","url":"/uploads/confirmations","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:30.165Z","service":"gmrlog-backend","environment":"development","requestId":"req-1","method":"POST","url":"/reports","statusCode":401,"code":"UNAUTHENTICATED","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:30.176Z","service":"gmrlog-backend","environment":"development","requestId":"req-2","correlationId":"req-2","method":"POST","url":"/reports","statusCode":201,"durationMs":3,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:30.179Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","correlationId":"req-3","method":"POST","url":"/reports","durationMs":1,"error":"Validation failed","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:30.180Z","service":"gmrlog-backend","environment":"development","requestId":"req-3","method":"POST","url":"/reports","statusCode":400,"code":"VALIDATION_FAILED","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:30.181Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","correlationId":"req-4","method":"POST","url":"/reports","durationMs":0,"error":"Cannot report yourself","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:30.181Z","service":"gmrlog-backend","environment":"development","requestId":"req-4","method":"POST","url":"/reports","statusCode":403,"code":"FORBIDDEN","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:30.184Z","service":"gmrlog-backend","environment":"development","requestId":"req-5","correlationId":"req-5","method":"POST","url":"/reports","statusCode":201,"durationMs":0,"msg":"request completed"}
+{"level":40,"time":"2026-07-31T18:22:30.185Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","correlationId":"req-6","method":"POST","url":"/reports","durationMs":0,"error":"An open report already exists for this target","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:30.185Z","service":"gmrlog-backend","environment":"development","requestId":"req-6","method":"POST","url":"/reports","statusCode":409,"code":"CONFLICT_STATE","msg":"request errored"}
+{"level":40,"time":"2026-07-31T18:22:30.187Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","correlationId":"req-7","method":"POST","url":"/reports","durationMs":0,"error":"Report target not found","msg":"request failed"}
+{"level":40,"time":"2026-07-31T18:22:30.187Z","service":"gmrlog-backend","environment":"development","requestId":"req-7","method":"POST","url":"/reports","statusCode":404,"code":"NOT_FOUND","msg":"request errored"}
+{"level":30,"time":"2026-07-31T18:22:32.953Z","service":"gmrlog-backend","environment":"development","context":"MeiliClientService","msg":"Meilisearch indexes ensured"}
+{"level":40,"time":"2026-07-31T18:22:32.953Z","service":"gmrlog-backend","environment":"development","error":"setup failed","msg":"meili.index.ensure.failed"}
+[33m[Nest] 31028  - [39m07/31/2026, 9:22:45 PM [33m   WARN[39m [38;5;3m[FriendsService] [39m[33mAchievement recalculation after friendship failed for user-1: recalc failed[39m
+[33m[Nest] 31028  - [39m07/31/2026, 9:22:45 PM [33m   WARN[39m [38;5;3m[FriendsService] [39m[33mAchievement recalculation after friendship failed for user-2: unknown[39m
+{"level":40,"time":"2026-07-31T18:22:48.013Z","service":"gmrlog-backend","environment":"development","error":"redis down","kind":"post","objectId":"post-1","msg":"feed.fanout.enqueue.failed"}
+{"level":40,"time":"2026-07-31T18:22:48.014Z","service":"gmrlog-backend","environment":"development","error":"cache down","actorId":"user-1","msg":"feed.cache.invalidate.failed"}
+[33m[Nest] 23916  - [39m07/31/2026, 9:22:52 PM [33m   WARN[39m [38;5;3m[LibraryService] [39m[33mAchievement recalculation after library change failed for user-1: recalc failed[39m
+[33m[Nest] 17516  - [39m07/31/2026, 9:22:57 PM [33m   WARN[39m [38;5;3m[StatisticsService] [39m[33mArchetype refresh on statistics failed for user-1: archetype boom[39m
+{"level":40,"time":"2026-07-31T18:23:02.945Z","service":"gmrlog-backend","environment":"development","error":"queue unavailable","action":"upsert","type":"game","id":"game-2","msg":"search.index.enqueue.failed"}
+[33m[Nest] 7520  - [39m07/31/2026, 9:23:06 PM [33m   WARN[39m [38;5;3m[IntegrationJobsPublisher] [39m[33mintegration.enqueue.failed: Cannot read properties of null (reading 'getQueue')[39m
+[33m[Nest] 7520  - [39m07/31/2026, 9:23:06 PM [33m   WARN[39m [38;5;3m[IntegrationJobsPublisher] [39m[33mintegration.enqueue.failed: redis down[39m
+{"level":30,"time":"2026-07-31T18:23:17.733Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:17.736Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:17.738Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:17.739Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:17.740Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:17.742Z","service":"gmrlog-backend","environment":"development","context":"GameCatalogWorkerService","msg":"Game catalog BullMQ workers started"}
+[33m[Nest] 10572  - [39m07/31/2026, 9:23:22 PM [33m   WARN[39m [38;5;3m[AchievementsService] [39m[33mArchetype recalculation failed for user-1: archetype fail[39m
+[33m[Nest] 26160  - [39m07/31/2026, 9:23:23 PM [33m   WARN[39m [38;5;3m[EventReminderPublisher] [39m[33mevent.reminder.enqueue.failed: boom[39m
+[33m[Nest] 26160  - [39m07/31/2026, 9:23:23 PM [33m   WARN[39m [38;5;3m[EventReminderPublisher] [39m[33mevent.reminder.cancel.failed: boom[39m
+{"level":30,"time":"2026-07-31T18:23:38.517Z","service":"gmrlog-backend","environment":"development","context":"WorkerRunnerService","msg":"BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:23:38.521Z","service":"gmrlog-backend","environment":"development","context":"WorkerRunnerService","msg":"BullMQ workers started"}
+{"level":30,"time":"2026-07-31T18:24:02.729Z","service":"gmrlog-backend","environment":"development","revokedSessions":2,"deletedSessions":3,"msg":"maintenance.session.cleanup.completed"}
+{"level":50,"time":"2026-07-31T18:24:02.731Z","service":"gmrlog-backend","environment":"development","error":"db down","msg":"maintenance.session.cleanup.failed"}
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: Redis is already connecting/connected
+ ❯ ../../node_modules/ioredis/built/Redis.js:120:24
+ ❯ EventEmitter._connect ../../node_modules/ioredis/built/Redis.js:116:16
+ ❯ promise.address.address ../../node_modules/ioredis/built/Redis.js:105:64
+ ❯ traceConnect ../../node_modules/ioredis/built/tracing.js:93:16
+ ❯ EventEmitter.connect ../../node_modules/ioredis/built/Redis.js:105:52
+ ❯ JobsService.getQueue src/infrastructure/jobs/jobs.service.ts:22:28
+     20|     if (existing) return existing;
+     21|     if (this.connection.status !== 'ready' && this.connection.status !…
+     22|       void this.connection.connect();
+       |                            ^
+     23|     }
+     24|     const queue = new Queue(name, { connection: this.connection });
+ ❯ GameMetadataPublisher.enqueue src/games/metadata/game-metadata.publisher.ts:79:23
+ ❯ GameMetadataPublisher.enqueueEnrich src/games/metadata/game-metadata.publisher.ts:45:17
+ ❯ LibrarySyncService.enqueueMetadataEnrichment src/integrations/library-sync.service.ts:559:31
+
+This error originated in "src/integrations/integrations.controller.spec.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "POST /integrations/:id/sync runs inline without Redis". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  145 passed (145)
+      Tests  1247 passed (1247)
+     Errors  1 error
+   Start at  21:21:22
+   Duration  222.61s (transform 3.89s, setup 0ms, import 117.36s, tests 10.37s, environment 15ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |    94.8 |    85.39 |   96.97 |   95.05 |                   
+ src               |       0 |        0 |       0 |       0 |                   
+  ...index.main.ts |       0 |        0 |       0 |       0 | 10-58             
+ src/achievements  |   98.87 |    91.93 |     100 |   98.85 |                   
+  ...ts.service.ts |    98.8 |    91.93 |     100 |   98.78 | 246               
+ src/activity      |   91.29 |    86.41 |     100 |   91.21 |                   
+  ...ty.service.ts |   90.71 |    86.03 |     100 |   90.63 | ...82,803,813,831 
+ src/archetypes    |   95.16 |     62.5 |     100 |      95 |                   
+  ...ne.service.ts |   94.91 |     62.5 |     100 |   94.73 | 48,59,155         
+ src/auth          |   95.62 |     88.4 |     100 |   95.48 |                   
+  auth.service.ts  |     100 |    88.23 |     100 |     100 | 15,33             
+  password.ts      |   94.44 |      100 |     100 |   94.44 | 31                
+  ...ns.service.ts |   93.58 |    84.61 |     100 |   93.58 | ...13,125,159,180 
+ ...uth/decorators |     100 |       50 |     100 |     100 |                   
+  ....decorator.ts |     100 |       50 |     100 |     100 | 19                
+ src/auth/guards   |     100 |     62.5 |     100 |     100 |                   
+  ...auth.guard.ts |     100 |    66.66 |     100 |     100 | 20,40             
+  ...uest.guard.ts |     100 |       50 |     100 |     100 | 14                
+ ...uth/interfaces |     100 |       50 |     100 |     100 |                   
+  identity.ts      |     100 |       50 |     100 |     100 | 35                
+ src/auth/tokens   |   81.81 |    86.66 |     100 |      90 |                   
+  token.types.ts   |   81.81 |    86.66 |     100 |      90 | 45                
+ src/collections   |   92.34 |    84.56 |   93.54 |   93.24 |                   
+  ...er.service.ts |      86 |    72.09 |      80 |   89.13 | ...60,173-174,177 
+  ...es.service.ts |   96.15 |     87.5 |     100 |   95.83 | 69                
+  ...ns.service.ts |   94.73 |    90.58 |   97.14 |   95.27 | ...84,271,356,370 
+  ...n.resolver.ts |   86.36 |    84.61 |     100 |   85.71 | 109-111           
+ ...ctions/mappers |     100 |    91.66 |     100 |     100 |                   
+  ...ion.mapper.ts |     100 |    91.66 |     100 |     100 | 40                
+ src/comments      |   92.07 |     85.1 |     100 |   91.91 |                   
+  ...ts.service.ts |   91.48 |     85.1 |     100 |    91.3 | ...70,182,250,267 
+ src/communities   |   91.73 |    80.51 |   96.92 |   91.54 |                   
+  ...es.service.ts |   91.02 |     80.4 |   98.03 |   90.78 | ...45-748,763,773 
+  ...ity-badges.ts |   95.23 |    81.25 |     100 |   95.23 | 42,89             
+  ...ermissions.ts |    90.9 |      100 |      90 |    90.9 | 51                
+ ...nities/mappers |     100 |    92.85 |     100 |     100 |                   
+  ...ity.mapper.ts |     100 |    92.85 |     100 |     100 | 141               
+ src/creator       |   89.09 |    89.28 |      75 |   92.15 |                   
+  ...ty.service.ts |     100 |     87.5 |     100 |     100 | 23                
+  ...le.service.ts |   81.81 |       90 |      60 |   86.66 | 78,93,102-103     
+ src/discover      |   93.09 |    83.05 |   90.44 |   93.99 |                   
+  ...ed.service.ts |   91.35 |    79.48 |     100 |   90.66 | ...32,143,156,221 
+  ...er.service.ts |   94.63 |    88.19 |   96.42 |   94.48 | ...60,367,373,387 
+  ...re.service.ts |     100 |    85.71 |     100 |     100 | 21,152            
+  ...on.service.ts |   94.28 |    76.92 |   95.45 |   94.84 | 238,245-247,258   
+  ...ty.service.ts |   89.39 |    80.35 |   73.68 |   93.33 | ...61,274-277,286 
+  ...ng.service.ts |   92.45 |       72 |   93.33 |    92.3 | 147,151-153       
+ ...scover/scoring |   98.47 |    95.04 |     100 |   98.47 |                   
+  ...ore.engine.ts |   97.43 |    96.55 |     100 |   97.43 | 103               
+  ...ity.engine.ts |   98.79 |    94.04 |     100 |   98.79 | 54                
+ src/events        |   97.95 |    82.45 |     100 |   97.95 |                   
+  ...ts.service.ts |    97.8 |    82.45 |     100 |    97.8 | 227,268           
+ src/follows       |      95 |     87.5 |     100 |   94.59 |                   
+  ...ws.service.ts |   94.73 |     87.5 |     100 |   94.28 | 75,82             
+ src/friends       |   97.63 |    96.85 |     100 |   97.57 |                   
+  ...ds.service.ts |   97.57 |    96.85 |     100 |    97.5 | ...69,593,615,625 
+ ...riends/mappers |     100 |    88.88 |     100 |     100 |                   
+  friend.mapper.ts |     100 |    88.88 |     100 |     100 | 86                
+ src/game-hub      |      92 |    64.21 |     100 |   91.57 |                   
+  ...ub.service.ts |   91.53 |    64.21 |     100 |   91.06 | ...16,435,439,444 
+ ...me-hub/mappers |     100 |       50 |     100 |     100 |                   
+  ...hub.mapper.ts |     100 |       50 |     100 |     100 | 56                
+ src/games         |     100 |    83.33 |     100 |     100 |                   
+  games.service.ts |     100 |    83.33 |     100 |     100 | 66,102            
+ src/games/mappers |   94.11 |     93.1 |     100 |   94.11 |                   
+  game.mapper.ts   |   94.11 |     93.1 |     100 |   94.11 | 30                
+ ...games/metadata |   98.24 |    92.71 |   96.77 |   98.51 |                   
+  ...er.service.ts |   94.73 |      100 |    87.5 |   94.44 | 45                
+  ...on.service.ts |      98 |    93.93 |   83.33 |      98 | 128               
+  ...ll.service.ts |     100 |       80 |     100 |     100 | 69                
+  ....publisher.ts |     100 |    85.71 |     100 |     100 | 88                
+  ...ta.service.ts |   95.77 |     84.9 |     100 |   97.01 | 271-272           
+  ...data-match.ts |   97.43 |     92.5 |     100 |   97.43 | 30                
+  ...data-merge.ts |     100 |    93.33 |     100 |     100 | 31-51,160         
+ ...data/providers |   93.46 |    74.16 |   93.67 |   93.61 |                   
+  igdb.provider.ts |    93.7 |    83.47 |   96.15 |   93.61 | ...81,393,406,435 
+  ...r.registry.ts |     100 |    94.44 |     100 |     100 | 65                
+  rate-limiter.ts  |   91.11 |       75 |      90 |   93.18 | 67,82,88          
+  rawg.provider.ts |    88.4 |    61.64 |   88.23 |    88.4 | ...36-145,204,246 
+  ...e.provider.ts |   96.38 |    65.71 |   94.73 |   96.29 | 94,157,206        
+ src/health        |   97.56 |    93.75 |     100 |   97.56 |                   
+  ...th.service.ts |   97.56 |    93.75 |     100 |   97.56 | 117               
+ ...structure/http |   95.21 |    83.11 |     100 |   96.51 |                   
+  ...ion.filter.ts |     100 |     87.5 |     100 |     100 | 25,49,56-58       
+  ...nterceptor.ts |   85.71 |       75 |     100 |   85.71 | 21                
+  ...nterceptor.ts |     100 |    85.29 |     100 |     100 | 91-92,133-143     
+  ...nterceptor.ts |   88.88 |     74.6 |     100 |    92.1 | ...48,155,177,191 
+ ...structure/jobs |     100 |    79.24 |     100 |     100 |                   
+  ....publisher.ts |     100 |    85.71 |     100 |     100 | 67,85             
+  ....publisher.ts |     100 |    73.33 |     100 |     100 | 47-64,80-84       
+  job-payload.ts   |     100 |       75 |     100 |     100 | 20                
+  ...ce.service.ts |     100 |       50 |     100 |     100 | 15-41             
+  ...er.service.ts |     100 |       50 |     100 |     100 | 16                
+  ....publisher.ts |     100 |     87.5 |     100 |     100 | 67                
+ ...ucture/logging |    97.5 |    85.71 |     100 |   97.36 |                   
+  ...er.service.ts |      95 |    83.33 |     100 |   94.44 | 10                
+  ...nterceptor.ts |     100 |    86.66 |     100 |     100 | 17,60             
+ ...tructure/media |     100 |       90 |     100 |     100 |                   
+  ...-media-url.ts |     100 |       90 |     100 |     100 | 15                
+ ...tructure/redis |   97.33 |    82.14 |     100 |   97.29 |                   
+  ...he.service.ts |   97.29 |    82.14 |     100 |   97.26 | 114,165           
+ ...ructure/search |   96.13 |    79.67 |   87.23 |   98.37 |                   
+  meili.client.ts  |   95.77 |    84.37 |     100 |   95.71 | 153,157,168       
+  ...ex.service.ts |   93.96 |    77.61 |   68.42 |   99.05 | 462               
+  ...ir.service.ts |     100 |     87.5 |     100 |     100 | 104-129           
+ src/integrations  |    96.5 |    78.72 |     100 |   96.45 |                   
+  ....processor.ts |     100 |       75 |     100 |     100 | 27,45-46          
+  ....publisher.ts |     100 |       50 |     100 |     100 | 31-104            
+  ...ns.service.ts |   92.18 |    78.26 |     100 |   91.93 | ...91,194-196,222 
+  ...ct.service.ts |     100 |    84.37 |     100 |     100 | ...06-107,115-116 
+ ...grations/merge |   97.29 |    89.58 |     100 |   97.29 |                   
+  ...ion.engine.ts |   97.29 |    89.58 |     100 |   97.29 | 57                
+ ...grations/steam |   95.69 |    82.19 |     100 |    95.6 |                   
+  ...-id.parser.ts |   96.87 |      100 |     100 |   96.87 | 84                
+  ...api.client.ts |   95.08 |    76.78 |     100 |   94.91 | 85,180,229        
+ src/library       |   93.27 |    76.82 |     100 |    93.1 |                   
+  ...ry.service.ts |   92.98 |    76.82 |     100 |   92.79 | ...35,248,309,328 
+ ...ibrary/mappers |     100 |       75 |     100 |     100 |                   
+  ...ary.mapper.ts |     100 |       75 |     100 |     100 | 50                
+ src/messaging     |   95.18 |    90.69 |     100 |      95 |                   
+  ...ng.service.ts |   94.93 |    90.69 |     100 |   94.73 | 126,168,172,178   
+ src/moderation    |   96.61 |    93.75 |     100 |   96.61 |                   
+  ...on.service.ts |   95.91 |    93.75 |     100 |   95.91 | 141,162           
+ src/notifications |   95.23 |     85.1 |     100 |   95.23 |                   
+  ...ns.service.ts |   94.44 |    81.81 |     100 |   94.44 | 90,100            
+  ...y-mentions.ts |   96.15 |    92.85 |     100 |   96.15 | 50                
+ src/posts         |    93.3 |    90.62 |     100 |   93.19 |                   
+  posts.service.ts |   92.95 |    90.62 |     100 |   92.82 | ...00,514,563,573 
+ src/profile-hero  |   94.11 |       85 |   83.33 |   93.87 |                   
+  ...ro.service.ts |   93.33 |       85 |   83.33 |   93.02 | 74,81,127         
+ src/profile-pins  |   97.61 |     90.9 |     100 |   97.61 |                   
+  ...ns.service.ts |   97.29 |     90.9 |     100 |   97.29 | 78                
+ src/quotes        |     100 |    97.14 |     100 |     100 |                   
+  ...es.service.ts |     100 |    97.14 |     100 |     100 | 105               
+ src/reactions     |   92.64 |    86.66 |     100 |   92.64 |                   
+  ...ns.service.ts |   91.66 |    86.66 |     100 |   91.66 | ...42,154-155,193 
+ src/reputation    |   96.49 |    89.65 |     100 |   96.36 |                   
+  ...ne.service.ts |   96.29 |    89.65 |     100 |   96.15 | 68-69             
+ src/reviews       |    95.5 |    80.85 |     100 |    95.4 |                   
+  ...ws.service.ts |   95.29 |    80.85 |     100 |   95.18 | 70,174,177,191    
+ src/search        |   93.75 |    90.56 |     100 |   93.43 |                   
+  ...ch.service.ts |    93.7 |    90.56 |     100 |   93.38 | ...15,320,323,342 
+ ...search/mappers |     100 |    93.75 |     100 |     100 |                   
+  search.mapper.ts |     100 |    93.75 |     100 |     100 | 62                
+ src/statistics    |   98.93 |     91.8 |     100 |   98.87 |                   
+  ...cs.service.ts |   98.91 |     91.8 |     100 |   98.85 | 235               
+ src/tierlists     |   96.07 |    84.84 |     100 |   95.78 |                   
+  ...ot.service.ts |   96.42 |    83.33 |     100 |   96.15 | 73                
+  ...ts.service.ts |   95.71 |    85.18 |     100 |   95.38 | 102,151,165       
+ ...rlists/mappers |     100 |     90.9 |     100 |     100 |                   
+  ...ist.mapper.ts |     100 |     90.9 |     100 |     100 | 41                
+ src/uploads       |   92.45 |    89.65 |     100 |   92.45 |                   
+  ...ds.service.ts |   92.15 |    89.65 |     100 |   92.15 | 82,86-87,101      
+ src/users         |   96.15 |    86.36 |     100 |   95.91 |                   
+  users.service.ts |   95.83 |    86.36 |     100 |   95.55 | 70-75             
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 94.8% ( 5936/6261 )
+Branches     : 85.39% ( 3548/4155 )
+Functions    : 96.97% ( 1249/1288 )
+Lines        : 95.05% ( 5784/6085 )
+================================================================================
+ERROR: Coverage for statements (94.8%) does not meet global threshold (95%)

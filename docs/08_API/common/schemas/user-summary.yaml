@@ -1,0 +1,24 @@
+components:
+  schemas:
+    UserSummary:
+      type: object
+      description: Lightweight user reference for lists, admin views, and activity feeds.
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        isVerified:
+          type: boolean
+          default: false

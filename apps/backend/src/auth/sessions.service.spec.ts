@@ -1,0 +1,449 @@
+import type {
+  AuthCredential,
+  AuthCredentialRepository,
+  Session,
+  SessionRepository,
+  User,
+  UserRepository,
+  UserSettings,
+  UserSettingsRepository,
+  UserSettingsUpsertData,
+} from '@gmrlog/database';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { NoopEmailService } from '../infrastructure/email/noop-email.service';
+import { parseBackendEnv } from '../infrastructure/config/env.schema';
+import { MemoryPasswordResetStore } from './password-reset.store';
+import { TokenService } from './jwt/token.service';
+import { hashPassword, verifyPassword } from './password';
+import { SessionsService } from './sessions.service';
+
+function makeUser(overrides: Partial<User> = {}): User {
+  const now = new Date();
+  return {
+    id: 'user-1',
+    handle: 'player_one',
+    displayName: 'Player One',
+    bio: null,
+    avatarKey: null,
+    bannerKey: null,
+    avatarBlurhash: null,
+    avatarVariants: null,
+    bannerBlurhash: null,
+    bannerVariants: null,
+    privacyId: null,
+    creatorFeatured: false,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function makeSession(overrides: Partial<Session> = {}): Session {
+  const now = new Date();
+  return {
+    id: 'session-1',
+    userId: 'user-1',
+    expiresAt: new Date(now.getTime() + 86_400_000),
+    revokedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function makeCredential(overrides: Partial<AuthCredential> = {}): AuthCredential {
+  const now = new Date();
+  return {
+    id: 'cred-1',
+    userId: 'user-1',
+    type: 'password',
+    providerRef: 'player@example.com',
+    secretHash: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+interface FakeSessionRepository extends SessionRepository {
+  rows: Map<string, Session>;
+}
+
+function createFakeSessionRepository(seed: Session[] = []): FakeSessionRepository {
+  const rows = new Map(seed.map((row) => [row.id, row]));
+  let seq = 0;
+  return {
+    rows,
+    async create(data) {
+      seq += 1;
+      const id = `session-${seq}`;
+      const userId =
+        typeof data.user === 'object' && data.user !== null && 'connect' in data.user
+          ? (data.user.connect?.id ?? 'user-1')
+          : 'user-1';
+      const expiresAt =
+        data.expiresAt instanceof Date ? data.expiresAt : new Date(String(data.expiresAt));
+      const now = new Date();
+      const row = makeSession({ id, userId, expiresAt, createdAt: now, updatedAt: now });
+      rows.set(id, row);
+      return row;
+    },
+    async findById(id) {
+      return rows.get(id) ?? null;
+    },
+    async listByUser(userId) {
+      return [...rows.values()].filter((row) => row.userId === userId);
+    },
+    async revoke(id) {
+      const existing = rows.get(id);
+      if (!existing) {
+        throw new Error(`session ${id} not found`);
+      }
+      const updated = { ...existing, revokedAt: new Date(), updatedAt: new Date() };
+      rows.set(id, updated);
+      return updated;
+    },
+    async delete(id) {
+      const existing = rows.get(id);
+      if (!existing) {
+        throw new Error(`session ${id} not found`);
+      }
+      rows.delete(id);
+      return existing;
+    },
+    async revokeExpiredBefore() {
+      return 0;
+    },
+    async deleteRevokedOrExpiredBefore() {
+      return 0;
+    },
+  };
+}
+
+interface FakeAuthCredentialRepository extends AuthCredentialRepository {
+  rows: AuthCredential[];
+  findPasswordByUserId(userId: string): Promise<AuthCredential | null>;
+  updateSecretHash(id: string, secretHash: string): Promise<AuthCredential>;
+}
+
+function createFakeAuthCredentialRepository(
+  seed: AuthCredential[] = [],
+): FakeAuthCredentialRepository {
+  const rows = [...seed];
+  let seq = 0;
+  return {
+    rows,
+    async findByTypeAndProviderRef(type, providerRef) {
+      return rows.find((row) => row.type === type && row.providerRef === providerRef) ?? null;
+    },
+    async create(data) {
+      seq += 1;
+      const userId =
+        typeof data.user === 'object' && data.user !== null && 'connect' in data.user
+          ? (data.user.connect?.id ?? 'user-1')
+          : 'user-1';
+      const row = makeCredential({
+        id: `cred-${seq}`,
+        userId,
+        type: data.type,
+        providerRef: data.providerRef ?? null,
+        secretHash: data.secretHash ?? null,
+      });
+      rows.push(row);
+      return row;
+    },
+    async findPasswordByUserId(userId) {
+      return rows.find((row) => row.userId === userId && row.type === 'password') ?? null;
+    },
+    async updateSecretHash(id, secretHash) {
+      const index = rows.findIndex((row) => row.id === id);
+      if (index < 0) {
+        throw new Error(`credential ${id} not found`);
+      }
+      const updated = { ...rows[index]!, secretHash, updatedAt: new Date() };
+      rows[index] = updated;
+      return updated;
+    },
+  };
+}
+
+interface FakeUserRepository extends UserRepository {
+  rows: Map<string, User>;
+}
+
+function createFakeUserRepository(seed: User[] = []): FakeUserRepository {
+  const rows = new Map(seed.map((row) => [row.id, row]));
+  let seq = 0;
+  return {
+    rows,
+    async create(data) {
+      seq += 1;
+      const id = `user-${seq}`;
+      const row = makeUser({
+        id,
+        handle: String(data.handle),
+        displayName: String(data.displayName),
+      });
+      rows.set(id, row);
+      return row;
+    },
+    async findById(id) {
+      return rows.get(id) ?? null;
+    },
+    async findManyByIds(ids) {
+      return ids.flatMap((id) => {
+        const row = rows.get(id);
+        return row ? [row] : [];
+      });
+    },
+    async findByHandle(handle) {
+      return [...rows.values()].find((row) => row.handle === handle) ?? null;
+    },
+    async update(id, data) {
+      const existing = rows.get(id);
+      if (!existing) {
+        throw new Error(`user ${id} not found`);
+      }
+      const updated = {
+        ...existing,
+        ...(data.handle !== undefined ? { handle: String(data.handle) } : {}),
+        ...(data.displayName !== undefined ? { displayName: String(data.displayName) } : {}),
+        updatedAt: new Date(),
+      };
+      rows.set(id, updated);
+      return updated;
+    },
+    async softDelete(id) {
+      return this.update(id, { deletedAt: new Date() });
+    },
+    async delete(id) {
+      const existing = rows.get(id);
+      if (!existing) {
+        throw new Error(`user ${id} not found`);
+      }
+      rows.delete(id);
+      return existing;
+    },
+  };
+}
+
+interface FakeUserSettingsRepository extends UserSettingsRepository {
+  rows: Map<string, UserSettings>;
+}
+
+function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
+  const rows = new Map<string, UserSettings>();
+  return {
+    rows,
+    async findByUser(userId) {
+      return rows.get(userId) ?? null;
+    },
+    async upsertByUser(userId: string, data: UserSettingsUpsertData) {
+      const existing = rows.get(userId);
+      const now = new Date();
+      const next: UserSettings = {
+        id: existing?.id ?? `settings-${userId}`,
+        userId,
+        locale: data.locale === undefined ? (existing?.locale ?? null) : data.locale,
+        theme: data.theme === undefined ? (existing?.theme ?? null) : data.theme,
+        reduceMotion:
+          data.reduceMotion === undefined ? (existing?.reduceMotion ?? false) : data.reduceMotion,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      rows.set(userId, next);
+      return next;
+    },
+  };
+}
+
+describe('SessionsService', () => {
+  let sessions: FakeSessionRepository;
+  let credentials: FakeAuthCredentialRepository;
+  let users: FakeUserRepository;
+  let settings: FakeUserSettingsRepository;
+  let tokens: TokenService;
+  let passwordResetStore: MemoryPasswordResetStore;
+  let email: NoopEmailService;
+  let service: SessionsService;
+  const env = parseBackendEnv({});
+
+  beforeEach(() => {
+    sessions = createFakeSessionRepository();
+    credentials = createFakeAuthCredentialRepository();
+    users = createFakeUserRepository();
+    settings = createFakeUserSettingsRepository();
+    passwordResetStore = new MemoryPasswordResetStore();
+    email = new NoopEmailService();
+    const jwt = new JwtService({
+      secret: env.JWT_SECRET,
+      signOptions: { issuer: env.JWT_ISSUER },
+      verifyOptions: { issuer: env.JWT_ISSUER },
+    });
+    tokens = new TokenService(jwt, env);
+    service = new SessionsService(
+      sessions,
+      credentials,
+      users,
+      settings,
+      tokens,
+      env,
+      passwordResetStore as never,
+      email,
+    );
+  });
+
+  it('rejects login when credentials are wrong', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    await expect(
+      service.login({ email: 'player@example.com', password: 'wrong-password-99' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    await expect(
+      service.login({ email: 'missing@example.com', password: 'anything-long-1' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('registers a user and returns SessionCredentialResponse shape', async () => {
+    const result = await service.register({
+      email: 'New@Example.com',
+      password: 'secure-password-12',
+      displayName: 'New Player',
+      handle: 'new_player',
+    });
+
+    expect(result).toEqual({
+      accessToken: expect.any(String),
+      refreshToken: expect.any(String),
+    });
+
+    const created = [...users.rows.values()][0];
+    expect(created?.handle).toBe('new_player');
+    expect(created?.displayName).toBe('New Player');
+
+    expect(credentials.rows).toHaveLength(1);
+    expect(credentials.rows[0]?.providerRef).toBe('new@example.com');
+    expect(credentials.rows[0]?.secretHash).toEqual(expect.any(String));
+    expect(settings.rows.has(created!.id)).toBe(true);
+    expect(sessions.rows.size).toBe(1);
+
+    const access = await tokens.verifyAccessToken(result.accessToken);
+    expect(access).toMatchObject({ sub: created!.id, kind: 'access' });
+    expect(access?.sessionId).toEqual(expect.any(String));
+  });
+
+  it('rejects refresh when sessionId is missing from the refresh token', async () => {
+    const refreshToken = await tokens.signRefreshToken('user-1');
+
+    await expect(service.refresh({ refreshToken })).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rejects register when handle is taken', async () => {
+    users.rows.set('user-1', makeUser({ handle: 'taken_handle' }));
+
+    await expect(
+      service.register({
+        email: 'other@example.com',
+        password: 'secure-password-12',
+        displayName: 'Other',
+        handle: 'taken_handle',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('sends reset email for known accounts and stays silent for unknown emails', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    await service.forgotPassword({ email: 'player@example.com' });
+    expect(email.sent).toHaveLength(1);
+    expect(email.sent[0]?.to).toBe('player@example.com');
+
+    email.sent.length = 0;
+    await service.forgotPassword({ email: 'missing@example.com' });
+    expect(email.sent).toHaveLength(0);
+  });
+
+  it('resets password and revokes sessions when token is valid', async () => {
+    const oldHash = await hashPassword('old-password-12xx');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({
+        id: 'cred-1',
+        secretHash: oldHash,
+        providerRef: 'player@example.com',
+        userId: 'user-1',
+      }),
+    );
+    sessions.rows.set('session-1', makeSession({ id: 'session-1', userId: 'user-1' }));
+    await passwordResetStore.put('reset-token', 'user-1');
+
+    await service.resetPassword({ token: 'reset-token', password: 'new-password-12ab' });
+
+    const updated = credentials.rows[0];
+    expect(updated?.secretHash).not.toBe(oldHash);
+    expect(await verifyPassword('new-password-12ab', updated!.secretHash!)).toBe(true);
+    expect(sessions.rows.get('session-1')?.revokedAt).not.toBeNull();
+    expect(await passwordResetStore.getUserId('reset-token')).toBeNull();
+  });
+
+  it('rejects reset when token is invalid', async () => {
+    await expect(
+      service.resetPassword({ token: 'bad-token', password: 'new-password-12ab' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('issues credentials on successful login and refresh', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    const login = await service.login({
+      email: 'player@example.com',
+      password: 'correct-password-12',
+    });
+    expect(login.accessToken).toEqual(expect.any(String));
+
+    const refresh = await service.refresh({ refreshToken: login.refreshToken });
+    expect(refresh.accessToken).toEqual(expect.any(String));
+    expect([...sessions.rows.values()].some((row) => row.revokedAt != null)).toBe(true);
+  });
+
+  it('logs out the current session or all active sessions', async () => {
+    sessions.rows.set('session-1', makeSession({ id: 'session-1', userId: 'user-1' }));
+    sessions.rows.set('session-2', makeSession({ id: 'session-2', userId: 'user-1' }));
+
+    await service.logoutCurrent('user-1', 'session-1');
+    expect(sessions.rows.get('session-1')?.revokedAt).not.toBeNull();
+    expect(sessions.rows.get('session-2')?.revokedAt).toBeNull();
+
+    await service.logoutCurrent('user-1');
+    expect(sessions.rows.get('session-2')?.revokedAt).not.toBeNull();
+  });
+
+  it('rejects register when email is already registered', async () => {
+    credentials.rows.push(makeCredential({ providerRef: 'taken@example.com' }));
+    await expect(
+      service.register({
+        email: 'taken@example.com',
+        password: 'secure-password-12',
+        displayName: 'Other',
+        handle: 'other_handle',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+});

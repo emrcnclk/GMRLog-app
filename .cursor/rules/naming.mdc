@@ -1,0 +1,21 @@
+---
+description: İsimlendirme convention'ları — GMRLOG-OS
+alwaysApply: true
+---
+
+# Naming Kuralları
+
+Önce oku: `docs/00_PROJECT/MONOREPO_STRUCTURE.md`, `docs/00_PROJECT/TECH_STACK_DECISIONS.md`, ilgili alan docs klasörü
+
+## TypeScript
+
+- `strict: true`; never `any` — use `unknown`, generics, interfaces
+- Prefer `interface` over `type` (except unions)
+- Max component 250 lines; hooks prefix `use`; booleans: is/has/can/should
+
+## Naming
+
+- Files/folders: `kebab-case`; components: `PascalCase`; constants: `SCREAMING_SNAKE_CASE`
+- Functions: verb-first (`createReview`, `fetchGames`)
+
+<!-- İçerik TECH_DECISIONS ve alan docs dosyaları hazırlandıkça buraya özetlenecek -->

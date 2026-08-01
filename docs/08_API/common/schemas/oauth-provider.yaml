@@ -1,0 +1,9 @@
+components:
+  schemas:
+    OAuthProvider:
+      type: string
+      enum:
+        - GOOGLE
+        - DISCORD
+        - STEAM
+        - APPLE

@@ -1,0 +1,27 @@
+components:
+  schemas:
+    PaginationMetadata:
+      type: object
+      description: Offset pagination metadata for admin reporting and analytics endpoints.
+      required:
+        - page
+        - pageSize
+        - totalItems
+        - totalPages
+        - hasNext
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalItems:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+        hasNext:
+          type: boolean

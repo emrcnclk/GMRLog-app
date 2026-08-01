@@ -1,0 +1,1693 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Game Log API
+  version: 1.0.0
+  description: |
+    Play sessions, game logs, progress tracking, completion status, timeline,
+    and playtime statistics.
+
+    Canonical owner for all user play activity data. Game catalog metadata
+    remains in GAME_API.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Game Logs
+    description: User game log entries (status, playtime, completion)
+  - name: Play Sessions
+    description: Active and historical play session tracking
+  - name: Progress
+    description: Per-game progress and completion percentage
+  - name: Timeline
+    description: Chronological activity feed for the authenticated user
+  - name: Statistics
+    description: Aggregated playtime and completion statistics
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Static routes (before parameterized)
+  ################################################################################
+
+  /logs/timeline:
+
+    get:
+
+      tags:
+        - Timeline
+
+      summary: Get authenticated user game log timeline
+
+      description: |
+        Chronological feed of game log events (started, completed, status changes)
+        for the authenticated user.
+
+      operationId: gameLogGetTimeline
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: status
+
+          in: query
+
+          description: Filter by game log status
+
+          schema:
+
+            $ref: '#/components/schemas/GameLogStatus'
+
+      responses:
+
+        "200":
+
+          description: Timeline entries
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogTimelinePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /logs/stats:
+
+    get:
+
+      tags:
+        - Statistics
+
+      summary: Get authenticated user game log statistics
+
+      description: Aggregated playtime, completion counts, and platform breakdown.
+
+      operationId: gameLogGetMyStatistics
+
+      responses:
+
+        "200":
+
+          description: Statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogStatistics'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /play-sessions:
+
+    get:
+
+      tags:
+        - Play Sessions
+
+      summary: List play sessions
+
+      description: Returns play sessions for the authenticated user.
+
+      operationId: gameLogListPlaySessions
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: gameId
+
+          in: query
+
+          required: false
+
+          description: Filter sessions by game
+
+          schema:
+
+            type: string
+
+            format: uuid
+
+        - name: isActive
+
+          in: query
+
+          description: Filter active (ongoing) sessions only
+
+          schema:
+
+            type: boolean
+
+      responses:
+
+        "200":
+
+          description: Play sessions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PlaySessionPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Play Sessions
+
+      summary: Start a play session
+
+      description: Records the start of a play session for a game.
+
+      operationId: gameLogStartPlaySession
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/StartPlaySessionRequest'
+
+      responses:
+
+        "201":
+
+          description: Session started
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PlaySession'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /users/me/currently-playing:
+
+    get:
+
+      tags:
+        - Play Sessions
+
+      summary: Get currently playing game
+
+      description: Returns the active play session and game for the authenticated user.
+
+      operationId: gameLogGetCurrentlyPlaying
+
+      responses:
+
+        "200":
+
+          description: Currently playing state
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CurrentlyPlaying'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    patch:
+
+      tags:
+        - Play Sessions
+
+      summary: Update currently playing state
+
+      description: Updates presence for the active session (e.g. pause, resume).
+
+      operationId: gameLogUpdateCurrentlyPlaying
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateCurrentlyPlayingRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CurrentlyPlaying'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /logs:
+
+    get:
+
+      tags:
+        - Game Logs
+
+      summary: List authenticated user game logs
+
+      operationId: gameLogListMyLogs
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: status
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/GameLogStatus'
+
+      responses:
+
+        "200":
+
+          description: Game logs
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Game Logs
+
+      summary: Create a game log entry
+
+      operationId: gameLogCreateLog
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateGameLogRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLog'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /logs/game/{gameId}:
+
+    get:
+
+      tags:
+        - Game Logs
+
+      summary: Get game log for a specific game
+
+      description: Returns the authenticated user's log entry for the given game.
+
+      operationId: gameLogGetLogByGame
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Game log
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLog'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /logs/user/{userId}:
+
+    get:
+
+      tags:
+        - Game Logs
+
+      summary: List game logs by user
+
+      description: Returns public game logs for the specified user.
+
+      operationId: gameLogListLogsByUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: status
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/GameLogStatus'
+
+      responses:
+
+        "200":
+
+          description: Game logs
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /logs/{logId}:
+
+    get:
+
+      tags:
+        - Game Logs
+
+      summary: Get game log by ID
+
+      operationId: gameLogGetLog
+
+      parameters:
+
+        - $ref: '#/components/parameters/LogId'
+
+      responses:
+
+        "200":
+
+          description: Game log
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLog'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Game Logs
+
+      summary: Update a game log entry
+
+      operationId: gameLogUpdateLog
+
+      parameters:
+
+        - $ref: '#/components/parameters/LogId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateGameLogRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLog'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Game Logs
+
+      summary: Delete a game log entry
+
+      operationId: gameLogDeleteLog
+
+      parameters:
+
+        - $ref: '#/components/parameters/LogId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /play-sessions/{sessionId}:
+
+    get:
+
+      tags:
+        - Play Sessions
+
+      summary: Get play session by ID
+
+      operationId: gameLogGetPlaySession
+
+      parameters:
+
+        - $ref: '#/components/parameters/SessionId'
+
+      responses:
+
+        "200":
+
+          description: Play session
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PlaySession'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Play Sessions
+
+      summary: End or update a play session
+
+      description: Ends an active session or updates session metadata.
+
+      operationId: gameLogEndPlaySession
+
+      parameters:
+
+        - $ref: '#/components/parameters/SessionId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/EndPlaySessionRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated session
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PlaySession'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /games/{gameId}/logs:
+
+    get:
+
+      tags:
+        - Game Logs
+
+      summary: List public game logs for a game
+
+      description: Returns recent public game log activity for a catalog game.
+
+      operationId: gameLogListLogsForGame
+
+      security: []
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Game logs
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/me/games/{gameId}/progress:
+
+    get:
+
+      tags:
+        - Progress
+
+      summary: Get game progress for authenticated user
+
+      operationId: gameLogGetMyProgress
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      responses:
+
+        "200":
+
+          description: Progress
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameProgress'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Progress
+
+      summary: Update game progress
+
+      operationId: gameLogUpdateMyProgress
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateGameProgressRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated progress
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameProgress'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/{userId}/game-log-statistics:
+
+    get:
+
+      tags:
+        - Statistics
+
+      summary: Get user game log statistics
+
+      description: Public aggregated statistics for a user profile.
+
+      operationId: gameLogGetUserStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GameLogStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    LogId:
+
+      name: logId
+
+      in: path
+
+      required: true
+
+      description: Game log entry identifier
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    SessionId:
+
+      name: sessionId
+
+      in: path
+
+      required: true
+
+      description: Play session identifier
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    GameLogStatus:
+
+      type: string
+
+      description: User-defined play status for a game log entry
+
+      enum:
+        - PLAYING
+        - COMPLETED
+        - DROPPED
+        - BACKLOG
+        - WISHLIST
+        - PAUSED
+        - REPLAYING
+
+    GameLog:
+
+      type: object
+
+      required:
+        - id
+        - userId
+        - gameId
+        - status
+        - createdAt
+        - updatedAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        user:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        status:
+
+          $ref: '#/components/schemas/GameLogStatus'
+
+        platform:
+
+          type: string
+
+          description: Platform slug (e.g. pc, ps5, switch)
+
+          nullable: true
+
+        startedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        finishedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        hoursPlayed:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          description: Total hours played
+
+        completionPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+          nullable: true
+
+        rating:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          maximum: 10
+
+          nullable: true
+
+        notes:
+
+          type: string
+
+          maxLength: 5000
+
+          nullable: true
+
+        isPrivate:
+
+          type: boolean
+
+          default: false
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    GameLogPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameLog'
+
+    CreateGameLogRequest:
+
+      type: object
+
+      required:
+        - gameId
+        - status
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        status:
+
+          $ref: '#/components/schemas/GameLogStatus'
+
+        platform:
+
+          type: string
+
+          nullable: true
+
+        startedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        finishedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        hoursPlayed:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+        completionPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        rating:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          maximum: 10
+
+        notes:
+
+          type: string
+
+          maxLength: 5000
+
+        isPrivate:
+
+          type: boolean
+
+          default: false
+
+    UpdateGameLogRequest:
+
+      type: object
+
+      properties:
+
+        status:
+
+          $ref: '#/components/schemas/GameLogStatus'
+
+        platform:
+
+          type: string
+
+          nullable: true
+
+        startedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        finishedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        hoursPlayed:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+        completionPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        rating:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          maximum: 10
+
+        notes:
+
+          type: string
+
+          maxLength: 5000
+
+        isPrivate:
+
+          type: boolean
+
+    PlaySession:
+
+      type: object
+
+      required:
+        - id
+        - userId
+        - gameId
+        - startedAt
+        - isActive
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        platform:
+
+          type: string
+
+          nullable: true
+
+        startedAt:
+
+          type: string
+
+          format: date-time
+
+        endedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        durationMinutes:
+
+          type: integer
+
+          minimum: 0
+
+          nullable: true
+
+          description: Computed duration when session has ended
+
+        notes:
+
+          type: string
+
+          maxLength: 2000
+
+          nullable: true
+
+        isActive:
+
+          type: boolean
+
+    PlaySessionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/PlaySession'
+
+    StartPlaySessionRequest:
+
+      type: object
+
+      required:
+        - gameId
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        platform:
+
+          type: string
+
+          nullable: true
+
+        notes:
+
+          type: string
+
+          maxLength: 2000
+
+          nullable: true
+
+    EndPlaySessionRequest:
+
+      type: object
+
+      properties:
+
+        endedAt:
+
+          type: string
+
+          format: date-time
+
+          description: Defaults to server time if omitted
+
+        notes:
+
+          type: string
+
+          maxLength: 2000
+
+          nullable: true
+
+    CurrentlyPlaying:
+
+      type: object
+
+      properties:
+
+        session:
+
+          $ref: '#/components/schemas/PlaySession'
+
+          nullable: true
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+          nullable: true
+
+        isPaused:
+
+          type: boolean
+
+          default: false
+
+    UpdateCurrentlyPlayingRequest:
+
+      type: object
+
+      properties:
+
+        isPaused:
+
+          type: boolean
+
+        finish:
+
+          type: boolean
+
+          description: |
+            When true, ends the active session (finish). Takes precedence over isPaused.
+
+    GameProgress:
+
+      type: object
+
+      required:
+        - gameId
+        - userId
+        - completionPercentage
+        - updatedAt
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        completionPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        currentChapter:
+
+          type: string
+
+          nullable: true
+
+          description: Current chapter, episode, or level label
+
+        lastPlayedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        achievementsUnlocked:
+
+          type: integer
+
+          minimum: 0
+
+          nullable: true
+
+        achievementsTotal:
+
+          type: integer
+
+          minimum: 0
+
+          nullable: true
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    UpdateGameProgressRequest:
+
+      type: object
+
+      properties:
+
+        completionPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        currentChapter:
+
+          type: string
+
+          nullable: true
+
+        achievementsUnlocked:
+
+          type: integer
+
+          minimum: 0
+
+        achievementsTotal:
+
+          type: integer
+
+          minimum: 0
+
+    GameLogStatistics:
+
+      type: object
+
+      required:
+        - userId
+        - totalGamesLogged
+        - totalHoursPlayed
+        - completedCount
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        totalGamesLogged:
+
+          type: integer
+
+          minimum: 0
+
+        totalHoursPlayed:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+        completedCount:
+
+          type: integer
+
+          minimum: 0
+
+        playingCount:
+
+          type: integer
+
+          minimum: 0
+
+        backlogCount:
+
+          type: integer
+
+          minimum: 0
+
+        droppedCount:
+
+          type: integer
+
+          minimum: 0
+
+        platformBreakdown:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/PlatformPlaytime'
+
+    PlatformPlaytime:
+
+      type: object
+
+      required:
+        - platform
+        - hoursPlayed
+
+      properties:
+
+        platform:
+
+          type: string
+
+        hoursPlayed:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+    GameLogTimelineEntry:
+
+      type: object
+
+      required:
+        - id
+        - type
+        - occurredAt
+        - gameLogId
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          type: string
+
+          enum:
+            - LOG_CREATED
+            - STATUS_CHANGED
+            - SESSION_STARTED
+            - SESSION_ENDED
+            - PROGRESS_UPDATED
+            - COMPLETED
+
+        occurredAt:
+
+          type: string
+
+          format: date-time
+
+        gameLogId:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        metadata:
+
+          type: object
+
+          additionalProperties: true
+
+    GameLogTimelinePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GameLogTimelineEntry'

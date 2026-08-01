@@ -1,0 +1,21 @@
+components:
+
+  examples:
+
+    SuccessResponse:
+
+      value:
+
+        success: true
+
+    UnauthorizedResponse:
+
+      value:
+
+        type: https://api.gmrlog.com/errors/unauthorized
+
+        title: Unauthorized
+
+        status: 401
+
+        detail: Authentication required.

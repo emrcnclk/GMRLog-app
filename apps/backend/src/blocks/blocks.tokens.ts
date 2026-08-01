@@ -1,0 +1,2 @@
+export const BLOCK_REPOSITORY = Symbol('BLOCK_REPOSITORY');
+export const BLOCK_USER_REPOSITORY = Symbol('BLOCK_USER_REPOSITORY');

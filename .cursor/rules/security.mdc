@@ -1,0 +1,43 @@
+---
+description: Güvenlik kuralları — GMRLOG OS
+globs: docs/11_SECURITY/**,docs/06_BACKEND/**,docs/08_API/**
+alwaysApply: false
+---
+
+# Security Kuralları
+
+Önce oku: `docs/11_SECURITY/SECURITY.md`, `docs/08_API/API_SPECIFICATION.md`
+
+## Auth & Authorization
+
+- JWT + refresh token rotation; OAuth2 (Google, Steam, Discord, Apple)
+- RBAC: Guest, User, Premium, Developer, Studio, Moderator, Admin
+- Password: min 12 chars, Argon2id
+
+## Environment (`ENVIRONMENT_VARIABLES.md`)
+
+- `UPPER_SNAKE_CASE`; public mobile: `EXPO_PUBLIC_*`, admin: `NEXT_PUBLIC_*`
+- Startup fails if required secret/URL missing; never commit `.env.local` / `.env.production`
+- Rotation: JWT 90d, API keys/DB 180d, OAuth 365d
+
+## API
+
+- HTTPS only; Helmet, CORS, rate limiting, CSRF (web)
+- Input validation + output sanitization
+- Never commit secrets; env vars only
+
+## Uploads (`STORAGE_ARCHITECTURE.md`)
+
+- S3 / Cloudflare R2; CDN via Cloudflare; Sharp + FFmpeg + ClamAV
+- Pipeline: auth → virus scan → optimize → storage → CDN invalidation
+- UUID filenames only; signed URLs for private media (15min default)
+- Size limits: avatar 10MB, post/review 25MB, video 500MB
+- Forbidden: executables, scripts, APK/IPA, unknown binaries
+
+## Compliance
+
+GDPR/KVKK ready; consent management, data export/deletion
+
+## Monitoring
+
+Failed login alerts, brute force protection, audit logs

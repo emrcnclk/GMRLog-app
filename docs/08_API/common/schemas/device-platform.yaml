@@ -1,0 +1,11 @@
+components:
+  schemas:
+    DevicePlatform:
+      type: string
+      enum:
+        - WEB
+        - IOS
+        - ANDROID
+        - WINDOWS
+        - MACOS
+        - LINUX

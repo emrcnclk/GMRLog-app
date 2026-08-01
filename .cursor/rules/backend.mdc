@@ -1,0 +1,44 @@
+---
+description: Backend geliştirme kuralları — GMRLOG OS
+globs: docs/06_BACKEND/**,**/*.{ts,py,go}
+alwaysApply: false
+---
+
+# Backend Kuralları
+
+Önce oku: `docs/06_BACKEND/BACKEND_ARCHITECTURE.md`, `docs/08_API/API_SPECIFICATION.md`, `docs/07_DATABASE/`
+
+## Onaylı stack
+
+- **Runtime:** Node.js 22 LTS, TypeScript strict
+- **Framework:** NestJS + Fastify
+- **Data:** PostgreSQL 17 + Prisma, Redis 8 cache (`CACHE_STRATEGY.md`), BullMQ
+- **Realtime:** Socket.IO + Redis adapter
+- **Storage:** Cloudflare R2 / S3
+- **Monitoring:** OpenTelemetry, Prometheus, Sentry
+
+## Katman mimarisi (DDD + Clean)
+
+```
+Controller → Service → Repository → Prisma
+```
+
+- **Controller:** request/response only — business logic yasak
+- **Service:** business rules, permissions, transactions, domain events, cache
+- **Repository:** queries, pagination, filtering — business rules yasak
+- **DTO:** validation (class-validator), Swagger types
+- **Entity:** business models — Prisma models doğrudan expose etme
+
+## Modül yapısı
+
+Her domain: `controllers/`, `services/`, `repositories/`, `dto/`, `entities/`, `events/`, `jobs/`, `tests/`, `{domain}.module.ts`
+
+## Davranış
+
+- API spec endpoint'leri ve response formatına uy
+- Role guards: Guest, User, Premium, Developer, Verified Studio, Moderator, Admin
+- Domain events async (BullMQ): notifications, trending, search index, analytics
+- Realtime: NestJS Gateway + Socket.IO + Redis adapter (`REALTIME_ARCHITECTURE.md`)
+- Performance: auth <100ms, feed <150ms, search <200ms
+- Never use `any`; always paginate; never expose internal errors
+- Güvenlik: `security.mdc`

@@ -1,0 +1,2274 @@
+// GMRLOG — Persistence schema (D2.1).
+//
+// Single source of truth: S2 Database Specification (docs/17_.../S2_DATABASE_SPECIFICATION.md).
+// Implements the S2 MVP entity catalog (§8/§10), relations (§11), constraints (§12),
+// cascade policy (§13) and enum catalog (§14). No Version 2 / future-screen entities.
+//
+// Naming (S2 §3): PascalCase singular models mapped to snake_case plural tables;
+// camelCase fields mapped to snake_case columns; enum members product-closed lowercase.
+//
+// Closed-set enums whose concrete members are NOT enumerated in S2/S1 (ReactionKind,
+// NotificationKind, ReportReason, NotificationPreference.category, AdminActionRecord.action)
+// are modelled as String. The database is the last line of integrity, not the only one
+// (S2 §12) — the closed set is owned by product law + validators and is promoted to a
+// Prisma enum once the members are specified. No members are invented here.
+// Full audit: docs/07_DATABASE/S2_CLOSED_ENUM_GAP_REPORT.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS (S2 §14) — closed sets, additive growth only via Amendment.
+// =============================================================================
+
+enum AuthCredentialType {
+  password
+  oauth
+
+  @@map("auth_credential_type")
+}
+
+enum ConnectedProvider {
+  steam
+  discord
+
+  @@map("connected_provider")
+}
+
+enum ConnectedAccountStatus {
+  connected
+  disconnected
+  expired
+
+  @@map("connected_account_status")
+}
+
+enum LibraryStatus {
+  owned
+  playing
+  completed
+  wishlist
+  backlog
+  hidden
+  /// D3.21 — additive S2 amendment (docs/07_SOCIAL + S2_CLOSED_ENUM_GAP_REPORT).
+  dropped
+
+  @@map("library_status")
+}
+
+enum LibrarySource {
+  manual
+  steam_import
+
+  @@map("library_source")
+}
+
+enum GameLogKind {
+  status_change
+  session
+  note
+
+  @@map("game_log_kind")
+}
+
+enum GameMediaKind {
+  screenshot
+  cover
+  /// Reserved — no producer populates `banner` or `video` rows as of D3.25.1.
+  /// Kept for forward compatibility rather than dropped: removing a Postgres
+  /// enum value requires recreating the type, which this project's additive
+  /// migration policy avoids for zero behavioral gain. See
+  /// docs/18_CATALOG/D3_25_1_PATCH_PLAN.md "Scope decisions".
+  banner
+  video
+  /// D3.25 — catalog media ingestion (docs/18_CATALOG/MEDIA_INGESTION.md).
+  hero
+  artwork
+  /// Reserved — no current provider (IGDB/Steam/RAWG) maps to `logo` or
+  /// `trailer` as a GameMedia row; trailers are stored as `Game.trailerUrl`.
+  /// Same reserved-value rationale as `banner`/`video` above.
+  logo
+  trailer
+
+  @@map("game_media_kind")
+}
+
+/// D3.25 — external catalog metadata sources (docs/18_CATALOG/METADATA_PROVIDERS.md).
+enum MetadataProvider {
+  igdb
+  steam
+  rawg
+  manual
+
+  @@map("metadata_provider")
+}
+
+/// D3.25 — game metadata enrichment lifecycle (docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md §4).
+enum GameMetadataStatus {
+  pending
+  enriching
+  complete
+  partial
+  failed
+  stale
+
+  @@map("game_metadata_status")
+}
+
+/// D3.25 — company involvement in a game.
+enum CompanyRole {
+  developer
+  publisher
+  porting
+  supporting
+
+  @@map("company_role")
+}
+
+/// D3.25 — provider-declared relationships between games.
+enum GameRelatedKind {
+  similar
+  dlc
+  expansion
+  remake
+  remaster
+  prequel
+  sequel
+
+  @@map("game_related_kind")
+}
+
+/// D3.25 — tag taxonomy bucket.
+enum TagKind {
+  theme
+  mode
+  perspective
+  keyword
+
+  @@map("tag_kind")
+}
+
+/// D3.25 — outcome of one enrichment attempt.
+enum MetadataRunOutcome {
+  success
+  partial
+  no_match
+  skipped
+  error
+
+  @@map("metadata_run_outcome")
+}
+
+enum ContentVisibility {
+  public
+  followers
+  private
+  /// D3.24 — community-scoped visibility (docs/07_SOCIAL/FEED_ENGINE_V2.md).
+  community
+
+  @@map("content_visibility")
+}
+
+enum CommentHostType {
+  post
+  review
+  /// D3.21 — additive S2 amendment (docs/07_SOCIAL/TIMELINE_EVENTS.md).
+  collection
+  tier_list
+
+  @@map("comment_host_type")
+}
+
+enum ReactionTargetType {
+  post
+  review
+  comment
+  /// D3.21 — additive S2 amendment (docs/07_SOCIAL); product "like" target hosts.
+  collection
+  tier_list
+
+  @@map("reaction_target_type")
+}
+
+/// D3.21 Friend System — SOCIAL_API.yaml ownership (docs/07_SOCIAL/FRIEND_SYSTEM.md).
+enum FriendRequestStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+
+  @@map("friend_request_status")
+}
+
+/// D3.21 presence stub — Redis/ephemeral preferred; row is last-known snapshot.
+enum PresenceStatus {
+  online
+  away
+  offline
+  invisible
+
+  @@map("presence_status")
+}
+
+/// D3.21 profile pins — showcase objects on player profiles.
+enum ProfilePinKind {
+  game
+  review
+  collection
+
+  @@map("profile_pin_kind")
+}
+
+/// D3.22 — docs/09_DISCOVERY/COLLECTION_TYPES.md
+enum CollectionType {
+  manual
+  dynamic
+  curated
+  official
+
+  @@map("collection_type")
+}
+
+/// D3.22 — docs/09_DISCOVERY/WISHLIST_METADATA.md
+enum WishlistPriority {
+  low
+  medium
+  high
+  must_play
+
+  @@map("wishlist_priority")
+}
+
+/// D3.22 — docs/09_DISCOVERY/WISHLIST_METADATA.md
+enum WishlistWaitStatus {
+  none
+  waiting_sale
+  waiting_dlc
+  waiting_translation
+  waiting_release
+
+  @@map("wishlist_wait_status")
+}
+
+/// D3.23 — docs/10_INTEGRATIONS/STEAM_IMPORT.md
+enum IntegrationProvider {
+  steam
+  xbox
+  playstation
+  epic
+  nintendo
+  csv
+
+  @@map("integration_provider")
+}
+
+/// D3.23 — docs/10_INTEGRATIONS/SYNC_ENGINE.md
+enum IntegrationSyncType {
+  manual
+  daily
+  weekly
+  monthly
+  automatic
+
+  @@map("integration_sync_type")
+}
+
+/// D3.23 — docs/10_INTEGRATIONS/SYNC_ENGINE.md
+enum SyncJobStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+
+  @@map("sync_job_status")
+}
+
+/// D3.23 — docs/10_INTEGRATIONS/CONFLICT_RESOLUTION.md
+enum SyncConflictResolution {
+  keep_local
+  keep_steam
+  newest_wins
+  ask_user
+
+  @@map("sync_conflict_resolution")
+}
+
+enum CommunityRole {
+  member
+  moderator
+  owner
+  /// D3.24 — docs/07_SOCIAL/COMMUNITIES_2.md
+  admin
+
+  @@map("community_role")
+}
+
+/// D3.24 — docs/07_SOCIAL/COMMUNITIES_2.md
+enum CommunityJoinType {
+  public
+  private
+  invite_only
+
+  @@map("community_join_type")
+}
+
+enum EventKind {
+  game
+  community
+  tournament
+  seasonal
+  /// D3.24 Events v2
+  lan
+  watch_party
+  coop_session
+  raid
+  release_countdown
+  release
+  community_night
+  speedrun
+
+  @@map("event_kind")
+}
+
+enum EventParticipationState {
+  interested
+  going
+  not_going
+  /// D3.24 LFG states
+  looking_for_team
+  need_players
+  hosting
+
+  @@map("event_participation_state")
+}
+
+/// D3.24 Quote System v2 — polymorphic quote targets.
+enum QuoteTargetType {
+  post
+  review
+  collection
+  guide
+  achievement
+  screenshot
+  tier_list
+
+  @@map("quote_target_type")
+}
+
+/// D3.24 — User Generated post kinds (SOCIAL_POSTS_V2.md).
+enum PostKind {
+  text
+  screenshot
+  video
+  poll
+  guide
+  news
+  quote
+
+  @@map("post_kind")
+}
+
+/// D3.24 FeedItem taxonomy (FEED_ITEM_TYPES.md). advertisement_item never emitted.
+enum FeedItemKind {
+  post_item
+  activity_item
+  recommendation_item
+  advertisement_item
+
+  @@map("feed_item_kind")
+}
+
+/// D3.24 Gaming Reputation badges (REPUTATION.md).
+enum ReputationBadge {
+  helpful_reviewer
+  strategy_expert
+  lore_master
+  achievement_hunter
+  community_leader
+
+  @@map("reputation_badge")
+}
+
+/// D3.24 community flair badges (COMMUNITIES_2.md).
+enum CommunityBadgeKind {
+  founder
+  moderator
+  top_contributor
+  verified_creator
+
+  @@map("community_badge_kind")
+}
+
+enum AchievementState {
+  locked
+  in_progress
+  awarded
+
+  @@map("achievement_state")
+}
+
+enum ConversationKind {
+  direct
+  group
+
+  @@map("conversation_kind")
+}
+
+// Closed F5.2 activity kinds (§14 + F5.2 §6.1). Version 2 "creator" class excluded.
+// D3.21 additive kinds documented in docs/07_SOCIAL/TIMELINE_EVENTS.md.
+enum ActivityKind {
+  review
+  post
+  collection
+  game_log
+  tier_list
+  friend
+  recommendation_slot
+  community
+  event
+  achievement
+  library_import
+  like
+  comment
+  wishlist
+  profile_pin
+  milestone
+  /// D3.23 — docs/10_INTEGRATIONS/API.md
+  library_synced
+  achievement_synced
+  playtime_updated
+  integration_connected
+  integration_disconnected
+
+  @@map("activity_kind")
+}
+
+enum ObjectType {
+  game
+  post
+  review
+  comment
+  collection
+  tier_list
+  user
+  community
+  event
+  achievement
+
+  @@map("object_type")
+}
+
+enum ImportJobStatus {
+  pending
+  awaiting_provider
+  processing
+  needs_resolution
+  completed
+  cancelled
+  failed
+
+  @@map("import_job_status")
+}
+
+enum ImportItemResolution {
+  keep_manual
+  accept_import
+  skip
+
+  @@map("import_item_resolution")
+}
+
+enum AccountLinkPurpose {
+  login
+  connect
+  import
+
+  @@map("account_link_purpose")
+}
+
+enum AccountLinkStatus {
+  pending
+  awaiting_provider
+  completed
+  cancelled
+  failed
+
+  @@map("account_link_status")
+}
+
+enum UploadPurpose {
+  avatar
+  banner
+  post_media
+  message_media
+  community_banner
+
+  @@map("upload_purpose")
+}
+
+enum UploadStatus {
+  granted
+  uploaded
+  confirmed
+  expired
+
+  @@map("upload_status")
+}
+
+enum ReportTargetType {
+  user
+  post
+  review
+  comment
+  community
+  event
+  message
+
+  @@map("report_target_type")
+}
+
+enum ReportStatus {
+  open
+  in_review
+  resolved
+  dismissed
+
+  @@map("report_status")
+}
+
+enum ModerationStatus {
+  open
+  assigned
+  actioned
+  closed
+
+  @@map("moderation_status")
+}
+
+enum NotificationChannel {
+  in_app
+  push
+  email
+
+  @@map("notification_channel")
+}
+
+// F4 / D1.3 ThemePreference — constitutionally defined appearance vocabulary
+// (light/dark/system), mirrored by @gmrlog/ui theme tokens.
+enum ThemePreference {
+  light
+  dark
+  system
+
+  @@map("theme_preference")
+}
+
+// =============================================================================
+// IDENTITY & SETTINGS (S2 §10.1)
+// =============================================================================
+
+model User {
+  id          String    @id @default(cuid())
+  handle      String    @unique
+  displayName String    @map("display_name")
+  bio         String?
+  avatarKey   String?   @map("avatar_key")
+  bannerKey   String?   @map("banner_key")
+  /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
+  avatarBlurhash String? @map("avatar_blurhash")
+  avatarVariants Json?   @map("avatar_variants")
+  bannerBlurhash String? @map("banner_blurhash")
+  bannerVariants Json?   @map("banner_variants")
+  privacyId   String?   @map("privacy_id")
+  /// D3.24 — Creator Profile surface flag (eligibility still deterministic).
+  creatorFeatured Boolean @default(false) @map("creator_featured")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  sessions                Session[]
+  authCredentials         AuthCredential[]
+  connectedAccounts       ConnectedAccount[]
+  settings                UserSettings?
+  notificationPreferences NotificationPreference[]
+  libraryEntries          LibraryEntry[]
+  posts                   Post[]
+  reviews                 Review[]
+  comments                Comment[]
+  reactions               Reaction[]
+  collections             Collection[]
+  tierLists               TierList[]
+  communityMemberships    CommunityMember[]
+  eventParticipations     EventParticipation[]
+  achievementProgress     AchievementProgress[]
+  following               Follow[]                  @relation("UserFollowing")
+  followers               Follow[]                  @relation("UserFollowers")
+  blocksInitiated         Block[]                   @relation("UserBlocking")
+  blocksReceived          Block[]                   @relation("UserBlocked")
+  mutesInitiated          Mute[]                    @relation("UserMuting")
+  mutesReceived           Mute[]                    @relation("UserMuted")
+  friendRequestsSent      FriendRequest[]           @relation("FriendRequestsSent")
+  friendRequestsReceived  FriendRequest[]           @relation("FriendRequestsReceived")
+  friendshipsLow          Friendship[]              @relation("FriendshipUserLow")
+  friendshipsHigh         Friendship[]              @relation("FriendshipUserHigh")
+  presence                UserPresence?
+  archetypes              UserArchetype[]
+  profilePins             ProfilePin[]
+  conversationParticipant ConversationParticipant[]
+  messages                Message[]
+  notifications           Notification[]
+  activityItems           ActivityItem[]
+  feedEntries             FeedEntry[]
+  importJobs              ImportJob[]
+  accountLinks            AccountLink[]
+  uploads                 Upload[]
+  reports                 Report[]
+  moderationAssignments   ModerationCase[]
+  adminActions            AdminActionRecord[]
+  auditLogs               AuditLog[]
+  collectionFollows       CollectionFollower[]
+  userSimilaritiesLow     UserSimilarity[]         @relation("UserSimilarityLow")
+  userSimilaritiesHigh    UserSimilarity[]         @relation("UserSimilarityHigh")
+  integrations            UserIntegration[]
+  externalProfiles        ExternalProfile[]
+  syncJobs                SyncJob[]
+  syncHistories           SyncHistory[]
+  syncConflicts           SyncConflict[]
+  /// D3.24
+  postBookmarks           PostBookmark[]
+  reposts                 Repost[]
+  quotes                  Quote[]
+  pollVotes               PollVote[]
+  reputations             UserReputation[]
+  eventInvitesSent        EventInvite[]             @relation("EventInvitesSent")
+  eventInvitesReceived    EventInvite[]             @relation("EventInvitesReceived")
+  wikiPagesEdited         CommunityWikiPage[]
+
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuthCredential {
+  id          String             @id @default(cuid())
+  userId      String             @map("user_id")
+  type        AuthCredentialType
+  /// Email (password) or OAuth subject — lookup key, not a secret.
+  providerRef String?            @map("provider_ref")
+  /// Password hash for `type=password` only (scrypt). Never returned to clients.
+  secretHash  String?            @map("secret_hash")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([type, providerRef])
+  @@index([userId])
+  @@map("auth_credentials")
+}
+
+model ConnectedAccount {
+  id        String                 @id @default(cuid())
+  userId    String                 @map("user_id")
+  provider  ConnectedProvider
+  status    ConnectedAccountStatus
+  linkedAt  DateTime?              @map("linked_at")
+  scopes    String[]
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("connected_accounts")
+}
+
+model UserSettings {
+  id           String           @id @default(cuid())
+  userId       String           @unique @map("user_id")
+  locale       String?
+  theme        ThemePreference? @map("theme")
+  reduceMotion Boolean          @default(false) @map("reduce_motion")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model NotificationPreference {
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id")
+  channel   NotificationChannel
+  // Closed set not enumerated in S2/§14 — product-governed, promoted to enum on spec.
+  category  String
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, category])
+  @@index([userId])
+  @@map("notification_preferences")
+}
+
+// =============================================================================
+// CATALOG & GAMES (S2 §10.2) — reference data, catalog-managed (no player soft delete).
+// =============================================================================
+
+model Game {
+  id           String    @id @default(cuid())
+  title        String
+  slug         String    @unique
+  coverKey     String?   @map("cover_key")
+  releaseDate  DateTime? @map("release_date")
+  featured     Boolean   @default(false)
+  popularity   Int       @default(0)
+  franchiseId  String?   @map("franchise_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  /// D3.25 — external catalog identity (docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md §3.1).
+  igdbId     Int? @unique @map("igdb_id")
+  steamAppId Int? @unique @map("steam_app_id")
+  rawgId     Int? @unique @map("rawg_id")
+
+  /// D3.25 — descriptive metadata.
+  summary             String? @db.Text
+  description         String? @db.Text
+  heroKey             String? @map("hero_key")
+  trailerUrl          String? @map("trailer_url")
+  externalRating      Float?  @map("external_rating")
+  externalRatingCount Int?    @map("external_rating_count")
+  seriesId            String? @map("series_id")
+
+  /// D3.25 — enrichment lifecycle.
+  metadataStatus      GameMetadataStatus @default(pending) @map("metadata_status")
+  metadataProvider    MetadataProvider?  @map("metadata_provider")
+  metadataConfidence  Float?             @map("metadata_confidence")
+  metadataVersion     Int                @default(0) @map("metadata_version")
+  metadataRefreshedAt DateTime?          @map("metadata_refreshed_at")
+  metadataAttempts    Int                @default(0) @map("metadata_attempts")
+  metadataError       String?            @map("metadata_error")
+
+  /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
+  coverBlurhash String? @map("cover_blurhash")
+  coverVariants Json?   @map("cover_variants")
+  heroBlurhash  String? @map("hero_blurhash")
+  heroVariants  Json?   @map("hero_variants")
+
+  franchise             Franchise?           @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
+  series                GameSeries?          @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  media                 GameMedia[]
+  platforms             GamePlatform[]
+  genres                GameGenre[]
+  tags                  GameTag[]
+  companies             GameCompany[]
+  relatedGames          GameRelatedGame[]    @relation("GameRelatedSource")
+  relatedToGames        GameRelatedGame[]    @relation("GameRelatedTarget")
+  metadataRuns          GameMetadataRun[]
+  libraryEntries        LibraryEntry[]
+  reviews               Review[]
+  posts                 Post[]
+  collectionEntries     CollectionEntry[]
+  tierSlotGames         TierSlotGame[]
+  events                Event[]
+  importItems           ImportItem[]
+  discoveryScore        DiscoveryScore?
+  gameSimilaritiesAsA   GameSimilarity[]     @relation("GameSimilarityA")
+  gameSimilaritiesAsB   GameSimilarity[]     @relation("GameSimilarityB")
+  recommendationSeeds   RecommendationRule[] @relation("RecommendationSeed")
+  recommendationTargets RecommendationRule[] @relation("RecommendationTarget")
+  externalGames         ExternalGame[]
+
+  @@index([title])
+  @@index([featured, popularity, releaseDate])
+  @@index([franchiseId])
+  /// D3.25 — backfill / refresh scan selection.
+  @@index([metadataStatus, metadataAttempts])
+  @@index([metadataRefreshedAt])
+  @@index([seriesId])
+  @@map("games")
+}
+
+/// D3.25 — provider "collection"/series grouping, distinct from Franchise.
+model GameSeries {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  games Game[]
+
+  @@map("game_series")
+}
+
+/// D3.25 — theme / mode / perspective / keyword taxonomy.
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  kind      TagKind  @default(keyword)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  games GameTag[]
+
+  @@index([kind])
+  @@map("tags")
+}
+
+model GameTag {
+  id        String   @id @default(cuid())
+  gameId    String   @map("game_id")
+  tagId     String   @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, tagId])
+  @@index([tagId])
+  @@map("game_tags")
+}
+
+/// D3.25 — developers and publishers.
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  games GameCompany[]
+
+  @@map("companies")
+}
+
+model GameCompany {
+  id        String      @id @default(cuid())
+  gameId    String      @map("game_id")
+  companyId String      @map("company_id")
+  role      CompanyRole
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  game    Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, companyId, role])
+  @@index([companyId, role])
+  @@map("game_companies")
+}
+
+/// D3.25 — provider-declared game relationships. `relatedGameId` stays null
+/// until the referenced external id exists in our catalog.
+model GameRelatedGame {
+  id                String           @id @default(cuid())
+  gameId            String           @map("game_id")
+  relatedGameId     String?          @map("related_game_id")
+  provider          MetadataProvider
+  relatedExternalId String           @map("related_external_id")
+  relatedTitle      String?          @map("related_title")
+  kind              GameRelatedKind  @default(similar)
+  sortOrder         Int              @default(0) @map("sort_order")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  game        Game  @relation("GameRelatedSource", fields: [gameId], references: [id], onDelete: Cascade)
+  relatedGame Game? @relation("GameRelatedTarget", fields: [relatedGameId], references: [id], onDelete: SetNull)
+
+  @@unique([gameId, provider, relatedExternalId, kind])
+  @@index([gameId, kind, sortOrder])
+  @@index([relatedGameId])
+  @@map("game_related_games")
+}
+
+/// D3.25 — one row per enrichment attempt. Observability + coverage reporting.
+model GameMetadataRun {
+  id            String             @id @default(cuid())
+  gameId        String             @map("game_id")
+  provider      MetadataProvider?
+  outcome       MetadataRunOutcome
+  reason        String
+  confidence    Float?
+  fieldsWritten Int                @default(0) @map("fields_written")
+  mediaQueued   Int                @default(0) @map("media_queued")
+  durationMs    Int                @default(0) @map("duration_ms")
+  error         String?
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, createdAt])
+  @@index([outcome, createdAt])
+  @@map("game_metadata_runs")
+}
+
+model Genre {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  games GameGenre[]
+
+  @@map("genres")
+}
+
+model Platform {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  gamePlatforms  GamePlatform[]
+  libraryEntries LibraryEntry[]
+
+  @@map("platforms")
+}
+
+model Franchise {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  games Game[]
+
+  @@map("franchises")
+}
+
+model GameGenre {
+  id        String   @id @default(cuid())
+  gameId    String   @map("game_id")
+  genreId   String   @map("genre_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  game  Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, genreId])
+  @@index([genreId])
+  @@map("game_genres")
+}
+
+model GameMedia {
+  id         String        @id @default(cuid())
+  gameId     String        @map("game_id")
+  kind       GameMediaKind
+  storageKey String        @map("storage_key")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  /// D3.25 — ingestion provenance (docs/18_CATALOG/MEDIA_INGESTION.md).
+  provider  MetadataProvider?
+  sourceUrl String?          @map("source_url")
+  sortOrder Int              @default(0) @map("sort_order")
+  width     Int?
+  height    Int?
+
+  /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
+  blurhash String? @map("blurhash")
+  variants Json?   @map("variants")
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, kind, sourceUrl])
+  @@index([gameId])
+  @@index([gameId, kind, sortOrder])
+  @@index([provider])
+  @@map("game_media")
+}
+
+model GamePlatform {
+  id         String   @id @default(cuid())
+  gameId     String   @map("game_id")
+  platformId String   @map("platform_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  platform Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, platformId])
+  @@index([platformId])
+  @@map("game_platforms")
+}
+
+// =============================================================================
+// LIBRARY (S2 §10.3)
+// =============================================================================
+
+model LibraryEntry {
+  id         String        @id @default(cuid())
+  userId     String        @map("user_id")
+  gameId     String        @map("game_id")
+  status     LibraryStatus
+  source     LibrarySource
+  platformId String?       @map("platform_id")
+  note       String?
+  version    Int           @default(0)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id])
+  game             Game              @relation(fields: [gameId], references: [id])
+  platform         Platform?         @relation(fields: [platformId], references: [id], onDelete: SetNull)
+  logs             GameLog[]
+  wishlistMetadata WishlistMetadata?
+
+  @@unique([userId, gameId])
+  @@index([gameId])
+  @@index([userId, status])
+  @@map("library_entries")
+}
+
+model GameLog {
+  id             String      @id @default(cuid())
+  libraryEntryId String      @map("library_entry_id")
+  kind           GameLogKind
+  occurredAt     DateTime    @map("occurred_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  libraryEntry LibraryEntry @relation(fields: [libraryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([libraryEntryId])
+  @@map("game_logs")
+}
+
+// =============================================================================
+// CONTENT (S2 §10.4)
+// =============================================================================
+
+model Post {
+  id               String            @id @default(cuid())
+  authorId         String            @map("author_id")
+  gameId           String?           @map("game_id")
+  communityId      String?           @map("community_id")
+  body             String
+  visibility       ContentVisibility
+  /// D3.24
+  postKind         PostKind          @default(text) @map("post_kind")
+  containsSpoilers Boolean           @default(false) @map("contains_spoilers")
+  pinnedAt         DateTime?         @map("pinned_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+
+  author    User       @relation(fields: [authorId], references: [id])
+  game      Game?      @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  community Community? @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  media     PostMedia[]
+  bookmarks PostBookmark[]
+  reposts   Repost[]
+  poll      Poll?
+
+  @@index([authorId, createdAt])
+  @@index([gameId])
+  @@index([communityId])
+  @@index([authorId, pinnedAt])
+  @@map("posts")
+}
+
+/// D3.24 — Platform storage refs only (bytes owned by Platform).
+model PostMedia {
+  id        String   @id @default(cuid())
+  postId    String   @map("post_id")
+  uploadKey String   @map("upload_key")
+  kind      String   @default("image")
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
+  blurhash String? @map("blurhash")
+  variants Json?   @map("variants")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, position])
+  @@map("post_media")
+}
+
+/// D3.24 — private bookmarks.
+model PostBookmark {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId, createdAt])
+  @@map("post_bookmarks")
+}
+
+/// D3.24 — amplify without body.
+model Repost {
+  id             String    @id @default(cuid())
+  actorId        String    @map("actor_id")
+  originalPostId String    @map("original_post_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  actor        User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  originalPost Post @relation(fields: [originalPostId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, originalPostId])
+  @@index([originalPostId])
+  @@map("reposts")
+}
+
+/// D3.24 Quote System v2 — multi-target.
+model Quote {
+  id         String          @id @default(cuid())
+  authorId   String          @map("author_id")
+  targetType QuoteTargetType @map("target_type")
+  targetId   String          @map("target_id")
+  body       String
+  visibility ContentVisibility @default(public)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  deletedAt  DateTime?       @map("deleted_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId, createdAt])
+  @@index([targetType, targetId])
+  @@map("quotes")
+}
+
+/// D3.24 polls attached to posts.
+model Poll {
+  id        String    @id @default(cuid())
+  postId    String    @unique @map("post_id")
+  question  String
+  options   String[]
+  endsAt    DateTime? @map("ends_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  post  Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@map("polls")
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  pollId    String   @map("poll_id")
+  userId    String   @map("user_id")
+  optionIndex Int    @map("option_index")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([userId])
+  @@map("poll_votes")
+}
+
+model Review {
+  id               String            @id @default(cuid())
+  authorId         String            @map("author_id")
+  gameId           String            @map("game_id")
+  rating           Int
+  body             String?
+  containsSpoilers Boolean           @default(false) @map("contains_spoilers")
+  visibility       ContentVisibility
+  version          Int               @default(0)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+
+  author User @relation(fields: [authorId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id])
+
+  @@index([authorId, createdAt])
+  @@index([gameId, createdAt])
+  @@map("reviews")
+}
+
+// Comment host is polymorphic (hostType/hostId) — no cross-type FK by design (S2 §10.4).
+model Comment {
+  id              String          @id @default(cuid())
+  authorId        String          @map("author_id")
+  hostType        CommentHostType @map("host_type")
+  hostId          String          @map("host_id")
+  parentCommentId String?         @map("parent_comment_id")
+  body            String
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  deletedAt       DateTime?       @map("deleted_at")
+
+  author  User      @relation(fields: [authorId], references: [id])
+  parent  Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([hostType, hostId, createdAt])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+// Reaction target is polymorphic (targetType/targetId) — no cross-type FK by design.
+model Reaction {
+  id         String             @id @default(cuid())
+  actorId    String             @map("actor_id")
+  targetType ReactionTargetType @map("target_type")
+  targetId   String             @map("target_id")
+  // Closed reaction set not enumerated in S2/§14 — product-governed, promoted to enum on spec.
+  kind       String
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([actorId, targetType, targetId, kind])
+  @@index([targetType, targetId])
+  @@map("reactions")
+}
+
+// =============================================================================
+// CURATION (S2 §10.5)
+// =============================================================================
+
+model Collection {
+  id          String            @id @default(cuid())
+  ownerId     String            @map("owner_id")
+  title       String
+  description String?
+  visibility  ContentVisibility
+  /// D3.22 — docs/09_DISCOVERY/COLLECTION_TYPES.md
+  type        CollectionType    @default(manual)
+  /// Dynamic rule catalog key when type=dynamic.
+  ruleKey     String?           @map("rule_key")
+  bannerKey   String?           @map("banner_key")
+  coverKey    String?           @map("cover_key")
+  color       String?
+  tags        String[]          @default([])
+  version     Int               @default(0)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  owner     User                 @relation(fields: [ownerId], references: [id])
+  entries   CollectionEntry[]
+  followers CollectionFollower[]
+
+  @@index([ownerId])
+  @@index([type])
+  @@map("collections")
+}
+
+model CollectionEntry {
+  id           String   @id @default(cuid())
+  collectionId String   @map("collection_id")
+  gameId       String   @map("game_id")
+  position     Int
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  game       Game       @relation(fields: [gameId], references: [id])
+
+  @@unique([collectionId, gameId])
+  @@index([collectionId, position])
+  @@map("collection_entries")
+}
+
+model TierList {
+  id         String            @id @default(cuid())
+  ownerId    String            @map("owner_id")
+  title      String
+  visibility ContentVisibility
+  version    Int               @default(0)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+  deletedAt  DateTime?         @map("deleted_at")
+
+  owner User       @relation(fields: [ownerId], references: [id])
+  slots TierSlot[]
+
+  @@index([ownerId])
+  @@map("tier_lists")
+}
+
+model TierSlot {
+  id         String   @id @default(cuid())
+  tierListId String   @map("tier_list_id")
+  label      String
+  position   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tierList TierList       @relation(fields: [tierListId], references: [id], onDelete: Cascade)
+  games    TierSlotGame[]
+
+  @@index([tierListId, position])
+  @@map("tier_slots")
+}
+
+model TierSlotGame {
+  id         String   @id @default(cuid())
+  tierSlotId String   @map("tier_slot_id")
+  gameId     String   @map("game_id")
+  position   Int
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tierSlot TierSlot @relation(fields: [tierSlotId], references: [id], onDelete: Cascade)
+  game     Game     @relation(fields: [gameId], references: [id])
+
+  @@unique([tierSlotId, gameId])
+  @@index([tierSlotId, position])
+  @@map("tier_slot_games")
+}
+
+// =============================================================================
+// COMMUNITIES & EVENTS (S2 §10.6)
+// =============================================================================
+
+model Community {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  description String?
+  visibility  ContentVisibility @default(public)
+  /// D3.24
+  joinType    CommunityJoinType @default(public) @map("join_type")
+  tags        String[]          @default([])
+  avatarKey   String?           @map("avatar_key")
+  bannerKey   String?           @map("banner_key")
+  /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
+  avatarBlurhash String?        @map("avatar_blurhash")
+  avatarVariants Json?          @map("avatar_variants")
+  bannerBlurhash String?        @map("banner_blurhash")
+  bannerVariants Json?          @map("banner_variants")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  members    CommunityMember[]
+  activities CommunityActivity[]
+  events     Event[]
+  posts      Post[]
+  wikiPages  CommunityWikiPage[]
+  pins       CommunityPin[]
+  badges     CommunityMemberBadge[]
+
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          String        @id @default(cuid())
+  communityId String        @map("community_id")
+  userId      String        @map("user_id")
+  role        CommunityRole
+  joinedAt    DateTime      @default(now()) @map("joined_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  community Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badges    CommunityMemberBadge[]
+
+  @@unique([communityId, userId])
+  @@index([userId])
+  @@map("community_members")
+}
+
+/// D3.24 community flair (Founder · Moderator · Top Contributor · Verified Creator).
+model CommunityMemberBadge {
+  id        String             @id @default(cuid())
+  memberId  String             @map("member_id")
+  communityId String           @map("community_id")
+  kind      CommunityBadgeKind
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  member    CommunityMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  community Community       @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, kind])
+  @@index([communityId])
+  @@map("community_member_badges")
+}
+
+/// D3.24 community wiki pages.
+model CommunityWikiPage {
+  id          String   @id @default(cuid())
+  communityId String   @map("community_id")
+  slug        String
+  title       String
+  body        String
+  updatedById String   @map("updated_by_id")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  updatedBy User      @relation(fields: [updatedById], references: [id])
+
+  @@unique([communityId, slug])
+  @@index([communityId])
+  @@map("community_wiki_pages")
+}
+
+/// D3.24 community-scoped pins.
+model CommunityPin {
+  id          String   @id @default(cuid())
+  communityId String   @map("community_id")
+  objectType  String   @map("object_type")
+  objectId    String   @map("object_id")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, objectType, objectId])
+  @@index([communityId, position])
+  @@map("community_pins")
+}
+
+model CommunityActivity {
+  id             String   @id @default(cuid())
+  communityId    String   @map("community_id")
+  activityItemId String   @map("activity_item_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  community    Community    @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  activityItem ActivityItem @relation(fields: [activityItemId], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([activityItemId])
+  @@map("community_activities")
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  kind        EventKind
+  description String?
+  startsAt    DateTime  @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  gameId      String?   @map("game_id")
+  communityId String?   @map("community_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  game           Game?                @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  community      Community?           @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  participations EventParticipation[]
+  invites        EventInvite[]
+
+  @@index([gameId])
+  @@index([communityId])
+  @@index([startsAt])
+  @@map("events")
+}
+
+model EventParticipation {
+  id        String                  @id @default(cuid())
+  eventId   String                  @map("event_id")
+  userId    String                  @map("user_id")
+  state     EventParticipationState
+  createdAt DateTime                @default(now()) @map("created_at")
+  updatedAt DateTime                @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_participations")
+}
+
+/// D3.24 — invite friends to event.
+model EventInvite {
+  id         String   @id @default(cuid())
+  eventId    String   @map("event_id")
+  inviterId  String   @map("inviter_id")
+  inviteeId  String   @map("invitee_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  inviter User  @relation("EventInvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User  @relation("EventInvitesReceived", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, inviteeId])
+  @@index([inviteeId])
+  @@map("event_invites")
+}
+
+// =============================================================================
+// ACHIEVEMENTS (S2 §10.7) — GMRLOG-owned achievements only (never Steam).
+// =============================================================================
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String
+  criteriaRef String   @map("criteria_ref")
+  /// D3.21 category taxonomy (docs/07_SOCIAL/ACHIEVEMENT_SYSTEM.md).
+  category    String   @default("milestones")
+  isHidden    Boolean  @default(false) @map("is_hidden")
+  isRare      Boolean  @default(false) @map("is_rare")
+  target      Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  progress AchievementProgress[]
+  externalAchievements ExternalAchievement[]
+
+  @@index([category])
+  @@map("achievements")
+}
+
+model AchievementProgress {
+  id            String           @id @default(cuid())
+  achievementId String           @map("achievement_id")
+  userId        String           @map("user_id")
+  current       Int              @default(0)
+  target        Int
+  state         AchievementState
+  awardedAt     DateTime?        @map("awarded_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([achievementId, userId])
+  @@index([userId])
+  @@map("achievement_progress")
+}
+
+// =============================================================================
+// SOCIAL GRAPH & MESSAGING (S2 §10.8)
+// =============================================================================
+
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String   @map("follower_id")
+  followeeId String   @map("followee_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  follower User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followee User @relation("UserFollowers", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followeeId])
+  @@index([followeeId])
+  @@map("follows")
+}
+
+/// D3.21 — pending/accepted/rejected/cancelled friend requests (SOCIAL_API).
+model FriendRequest {
+  id          String              @id @default(cuid())
+  senderId    String              @map("sender_id")
+  receiverId  String              @map("receiver_id")
+  status      FriendRequestStatus @default(pending)
+  message     String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  respondedAt DateTime?           @map("responded_at")
+
+  sender   User @relation("FriendRequestsSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("FriendRequestsReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, status, createdAt])
+  @@index([senderId, status, createdAt])
+  @@map("friend_requests")
+}
+
+/// D3.21 — accepted friendship edge; canonical userLowId < userHighId ordering.
+model Friendship {
+  id         String   @id @default(cuid())
+  userLowId  String   @map("user_low_id")
+  userHighId String   @map("user_high_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  userLow  User @relation("FriendshipUserLow", fields: [userLowId], references: [id], onDelete: Cascade)
+  userHigh User @relation("FriendshipUserHigh", fields: [userHighId], references: [id], onDelete: Cascade)
+
+  @@unique([userLowId, userHighId])
+  @@index([userHighId])
+  @@map("friendships")
+}
+
+/// D3.21 presence stub — last known status; realtime TTL lives in Redis.
+model UserPresence {
+  userId     String         @id @map("user_id")
+  status     PresenceStatus @default(offline)
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_presence")
+}
+
+/// D3.21 player archetypes — multi-badge, auto-recalculated.
+model UserArchetype {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  archetypeKey String   @map("archetype_key")
+  score        Int      @default(0)
+  awardedAt    DateTime @default(now()) @map("awarded_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, archetypeKey])
+  @@index([archetypeKey])
+  @@map("user_archetypes")
+}
+
+/// D3.21 profile showcase pins.
+model ProfilePin {
+  id        String         @id @default(cuid())
+  userId    String         @map("user_id")
+  kind      ProfilePinKind
+  objectId  String         @map("object_id")
+  position  Int            @default(0)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, objectId])
+  @@index([userId, position])
+  @@map("profile_pins")
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  blocker User @relation("UserBlocking", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+/// D3.24 — soft exclude from viewer feed (SOCIAL_GRAPH.md).
+model Mute {
+  id        String   @id @default(cuid())
+  muterId   String   @map("muter_id")
+  mutedId   String   @map("muted_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  muter User @relation("UserMuting", fields: [muterId], references: [id], onDelete: Cascade)
+  muted User @relation("UserMuted", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@unique([muterId, mutedId])
+  @@index([mutedId])
+  @@map("mutes")
+}
+
+/// D3.24 — behavior-based gaming reputation (never purchased).
+model UserReputation {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  badge     ReputationBadge
+  awardedAt DateTime         @default(now()) @map("awarded_at")
+  evidence  Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badge])
+  @@index([badge])
+  @@map("user_reputations")
+}
+
+model Conversation {
+  id            String           @id @default(cuid())
+  kind          ConversationKind
+  lastMessageAt DateTime?        @map("last_message_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  userId         String    @map("user_id")
+  lastReadAt     DateTime? @map("last_read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  senderId       String    @map("sender_id")
+  body           String
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+// =============================================================================
+// NOTIFICATIONS & ACTIVITY (S2 §10.9)
+// =============================================================================
+
+model Notification {
+  id          String     @id @default(cuid())
+  recipientId String     @map("recipient_id")
+  // Closed notification taxonomy not enumerated in S2/§14 — product-governed.
+  kind        String
+  objectType  ObjectType @map("object_type")
+  objectId    String     @map("object_id")
+  readAt      DateTime?  @map("read_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt])
+  @@map("notifications")
+}
+
+model ActivityItem {
+  id         String       @id @default(cuid())
+  kind       ActivityKind
+  actorId    String?      @map("actor_id")
+  objectType ObjectType   @map("object_type")
+  objectId   String       @map("object_id")
+  occurredAt DateTime     @map("occurred_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  actor               User?               @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  feedEntries         FeedEntry[]
+  communityActivities CommunityActivity[]
+
+  @@index([actorId])
+  @@index([occurredAt])
+  @@map("activity_items")
+}
+
+// Materialized, rebuildable projection row (S2 §8/§10.9) — never a source of truth.
+model FeedEntry {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  activityItemId String   @map("activity_item_id")
+  rank           Int
+  insertedAt     DateTime @default(now()) @map("inserted_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityItem ActivityItem @relation(fields: [activityItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityItemId])
+  @@index([userId, rank])
+  @@map("feed_entries")
+}
+
+// =============================================================================
+// TASKS & INTEGRATION (S2 §10.10)
+// =============================================================================
+
+model ImportJob {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  provider      ConnectedProvider
+  accountLinkId String?           @map("account_link_id")
+  status        ImportJobStatus
+  errorCode     String?           @map("error_code")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id])
+  accountLink AccountLink? @relation(fields: [accountLinkId], references: [id], onDelete: SetNull)
+  items       ImportItem[]
+
+  @@index([userId])
+  @@index([accountLinkId])
+  @@map("import_jobs")
+}
+
+model ImportItem {
+  id          String                @id @default(cuid())
+  importJobId String                @map("import_job_id")
+  externalRef String                @map("external_ref")
+  gameId      String?               @map("game_id")
+  resolution  ImportItemResolution?
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  game      Game?     @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  @@index([importJobId])
+  @@map("import_items")
+}
+
+model AccountLink {
+  id        String             @id @default(cuid())
+  userId    String             @map("user_id")
+  provider  ConnectedProvider
+  purpose   AccountLinkPurpose
+  status    AccountLinkStatus
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  importJobs ImportJob[]
+
+  @@index([userId])
+  @@map("account_links")
+}
+
+model Upload {
+  id         String        @id @default(cuid())
+  ownerId    String        @map("owner_id")
+  purpose    UploadPurpose
+  storageKey String        @map("storage_key")
+  status     UploadStatus
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@index([storageKey])
+  @@index([status, createdAt])
+  @@map("uploads")
+}
+
+model Report {
+  id         String           @id @default(cuid())
+  reporterId String           @map("reporter_id")
+  targetType ReportTargetType @map("target_type")
+  targetId   String           @map("target_id")
+  // Closed moderation reason set not enumerated in S2/§14 — product-governed.
+  reason     String
+  status     ReportStatus
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  reporter       User            @relation(fields: [reporterId], references: [id])
+  moderationCase ModerationCase?
+
+  @@index([reporterId])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+// =============================================================================
+// STAFF & AUDIT (S2 §10.11)
+// =============================================================================
+
+model ModerationCase {
+  id          String           @id @default(cuid())
+  reportId    String?          @unique @map("report_id")
+  subjectType ObjectType       @map("subject_type")
+  subjectId   String           @map("subject_id")
+  status      ModerationStatus
+  assignedTo  String?          @map("assigned_to")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  assignee User?   @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@index([subjectType, subjectId])
+  @@index([status])
+  @@map("moderation_cases")
+}
+
+model AdminActionRecord {
+  id          String     @id @default(cuid())
+  actorId     String     @map("actor_id")
+  // Closed admin action set not enumerated in S2/§14 — product-governed.
+  action      String
+  subjectType ObjectType @map("subject_type")
+  subjectId   String     @map("subject_id")
+  notes       String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([subjectType, subjectId])
+  @@map("admin_action_records")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @map("actor_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  at         DateTime @default(now())
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// DISCOVERY (D3.22 — docs/09_DISCOVERY/*)
+// =============================================================================
+
+model DiscoveryScore {
+  id              String   @id @default(cuid())
+  gameId          String   @unique @map("game_id")
+  trendingScore   Float    @default(0) @map("trending_score")
+  popularityScore Float    @default(0) @map("popularity_score")
+  reviewScore     Float    @default(0) @map("review_score")
+  wishlistScore   Float    @default(0) @map("wishlist_score")
+  completionScore Float    @default(0) @map("completion_score")
+  freshnessScore  Float    @default(0) @map("freshness_score")
+  discoveryScore  Float    @default(0) @map("discovery_score")
+  computedAt      DateTime @default(now()) @map("computed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([discoveryScore])
+  @@index([trendingScore])
+  @@map("discovery_scores")
+}
+
+model GameSimilarity {
+  id        String   @id @default(cuid())
+  gameAId   String   @map("game_a_id")
+  gameBId   String   @map("game_b_id")
+  score     Float
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  gameA Game @relation("GameSimilarityA", fields: [gameAId], references: [id], onDelete: Cascade)
+  gameB Game @relation("GameSimilarityB", fields: [gameBId], references: [id], onDelete: Cascade)
+
+  @@unique([gameAId, gameBId])
+  @@index([gameAId, score])
+  @@index([gameBId, score])
+  @@map("game_similarity")
+}
+
+model UserSimilarity {
+  id        String   @id @default(cuid())
+  userAId   String   @map("user_a_id")
+  userBId   String   @map("user_b_id")
+  score     Float
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  userA User @relation("UserSimilarityLow", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("UserSimilarityHigh", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId, score])
+  @@index([userBId, score])
+  @@map("user_similarity")
+}
+
+model CollectionFollower {
+  id           String   @id @default(cuid())
+  collectionId String   @map("collection_id")
+  userId       String   @map("user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId])
+  @@index([userId])
+  @@map("collection_followers")
+}
+
+model WishlistMetadata {
+  id             String             @id @default(cuid())
+  libraryEntryId String             @unique @map("library_entry_id")
+  priority       WishlistPriority   @default(medium)
+  waitStatus     WishlistWaitStatus @default(none) @map("wait_status")
+  notes          String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  libraryEntry LibraryEntry @relation(fields: [libraryEntryId], references: [id], onDelete: Cascade)
+
+  @@map("wishlist_metadata")
+}
+
+model RecommendationRule {
+  id           String   @id @default(cuid())
+  seedGameId   String   @map("seed_game_id")
+  targetGameId String   @map("target_game_id")
+  weight       Float    @default(1)
+  reasonKey    String   @default("because_you_played") @map("reason_key")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  seedGame   Game @relation("RecommendationSeed", fields: [seedGameId], references: [id], onDelete: Cascade)
+  targetGame Game @relation("RecommendationTarget", fields: [targetGameId], references: [id], onDelete: Cascade)
+
+  @@unique([seedGameId, targetGameId])
+  @@index([seedGameId, isActive])
+  @@map("recommendation_rules")
+}
+
+// =============================================================================
+// INTEGRATIONS (D3.23 — docs/10_INTEGRATIONS/*)
+// =============================================================================
+
+model UserIntegration {
+  id           String              @id @default(cuid())
+  userId       String              @map("user_id")
+  provider     IntegrationProvider
+  externalRef  String              @map("external_ref")
+  displayName  String?             @map("display_name")
+  status       String              @default("connected")
+  syncType     IntegrationSyncType @default(manual) @map("sync_type")
+  lastSyncAt   DateTime?           @map("last_sync_at")
+  connectedAt  DateTime            @default(now()) @map("connected_at")
+  disconnectedAt DateTime?         @map("disconnected_at")
+  metadata     Json?
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalProfile  ExternalProfile?
+  syncJobs         SyncJob[]
+  syncHistories    SyncHistory[]
+  syncConflicts    SyncConflict[]
+  externalGames    ExternalGame[]
+  externalAchievements ExternalAchievement[]
+
+  @@unique([userId, provider])
+  @@index([provider, status])
+  @@map("user_integrations")
+}
+
+model ExternalProfile {
+  id              String              @id @default(cuid())
+  userId          String              @map("user_id")
+  integrationId   String              @unique @map("integration_id")
+  provider        IntegrationProvider
+  externalId      String              @map("external_id")
+  vanityUrl       String?             @map("vanity_url")
+  displayName     String?             @map("display_name")
+  avatarUrl       String?             @map("avatar_url")
+  profileUrl      String?             @map("profile_url")
+  raw             Json?
+  lastSyncAt      DateTime?           @map("last_sync_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration UserIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([userId])
+  @@map("external_profiles")
+}
+
+model ExternalGame {
+  id                String              @id @default(cuid())
+  integrationId     String?             @map("integration_id")
+  provider          IntegrationProvider
+  externalId        String              @map("external_id")
+  title             String?
+  internalGameId    String?             @map("internal_game_id")
+  mappingConfidence Float               @default(0) @map("mapping_confidence")
+  playtimeForeverMin Int?               @map("playtime_forever_min")
+  playtime2WeeksMin  Int?               @map("playtime_2_weeks_min")
+  lastPlayedAt      DateTime?           @map("last_played_at")
+  isHidden          Boolean             @default(false) @map("is_hidden")
+  lastSyncAt        DateTime?           @map("last_sync_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  integration  UserIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  internalGame Game?            @relation(fields: [internalGameId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalId])
+  @@index([internalGameId])
+  @@index([integrationId])
+  @@map("external_games")
+}
+
+model ExternalAchievement {
+  id                 String              @id @default(cuid())
+  integrationId      String              @map("integration_id")
+  provider           IntegrationProvider
+  externalId         String              @map("external_id")
+  title              String?
+  description        String?
+  internalAchievementId String?          @map("internal_achievement_id")
+  unlocked           Boolean             @default(false)
+  unlockedAt         DateTime?           @map("unlocked_at")
+  progressCurrent    Int?                @map("progress_current")
+  progressTarget     Int?                @map("progress_target")
+  lastSyncAt         DateTime?           @map("last_sync_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  integration         UserIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  internalAchievement Achievement?    @relation(fields: [internalAchievementId], references: [id], onDelete: SetNull)
+
+  @@unique([integrationId, externalId])
+  @@index([internalAchievementId])
+  @@map("external_achievements")
+}
+
+model SyncJob {
+  id             String              @id @default(cuid())
+  userId         String              @map("user_id")
+  integrationId  String?             @map("integration_id")
+  provider       IntegrationProvider
+  syncType       IntegrationSyncType @map("sync_type")
+  status         SyncJobStatus       @default(pending)
+  errorCode      String?             @map("error_code")
+  attemptCount   Int                 @default(0) @map("attempt_count")
+  bullJobId      String?             @map("bull_job_id")
+  startedAt      DateTime?           @map("started_at")
+  finishedAt     DateTime?           @map("finished_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration UserIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  history     SyncHistory?
+  conflicts   SyncConflict[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("sync_jobs")
+}
+
+model SyncHistory {
+  id            String              @id @default(cuid())
+  userId        String              @map("user_id")
+  integrationId String?             @map("integration_id")
+  syncJobId     String              @unique @map("sync_job_id")
+  provider      IntegrationProvider
+  syncType      IntegrationSyncType @map("sync_type")
+  status        SyncJobStatus
+  startedAt     DateTime            @map("started_at")
+  finishedAt    DateTime?           @map("finished_at")
+  durationMs    Int?                @map("duration_ms")
+  importedCount Int                 @default(0) @map("imported_count")
+  updatedCount  Int                 @default(0) @map("updated_count")
+  skippedCount  Int                 @default(0) @map("skipped_count")
+  failedCount   Int                 @default(0) @map("failed_count")
+  warningCount  Int                 @default(0) @map("warning_count")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration UserIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  syncJob     SyncJob          @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("sync_history")
+}
+
+model SyncConflict {
+  id             String                  @id @default(cuid())
+  userId         String                  @map("user_id")
+  integrationId  String?                 @map("integration_id")
+  syncJobId      String?                 @map("sync_job_id")
+  externalGameId String?                 @map("external_game_id")
+  internalGameId String?                 @map("internal_game_id")
+  kind           String                  @default("conflict")
+  resolution     SyncConflictResolution? 
+  resolvedAt     DateTime?               @map("resolved_at")
+  localSnapshot  Json?                   @map("local_snapshot")
+  remoteSnapshot Json?                   @map("remote_snapshot")
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration UserIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  syncJob     SyncJob?         @relation(fields: [syncJobId], references: [id], onDelete: SetNull)
+
+  @@index([userId, resolvedAt])
+  @@index([syncJobId])
+  @@map("sync_conflicts")
+}

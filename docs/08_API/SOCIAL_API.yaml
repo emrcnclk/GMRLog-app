@@ -1,0 +1,2738 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Social API
+  version: 1.0.0
+  description: |
+    Social graph, activity feed, follow system, presence and reactions.
+
+    Canonical owner for follow, block, mute, friends, activity, presence,
+    reactions, share and report actions.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Social
+    description: Social graph and activity
+  - name: Communities
+    description: Communities 2.0 — wiki · pins · badges · feed tabs (D3.24)
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Feed
+  ################################################################################
+
+  /feed:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Home feed
+
+      operationId: getHomeFeed
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Home feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /feed/discover:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Discover feed
+
+      operationId: getDiscoverFeed
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Discover feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+  /feed/following:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Following feed
+
+      operationId: getFollowingFeed
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Following feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /feed/reviews:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Review feed slices
+
+      operationId: getReviewFeed
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: slice
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum: [latest, friends, popular, negative, hidden_gems]
+
+            default: latest
+
+      responses:
+
+        "200":
+
+          description: Review feed page
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /feed/trending:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Trending feed
+
+      operationId: getTrendingFeed
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Trending feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+  ################################################################################
+  # User Recommendations
+  ################################################################################
+
+
+  ################################################################################
+  # Relationship
+  ################################################################################
+
+  /users/{userId}/relationship:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Get relationship with another user
+
+      description: |
+        Returns the complete social relationship between the authenticated user
+        and the target user in a single request.
+
+      operationId: getRelationship
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Relationship state
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserRelationship'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Friend Requests
+  ################################################################################
+
+  /users/{userId}/friend-request:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Send friend request
+
+      operationId: sendFriendRequest
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "201":
+
+          description: Friend request created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FriendRequest'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /users/friend-requests:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Incoming friend requests
+
+      operationId: getIncomingFriendRequests
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Friend requests
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FriendRequestPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/friend-requests/{requestId}/accept:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Accept friend request
+
+      operationId: acceptFriendRequest
+
+      parameters:
+
+        - $ref: '#/components/parameters/RequestId'
+
+      responses:
+
+        "204":
+
+          description: Friend request accepted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/friend-requests/{requestId}/reject:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Reject friend request
+
+      operationId: rejectFriendRequest
+
+      parameters:
+
+        - $ref: '#/components/parameters/RequestId'
+
+      responses:
+
+        "204":
+
+          description: Friend request rejected
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /friends:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: List friends
+
+      operationId: getFriends
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Friends list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/{userId}/friend:
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Remove friend
+
+      operationId: removeFriend
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Friend removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/me/blocked:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Get blocked users
+
+      operationId: getBlockedUsers
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Blocked users
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/recommended:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Recommended users
+
+      operationId: recommendedUsers
+
+      responses:
+
+        "200":
+
+          description: Recommended users
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserRecommendationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/trending:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Trending users
+
+      operationId: trendingUsers
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Trending users
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+  ################################################################################
+  # Following
+  ################################################################################
+
+  /users/{userId}/follow:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Follow user
+
+      operationId: followUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Followed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Unfollow user
+
+      operationId: unfollowUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Unfollowed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Followers
+  ################################################################################
+
+  /users/{userId}/followers:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Followers
+
+      operationId: getFollowers
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Followers
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/{userId}/following:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Following
+
+      operationId: getFollowing
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Following
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Blocks
+  ################################################################################
+
+  /users/{userId}/block:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Block user
+
+      operationId: blockUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Blocked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Unblock user
+
+      operationId: unblockUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Unblocked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Mute
+  ################################################################################
+
+  /users/{userId}/mute:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Mute user
+
+      operationId: muteUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Muted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Unmute user
+
+      operationId: unmuteUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Unmuted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Activity
+  ################################################################################
+
+  /users/{userId}/activity:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Activity timeline
+
+      operationId: getUserActivity
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Activity timeline
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Mutual Friends
+  ################################################################################
+
+  /users/{userId}/mutual:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Mutual friends
+
+      operationId: getMutualFriends
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Mutual friends
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserCursorPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # User Presence
+  ################################################################################
+
+  /users/{userId}/presence:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: User presence
+
+      operationId: getUserPresence
+
+      security: []
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: User presence
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Presence'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Reactions
+  ################################################################################
+
+  /reactions:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Create reaction
+
+      operationId: createReaction
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateReactionRequest'
+
+      responses:
+
+        "201":
+
+          description: Reaction created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Reaction'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Remove reaction
+
+      operationId: deleteReaction
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/DeleteReactionRequest'
+
+      responses:
+
+        "204":
+
+          description: Reaction removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Share
+  ################################################################################
+
+  /share:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Share entity
+
+      operationId: shareContent
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ShareContentRequest'
+
+      responses:
+
+        "200":
+
+          description: Share link
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ShareContentResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Report
+  ################################################################################
+
+  /reports:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Report content
+
+      operationId: reportContent
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReportRequest'
+
+      responses:
+
+        "202":
+
+          description: Report submitted
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Quotes (D3.24)
+  ################################################################################
+
+  /quotes:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Create a quote of a culture object
+
+      operationId: createQuote
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              required: [targetType, targetId, body]
+
+              properties:
+
+                targetType:
+
+                  type: string
+
+                  enum: [post, review, comment, collection, guide, screenshot, tier_list]
+
+                targetId:
+
+                  type: string
+
+                body:
+
+                  type: string
+
+                  minLength: 1
+
+                  maxLength: 5000
+
+                visibility:
+
+                  type: string
+
+                  enum: [public, followers, private]
+
+      responses:
+
+        "201":
+
+          description: Quote created
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Online Friends
+  ################################################################################
+
+  /friends/online:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Online friends
+
+      operationId: getOnlineFriends
+
+      responses:
+
+        "200":
+
+          description: Online friends
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/OnlineFriendsPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Friend Activity
+  ################################################################################
+
+  /friends/activity:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Friends activity
+
+      operationId: getFriendActivity
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Friends activity
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FeedPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Friend Suggestions
+  ################################################################################
+
+  /friends/suggestions:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Friend suggestions
+
+      operationId: friendSuggestions
+
+      responses:
+
+        "200":
+
+          description: Friend suggestions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserRecommendationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Invite
+  ################################################################################
+
+  /friends/invite:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Invite friend
+
+      operationId: inviteFriend
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/InviteFriendRequest'
+
+      responses:
+
+        "202":
+
+          description: Invitation sent
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Presence
+  ################################################################################
+
+  /presence:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: My presence
+
+      operationId: getPresence
+
+      responses:
+
+        "200":
+
+          description: My presence
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Presence'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    patch:
+
+      tags:
+        - Social
+
+      summary: Update presence
+
+      operationId: updatePresence
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdatePresenceRequest'
+
+      responses:
+
+        "200":
+
+          description: Presence updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Presence'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Events (D3.24 EVENTS_V2 — LFG RSVP · invite)
+  ################################################################################
+
+  /events/{id}:
+
+    get:
+
+      tags:
+        - Social
+
+      summary: Get event detail
+
+      operationId: getEvent
+
+      security: []
+
+      parameters:
+
+        - name: id
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Event detail
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Event'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /events/{id}/participation:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Join event as going
+
+      operationId: joinEvent
+
+      parameters:
+
+        - name: id
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              additionalProperties: false
+
+      responses:
+
+        "204":
+
+          description: Joined
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+    delete:
+
+      tags:
+        - Social
+
+      summary: Leave event
+
+      operationId: leaveEvent
+
+      parameters:
+
+        - name: id
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      responses:
+
+        "204":
+
+          description: Left
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /events/{id}/rsvp:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Upsert event RSVP (LFG states)
+
+      operationId: rsvpEvent
+
+      parameters:
+
+        - name: id
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/EventRsvpRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated event with viewer participation
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Event'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /events/{id}/invite:
+
+    post:
+
+      tags:
+        - Social
+
+      summary: Invite friends to event
+
+      operationId: inviteToEvent
+
+      parameters:
+
+        - name: id
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/EventInviteRequest'
+
+      responses:
+
+        "204":
+
+          description: Invites created
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Communities 2.0 (D3.24)
+  ################################################################################
+
+  /communities/{id}/wiki:
+
+    get:
+
+      tags:
+        - Communities
+
+      summary: List community wiki pages
+
+      operationId: listCommunityWikiPages
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Wiki page list
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /communities/{id}/wiki/{slug}:
+
+    get:
+
+      tags:
+        - Communities
+
+      summary: Get community wiki page
+
+      operationId: getCommunityWikiPage
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Wiki page
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    put:
+
+      tags:
+        - Communities
+
+      summary: Upsert community wiki page
+
+      operationId: upsertCommunityWikiPage
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              required: [title, body]
+
+              properties:
+
+                title:
+                  type: string
+
+                body:
+                  type: string
+
+      responses:
+
+        "200":
+
+          description: Upserted wiki page
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /communities/{id}/pins:
+
+    get:
+
+      tags:
+        - Communities
+
+      summary: List community pins
+
+      operationId: listCommunityPins
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Pin list
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Communities
+
+      summary: Create community pin
+
+      operationId: createCommunityPin
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              required: [objectType, objectId]
+
+              properties:
+
+                objectType:
+                  type: string
+                  enum: [post, review, event, wiki_page]
+
+                objectId:
+                  type: string
+
+      responses:
+
+        "200":
+
+          description: Created pin
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /communities/{id}/pins/{pinId}:
+
+    delete:
+
+      tags:
+        - Communities
+
+      summary: Delete community pin
+
+      operationId: deleteCommunityPin
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+        - name: pinId
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "204":
+
+          description: Pin deleted
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /communities/{id}/badges:
+
+    get:
+
+      tags:
+        - Communities
+
+      summary: List community member badges
+
+      operationId: listCommunityBadges
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Badge list
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /communities/{id}/feed:
+
+    get:
+
+      tags:
+        - Communities
+
+      summary: Community feed (optional tab filter)
+
+      operationId: getCommunityFeed
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+        - name: tab
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [posts, reviews, collections, guides, events, pinned]
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Community feed page
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /communities/{id}/members/{userId}:
+
+    patch:
+
+      tags:
+        - Communities
+
+      summary: Update community member role
+
+      operationId: updateCommunityMemberRole
+
+      parameters:
+
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              type: object
+
+              required: [role]
+
+              properties:
+
+                role:
+                  type: string
+                  enum: [member, moderator, admin]
+
+      responses:
+
+        "200":
+
+          description: Updated member
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  parameters:
+
+    RequestId:
+
+      name: requestId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  schemas:
+
+    FeedItemType:
+
+      type: string
+
+      enum:
+        - REVIEW_CREATED
+        - REVIEW_UPDATED
+        - REVIEW_LIKED
+        - REVIEW_COMMENTED
+        - REVIEW_SHARED
+        - GAME_STARTED
+        - GAME_COMPLETED
+        - GAME_DROPPED
+        - GAME_REPLAYED
+        - GAME_LOG_CREATED
+        - ACHIEVEMENT_UNLOCKED
+        - SCREENSHOT_UPLOADED
+        - VIDEO_UPLOADED
+        - COLLECTION_CREATED
+        - COLLECTION_UPDATED
+        - LIST_CREATED
+        - LIST_UPDATED
+        - TIERLIST_CREATED
+        - FOLLOWED_USER
+        - BADGE_UNLOCKED
+        - LEVEL_UP
+        - PROFILE_UPDATED
+
+    FeedItem:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          $ref: '#/components/schemas/FeedItemType'
+
+        actor:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        targetId:
+
+          type: string
+
+        targetType:
+
+          type: string
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+    FeedPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/FeedItem'
+
+
+    UserCursorPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+
+    UserRecommendation:
+
+      type: object
+
+      properties:
+
+        user:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        score:
+
+          type: number
+
+        reason:
+
+          type: string
+
+    UserRecommendationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/UserRecommendation'
+
+
+    Presence:
+
+      type: object
+
+      properties:
+
+        status:
+
+          type: string
+
+          enum:
+            - ONLINE
+            - IDLE
+            - DO_NOT_DISTURB
+            - OFFLINE
+
+        currentGame:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        startedAt:
+
+          type: string
+
+          format: date-time
+
+    UpdatePresenceRequest:
+
+      type: object
+
+      properties:
+
+        status:
+
+          type: string
+
+          enum:
+            - ONLINE
+            - IDLE
+            - DO_NOT_DISTURB
+            - OFFLINE
+
+        currentGameId:
+
+          type: string
+
+          format: uuid
+
+    ReactionType:
+
+      type: string
+
+      enum:
+        - LOVE
+        - FIRE
+        - RELATABLE
+        - INSIGHTFUL
+        - FUNNY
+        - HELPFUL
+        - SURPRISED
+        - EMOTIONAL
+
+    Reaction:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        emoji:
+
+          type: string
+
+        type:
+
+          $ref: '#/components/schemas/ReactionType'
+
+        user:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+    CreateReactionRequest:
+
+      type: object
+
+      required:
+
+        - entityId
+        - entityType
+        - type
+
+      properties:
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+          enum:
+            - REVIEW
+            - COMMENT
+            - POST
+            - LIST
+            - COLLECTION
+            - TIERLIST
+
+        type:
+
+          $ref: '#/components/schemas/ReactionType'
+
+    DeleteReactionRequest:
+
+      type: object
+
+      required:
+
+        - entityId
+        - entityType
+
+      properties:
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+    ShareContentRequest:
+
+      type: object
+
+      required:
+
+        - entityId
+        - entityType
+
+      properties:
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+          enum:
+            - REVIEW
+            - LIST
+            - COLLECTION
+            - TIERLIST
+            - PROFILE
+            - GAME
+
+    ShareContentResponse:
+
+      type: object
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+    ReportRequest:
+
+      type: object
+
+      required:
+
+        - entityId
+        - entityType
+        - reason
+
+      properties:
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+          enum:
+            - REVIEW
+            - COMMENT
+            - USER
+            - LIST
+            - COLLECTION
+            - TIERLIST
+            - POST
+
+        reason:
+
+          type: string
+
+          enum:
+            - SPAM
+            - HATE
+            - NSFW
+            - HARASSMENT
+            - COPYRIGHT
+            - OTHER
+
+        details:
+
+          type: string
+
+    OnlineFriend:
+
+      type: object
+
+      properties:
+
+        user:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        presence:
+
+          $ref: '#/components/schemas/Presence'
+
+    OnlineFriendsPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/OnlineFriend'
+
+
+    InviteFriendRequest:
+
+      type: object
+
+      required:
+
+        - userId
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        message:
+
+          type: string
+
+
+    UserRelationship:
+
+      type: object
+
+      properties:
+
+        isFollowing:
+
+          type: boolean
+
+        followsYou:
+
+          type: boolean
+
+        isFriend:
+
+          type: boolean
+
+        requestSent:
+
+          type: boolean
+
+        requestReceived:
+
+          type: boolean
+
+        isBlocked:
+
+          type: boolean
+
+        blockedBy:
+
+          type: boolean
+
+        mutualFriends:
+
+          type: integer
+
+        mutualGames:
+
+          type: integer
+
+        mutualReviews:
+
+          type: integer
+
+        mutualCollections:
+
+          type: integer
+
+    FriendRequest:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        sender:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        receiver:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    FriendRequestPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/FriendRequest'
+
+    EventParticipationState:
+
+      type: string
+
+      enum:
+        - interested
+        - going
+        - not_going
+        - looking_for_team
+        - need_players
+        - hosting
+
+    EventParticipationSummary:
+
+      type: object
+
+      required:
+        - state
+        - createdAt
+
+      properties:
+
+        state:
+
+          $ref: '#/components/schemas/EventParticipationState'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    Event:
+
+      type: object
+
+      required:
+        - id
+        - title
+        - kind
+        - startsAt
+        - endsAt
+        - viewerParticipation
+
+      properties:
+
+        id:
+
+          type: string
+
+        title:
+
+          type: string
+
+        kind:
+
+          type: string
+
+        startsAt:
+
+          type: string
+
+          format: date-time
+
+        endsAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        viewerParticipation:
+
+          allOf:
+            - $ref: '#/components/schemas/EventParticipationSummary'
+
+          nullable: true
+
+        gameId:
+
+          type: string
+
+        communityId:
+
+          type: string
+
+    EventRsvpRequest:
+
+      type: object
+
+      additionalProperties: false
+
+      required:
+        - state
+
+      properties:
+
+        state:
+
+          $ref: '#/components/schemas/EventParticipationState'
+
+    EventInviteRequest:
+
+      type: object
+
+      additionalProperties: false
+
+      required:
+        - userIds
+
+      properties:
+
+        userIds:
+
+          type: array
+
+          minItems: 1
+
+          maxItems: 20
+
+          items:
+
+            type: string
+
+x-tagGroups:
+
+  - name: Social
+
+    tags:
+
+      - Social
+
+      - Communities
+
+################################################################################
+# File End — SOCIAL_API.yaml
+################################################################################

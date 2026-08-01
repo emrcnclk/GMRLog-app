@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest';
+
+import { makeActivityItem } from '../../activity/testing/fake-repositories';
+import { makeCommunity, makeCommunityMember } from '../testing/fake-repositories';
+import { makeUser } from '../../users/testing/fake-repositories';
+
+import {
+  canViewerReadCommunity,
+  toCommunityFeedItemResponse,
+  toCommunityMemberResponse,
+  toCommunityMembershipSummary,
+  toCommunityResponse,
+  toUserPublicResponse,
+} from './community.mapper';
+
+describe('community.mapper', () => {
+  const user = makeUser({ id: 'user-1', handle: 'player', displayName: 'Player' });
+  const community = makeCommunity({
+    id: 'community-1',
+    name: 'Culture Club',
+    description: 'A place',
+    visibility: 'followers',
+  });
+  const member = makeCommunityMember({
+    communityId: 'community-1',
+    userId: 'user-1',
+    role: 'member',
+    joinedAt: new Date('2026-01-01T00:00:00.000Z'),
+  });
+
+  it('projects community and member responses', () => {
+    expect(toUserPublicResponse(user)).toMatchObject({
+      id: 'user-1',
+      handle: 'player',
+      displayName: 'Player',
+    });
+    expect(toCommunityMembershipSummary(member)).toMatchObject({
+      role: 'member',
+      joinedAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(toCommunityResponse(community, 3, null)).toMatchObject({
+      id: 'community-1',
+      name: 'Culture Club',
+      counts: { members: 3 },
+      viewerMembership: null,
+    });
+    expect(toCommunityMemberResponse(member, user).user.handle).toBe('player');
+    expect(toCommunityMemberResponse(member, user).badges).toEqual([]);
+  });
+
+  it('applies community visibility rules', () => {
+    expect(canViewerReadCommunity('public', 'owner-1', null, false)).toBe(true);
+    expect(canViewerReadCommunity('private', 'owner-1', null, false)).toBe(false);
+    expect(canViewerReadCommunity('followers', 'owner-1', 'viewer-1', false, true)).toBe(true);
+    expect(canViewerReadCommunity('followers', 'owner-1', 'viewer-1', false, false)).toBe(false);
+    expect(canViewerReadCommunity('private', 'owner-1', 'owner-1', false)).toBe(true);
+    expect(canViewerReadCommunity('private', 'owner-1', 'viewer-1', true)).toBe(true);
+  });
+
+  it('maps community feed rows', () => {
+    const row = {
+      communityActivityId: 'ca-1',
+      activityItem: makeActivityItem({
+        id: 'activity-1',
+        kind: 'post',
+        objectType: 'post',
+        objectId: 'post-1',
+        occurredAt: new Date('2026-01-02T00:00:00.000Z'),
+      }),
+      actor: user,
+    };
+    expect(toCommunityFeedItemResponse(row)).toMatchObject({
+      id: 'ca-1',
+      kind: 'post',
+      object: { type: 'post', id: 'post-1' },
+      projection: null,
+    });
+  });
+});

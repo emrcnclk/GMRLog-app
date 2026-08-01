@@ -1,0 +1,11 @@
+/**
+ * DI tokens binding the comment domain to `@gmrlog/database` repository
+ * implementations (F6.3).
+ */
+export const COMMENT_REPOSITORY = Symbol('COMMENT_REPOSITORY');
+export const COMMENT_USER_REPOSITORY = Symbol('COMMENT_USER_REPOSITORY');
+export const COMMENT_POST_REPOSITORY = Symbol('COMMENT_POST_REPOSITORY');
+export const COMMENT_REVIEW_REPOSITORY = Symbol('COMMENT_REVIEW_REPOSITORY');
+export const COMMENT_COLLECTION_REPOSITORY = Symbol('COMMENT_COLLECTION_REPOSITORY');
+export const COMMENT_TIER_LIST_REPOSITORY = Symbol('COMMENT_TIER_LIST_REPOSITORY');
+export const COMMENT_NOTIFICATION_REPOSITORY = Symbol('COMMENT_NOTIFICATION_REPOSITORY');

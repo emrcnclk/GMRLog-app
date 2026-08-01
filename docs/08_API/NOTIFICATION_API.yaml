@@ -1,0 +1,1073 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Notification API
+  version: 1.0.0
+  description: |
+    Production OpenAPI contract for the GMRLOG **Notifications Platform**
+    (Activity Center).
+
+    **Notification Platform Freeze v1.0** (Sprint 10.0). Normative decisions:
+    Notifications is never a source of truth; event-driven create only;
+    preference dual-model (coarse booleans + type×channel worker SoT);
+    recipient-only AuthZ (deny → 404); IN_APP first; no Push/Email **send**
+    and no realtime in sprints 10.1–10.3. See
+    `docs/00_PROJECT/NOTIFICATION_PLATFORM_FREEZE_v1.md`.
+
+    Canonical owner for inbox read/archive state, badge count, preferences,
+    and (later) push token registration / delivery queue.
+
+    It does **not** own Review, Game, User, Social, or Communication aggregates.
+
+    ## Sprint 10.1 normative slice (implement ONLY these)
+
+    Operations tagged `x-gmrlog-sprint: '10.1'` and **not** `x-gmrlog-status: future`:
+    list/unread/count, mark read (one/all), get one, archive, list archived, delete.
+
+    Preferences GET/PATCH are already live (pre–10.1).
+
+    ## Explicit non-goals until later sprints
+
+    Push vendor send, email template send, WebSocket badge stream, test spam in
+    production, Communication message notification types, FRIEND_ONLINE.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Notifications
+    description: Notification center and delivery
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Notifications
+  ################################################################################
+
+  /notifications:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Get notifications
+
+      operationId: getNotifications
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: type
+
+          in: query
+
+          required: false
+
+          description: Filter by notification type
+
+          schema:
+
+            $ref: '#/components/schemas/NotificationType'
+
+        - name: read
+
+          in: query
+
+          required: false
+
+          description: Filter by read state
+
+          schema:
+
+            type: boolean
+
+      responses:
+
+        "200":
+
+          description: Notification page
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/NotificationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /notifications/read:
+
+    patch:
+
+      tags:
+        - Notifications
+
+      summary: Mark all as read
+
+      operationId: markAllNotificationsRead
+
+      x-gmrlog-sprint: '10.1'
+
+      responses:
+
+        "200":
+
+          description: All notifications marked as read
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MarkAllReadResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /notifications/unread:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Unread notifications
+
+      operationId: unreadNotifications
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Unread notifications
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/NotificationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /notifications/unread/count:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Unread notification count
+
+      operationId: getUnreadNotificationCount
+
+      x-gmrlog-sprint: '10.1'
+
+      responses:
+
+        "200":
+
+          description: Unread count
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UnreadCount'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Preferences
+  ################################################################################
+
+  /notifications/preferences:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Notification preferences
+
+      operationId: notificationPreferences
+
+      x-gmrlog-sprint: '10.0'
+
+      x-gmrlog-status: implemented
+
+      responses:
+
+        "200":
+
+          description: Notification preferences
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/NotificationPreferences'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    patch:
+
+      tags:
+        - Notifications
+
+      summary: Update preferences
+
+      operationId: updateNotificationPreferences
+
+      x-gmrlog-sprint: '10.0'
+
+      x-gmrlog-status: implemented
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateNotificationPreferencesRequest'
+
+      responses:
+
+        "200":
+
+          description: Preferences updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/NotificationPreferences'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Push Tokens
+  ################################################################################
+
+  /notifications/push-tokens:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Device tokens
+
+      operationId: getPushTokens
+
+      x-gmrlog-sprint: '10.4'
+
+      x-gmrlog-status: future
+
+      responses:
+
+        "200":
+
+          description: Registered push tokens
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PushTokenPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Notifications
+
+      summary: Register push token
+
+      operationId: registerPushToken
+
+      description: |
+        Register a device push token. Sprint 10.4 — registration only.
+        Vendor push **send** is out of Freeze v1 implementation sprints.
+
+      x-gmrlog-sprint: '10.4'
+
+      x-gmrlog-status: future
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/RegisterPushTokenRequest'
+
+      responses:
+
+        "201":
+
+          description: Push token registered
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PushToken'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /notifications/push-tokens/{tokenId}:
+
+    delete:
+
+      tags:
+        - Notifications
+
+      summary: Delete push token
+
+      operationId: deletePushToken
+
+      x-gmrlog-sprint: '10.4'
+
+      x-gmrlog-status: future
+
+      parameters:
+
+        - $ref: '#/components/parameters/TokenId'
+
+      responses:
+
+        "204":
+
+          description: Push token deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Test Notification
+  ################################################################################
+
+  /notifications/test:
+
+    post:
+
+      tags:
+        - Notifications
+
+      summary: Send test notification
+
+      operationId: sendTestNotification
+
+      description: |
+        Staging/dev or admin-gated only. Not part of Sprint 10.1–10.3.
+        Must not enable unrestricted production self-spam.
+
+      x-gmrlog-sprint: '10.4'
+
+      x-gmrlog-status: future
+
+      requestBody:
+
+        required: false
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/SendTestNotificationRequest'
+
+      responses:
+
+        "202":
+
+          description: Test notification queued
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  ################################################################################
+  # Notification Center
+  ################################################################################
+
+  /notifications/archive:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Archived notifications
+
+      operationId: archivedNotifications
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Archived notifications
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/NotificationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Notification Detail
+  ################################################################################
+
+  /notifications/{notificationId}:
+
+    get:
+
+      tags:
+        - Notifications
+
+      summary: Get notification
+
+      operationId: getNotification
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/NotificationId'
+
+      responses:
+
+        "200":
+
+          description: Notification detail
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Notification'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Notifications
+
+      summary: Delete notification
+
+      operationId: deleteNotification
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/NotificationId'
+
+      responses:
+
+        "204":
+
+          description: Notification deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /notifications/{notificationId}/read:
+
+    patch:
+
+      tags:
+        - Notifications
+
+      summary: Mark notification as read
+
+      operationId: markNotificationRead
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/NotificationId'
+
+      responses:
+
+        "200":
+
+          description: Notification marked as read
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Notification'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /notifications/{notificationId}/archive:
+
+    patch:
+
+      tags:
+        - Notifications
+
+      summary: Archive notification
+
+      operationId: archiveNotification
+
+      x-gmrlog-sprint: '10.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/NotificationId'
+
+      responses:
+
+        "200":
+
+          description: Notification archived
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Notification'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    NotificationId:
+
+      name: notificationId
+
+      in: path
+
+      required: true
+
+      description: Notification UUID
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    TokenId:
+
+      name: tokenId
+
+      in: path
+
+      required: true
+
+      description: Push token UUID
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    NotificationType:
+
+      type: string
+
+      enum:
+        - FOLLOW
+        - FOLLOW_REQUEST
+        - REVIEW_LIKE
+        - REVIEW_COMMENT
+        - REVIEW_REPLY
+        - REVIEW_MENTION
+        - REVIEW_FEATURED
+        - GAME_RELEASE
+        - GAME_DISCOUNT
+        - GAME_UPDATE
+        - GAME_REMINDER
+        - GAME_COMPLETED
+        - ACHIEVEMENT_UNLOCKED
+        - LEVEL_UP
+        - BADGE_UNLOCKED
+        - COLLECTION_LIKE
+        - COLLECTION_FOLLOW
+        - COLLECTION_COMMENT
+        - LIST_LIKE
+        - LIST_COMMENT
+        - TIERLIST_LIKE
+        - TIERLIST_COMMENT
+        - FRIEND_ONLINE
+        - ADMIN_MESSAGE
+        - SYSTEM
+
+    Notification:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          $ref: '#/components/schemas/NotificationType'
+
+        actor:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        title:
+
+          type: string
+
+        body:
+
+          type: string
+
+        image:
+
+          type: string
+
+          format: uri
+
+        actionUrl:
+
+          type: string
+
+          format: uri
+
+        entityId:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+        read:
+
+          type: boolean
+
+        archived:
+
+          type: boolean
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    NotificationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Notification'
+
+
+    UnreadCount:
+
+      type: object
+
+      properties:
+
+        count:
+
+          type: integer
+
+    MarkAllReadResponse:
+
+      type: object
+
+      properties:
+
+        markedCount:
+
+          type: integer
+
+    NotificationPreferences:
+
+      type: object
+
+      properties:
+
+        push:
+
+          type: boolean
+
+        email:
+
+          type: boolean
+
+        desktop:
+
+          type: boolean
+
+        marketing:
+
+          type: boolean
+
+        achievements:
+
+          type: boolean
+
+        follows:
+
+          type: boolean
+
+        comments:
+
+          type: boolean
+
+        likes:
+
+          type: boolean
+
+        mentions:
+
+          type: boolean
+
+        recommendations:
+
+          type: boolean
+
+        collections:
+
+          type: boolean
+
+        lists:
+
+          type: boolean
+
+        tierLists:
+
+          type: boolean
+
+    UpdateNotificationPreferencesRequest:
+
+      type: object
+
+      properties:
+
+        push:
+
+          type: boolean
+
+        email:
+
+          type: boolean
+
+        desktop:
+
+          type: boolean
+
+        marketing:
+
+          type: boolean
+
+        achievements:
+
+          type: boolean
+
+        follows:
+
+          type: boolean
+
+        comments:
+
+          type: boolean
+
+        likes:
+
+          type: boolean
+
+        mentions:
+
+          type: boolean
+
+        recommendations:
+
+          type: boolean
+
+        collections:
+
+          type: boolean
+
+        lists:
+
+          type: boolean
+
+        tierLists:
+
+          type: boolean
+
+    PushPlatform:
+
+      type: string
+
+      enum:
+        - IOS
+        - ANDROID
+        - WEB
+
+    PushToken:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        platform:
+
+          $ref: '#/components/schemas/PushPlatform'
+
+        deviceName:
+
+          type: string
+
+        token:
+
+          type: string
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        lastUsedAt:
+
+          type: string
+
+          format: date-time
+
+    PushTokenPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/PushToken'
+
+
+    RegisterPushTokenRequest:
+
+      type: object
+
+      required:
+
+        - platform
+        - token
+
+      properties:
+
+        platform:
+
+          $ref: '#/components/schemas/PushPlatform'
+
+        token:
+
+          type: string
+
+        deviceName:
+
+          type: string
+
+    SendTestNotificationRequest:
+
+      type: object
+
+      properties:
+
+        type:
+
+          $ref: '#/components/schemas/NotificationType'
+
+        title:
+
+          type: string
+
+        body:
+
+          type: string
+
+x-tagGroups:
+
+  - name: Notifications
+
+    tags:
+
+      - Notifications
+
+################################################################################
+# File End — NOTIFICATION_API.yaml
+################################################################################

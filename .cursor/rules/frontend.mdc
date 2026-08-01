@@ -1,0 +1,41 @@
+---
+description: Frontend geliştirme kuralları — GMRLOG OS
+globs: docs/05_FRONTEND/**,docs/04_COMPONENTS/**,**/*.{tsx,jsx,vue,svelte}
+alwaysApply: false
+---
+
+# Frontend Kuralları
+
+Önce oku: `docs/02_DESIGN/MASTER_PRODUCT_AND_DESIGN_DIRECTION.md` (**LOCKED SSOT**), `docs/05_FRONTEND/FRONTEND_ARCHITECTURE.md`, `docs/02_DESIGN/` (subordinate), `docs/08_API/API_SPECIFICATION.md`
+
+Mobile-first / Desktop-ready: tek design system; platform-forked UI yasak. Creator Economy: core culture paywall yok.
+
+## Onaylı stack
+
+- **Mobile:** Expo SDK, Expo Router, TypeScript, TanStack Query, Zustand, NativeWind, Reanimated, Lucide
+- **Web:** Next.js App Router, Tailwind, shadcn/ui (TECH_STACK_DECISIONS)
+- **Forms:** React Hook Form + Zod
+- **Realtime:** WebSocket client (Socket.IO events per API spec)
+
+## Mimari
+
+- Feature-first: `features/{domain}/` — components, hooks, api, store, screens
+- **Server state:** TanStack Query (stale 30s, cache 5min, optimistic updates, infinite queries for feed)
+- **Global state:** Zustand (auth, theme, user, settings)
+- **Local state:** React state only (UI, forms, animations)
+- API layer per feature: `{feature}.api.ts`, `{feature}.types.ts`, `{feature}.mapper.ts` — no direct Axios in components
+- No business logic in components; use hooks/services
+
+## Routing (Expo Router)
+
+`app/(auth)/`, `app/(tabs)/`, `game/`, `review/`, `settings/` — align with NAVIGATION_SPECIFICATION
+
+## Performance targets
+
+Launch <2s, Feed <1s, Navigation <300ms, Game detail <500ms, Search <300ms
+
+## UI
+
+- Components from `COMPONENT_LIBRARY.md` only
+- Design tokens mandatory; motion per `MOTION_GUIDELINES.md`
+- Accessibility per `ACCESSIBILITY.md`

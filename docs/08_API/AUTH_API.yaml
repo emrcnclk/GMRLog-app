@@ -1,0 +1,1568 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Authentication API
+  version: 1.0.0
+  description: |
+    Authentication endpoints for GMRLOG.
+
+    Supports:
+
+      - Email Registration
+      - Email Login
+      - Google OAuth
+      - Steam OAuth
+      - Discord OAuth
+      - Apple OAuth
+      - JWT Authentication
+      - Refresh Token Rotation
+      - Device Sessions
+      - Push Notification Registration
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Authentication
+    description: Authentication endpoints
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /auth/register:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Register new account
+
+      description: |
+        Creates a new GMRLOG account.
+
+        Registration methods:
+
+        - Email
+        - Google
+        - Steam
+        - Discord
+        - Apple
+
+      operationId: register
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/RegisterRequest'
+
+      responses:
+
+        "201":
+
+          description: User successfully created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AuthResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "409":
+
+          $ref: '#/components/responses/UserAlreadyExists'
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  /auth/login:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Login
+
+      operationId: login
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/LoginRequest'
+
+      responses:
+
+        "200":
+
+          description: Login successful
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AuthResponse'
+
+        "401":
+
+          $ref: '#/components/responses/InvalidCredentials'
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  /auth/refresh:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Refresh Access Token
+
+      operationId: refreshToken
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/RefreshTokenRequest'
+
+      responses:
+
+        "200":
+
+          description: Token refreshed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AuthResponse'
+
+        "401":
+
+          $ref: '#/components/responses/RefreshExpired'
+
+  /auth/logout:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Logout current session
+
+      operationId: logout
+
+      responses:
+
+        "204":
+
+          description: Successfully logged out
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /auth/me:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Current authenticated user
+
+      operationId: authGetCurrentUser
+
+      responses:
+
+        "200":
+
+          description: Authenticated user
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AuthenticatedUser'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /auth/forgot-password:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Request password reset
+
+      operationId: forgotPassword
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+
+      responses:
+
+        "204":
+
+          description: Reset email sent
+
+        "404":
+
+          $ref: '#/components/responses/UserNotFound'
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  /auth/reset-password:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Reset password
+
+      operationId: resetPassword
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ResetPasswordRequest'
+
+      responses:
+
+        "204":
+
+          description: Password changed
+
+        "400":
+
+          $ref: '#/components/responses/InvalidResetToken'
+
+        "410":
+
+          $ref: '#/components/responses/ExpiredResetToken'
+
+  /auth/verify-email:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Verify email
+
+      operationId: verifyEmail
+
+      security: []
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/VerifyEmailRequest'
+
+      responses:
+
+        "204":
+
+          description: Email verified
+
+        "400":
+
+          $ref: '#/components/responses/InvalidVerificationCode'
+
+        "410":
+
+          $ref: '#/components/responses/VerificationExpired'
+
+  /auth/resend-verification:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Resend verification email
+
+      operationId: resendVerification
+
+      security: []
+
+      responses:
+
+        "204":
+
+          description: Verification email sent
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  /auth/change-password:
+
+    patch:
+
+      tags:
+        - Authentication
+
+      summary: Change password
+
+      operationId: changePassword
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ChangePasswordRequest'
+
+      responses:
+
+        "204":
+
+          description: Password updated
+
+        "400":
+
+          $ref: '#/components/responses/InvalidPassword'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /auth/check-email:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Check email availability
+
+      operationId: checkEmail
+
+      security: []
+
+      parameters:
+
+        - name: email
+
+          in: query
+
+          required: true
+
+          schema:
+
+            type: string
+
+            format: email
+
+      responses:
+
+        "200":
+
+          description: Availability result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AvailabilityResponse'
+
+  /auth/check-username:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Check username availability
+
+      operationId: checkUsername
+
+      security: []
+
+      parameters:
+
+        - name: username
+
+          in: query
+
+          required: true
+
+          schema:
+
+            type: string
+
+            minLength: 3
+
+            maxLength: 30
+
+      responses:
+
+        "200":
+
+          description: Username availability
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AvailabilityResponse'
+
+  ################################################################################
+  # Account Recovery & Security
+  ################################################################################
+
+  /auth/account/export:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Request personal data export
+
+      description: |
+        Generates a downloadable archive containing the user's personal
+        information according to GDPR.
+
+      operationId: exportAccountData
+
+      responses:
+
+        "202":
+
+          description: Export job queued
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ExportJob'
+
+  /auth/account/deletion-status:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Get account deletion status
+
+      operationId: getDeletionStatus
+
+      responses:
+
+        "200":
+
+          description: Account deletion status
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './common/schemas/deletion-status.yaml#/components/schemas/DeletionStatus'
+
+  /auth/account/cancel-deletion:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Cancel scheduled account deletion
+
+      operationId: cancelDeletion
+
+      responses:
+
+        "204":
+
+          description: Deletion cancelled
+
+  /auth/2fa:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Get MFA status
+
+      operationId: getTwoFactorStatus
+
+      responses:
+
+        "200":
+
+          description: Two-factor authentication status
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TwoFactorStatus'
+
+  /auth/2fa/setup:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Begin MFA setup
+
+      operationId: setupTwoFactor
+
+      responses:
+
+        "200":
+
+          description: QR Code generated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TwoFactorSetup'
+
+  /auth/2fa/verify:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Verify MFA setup
+
+      operationId: verifyTwoFactor
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/VerifyTwoFactorRequest'
+
+      responses:
+
+        "204":
+
+          description: MFA enabled
+
+  /auth/2fa/disable:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Disable MFA
+
+      operationId: disableTwoFactor
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/DisableTwoFactorRequest'
+
+      responses:
+
+        "204":
+
+          description: MFA disabled
+
+  ################################################################################
+  # Audit
+  ################################################################################
+
+  /auth/security-log:
+
+    get:
+
+      tags:
+        - Authentication
+
+      summary: Get account security history
+
+      operationId: getSecurityLog
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+      responses:
+
+        "200":
+
+          description: Security events
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SecureEventPage'
+
+  ################################################################################
+  # OAuth Linking
+  ################################################################################
+
+  /auth/oauth/{provider}/link:
+
+    post:
+
+      tags:
+        - Authentication
+
+      summary: Link OAuth provider
+
+      operationId: linkOAuthProvider
+
+      parameters:
+
+        - name: provider
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+            enum:
+              - GOOGLE
+              - DISCORD
+              - STEAM
+              - APPLE
+
+      responses:
+
+        "204":
+
+          description: Provider linked
+
+  /auth/oauth/{provider}/unlink:
+
+    delete:
+
+      tags:
+        - Authentication
+
+      summary: Unlink OAuth provider
+
+      operationId: unlinkOAuthProvider
+
+      parameters:
+
+        - name: provider
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+            enum:
+              - GOOGLE
+              - DISCORD
+              - STEAM
+              - APPLE
+
+      responses:
+
+        "204":
+
+          description: Provider unlinked
+
+components:
+
+
+  headers:
+
+    X-Request-ID:
+
+      description: Unique request identifier
+
+      schema:
+
+        type: string
+
+    X-Trace-ID:
+
+      description: Distributed tracing identifier
+
+      schema:
+
+        type: string
+
+    X-RateLimit-Limit:
+
+      schema:
+
+        type: integer
+
+    X-RateLimit-Remaining:
+
+      schema:
+
+        type: integer
+
+    Retry-After:
+
+      schema:
+
+        type: integer
+
+    ETag:
+
+      schema:
+
+        type: string
+
+    X-Correlation-ID:
+
+      schema:
+
+        type: string
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  schemas:
+
+
+    RegisterRequest:
+
+      type: object
+
+      required:
+
+        - username
+        - email
+        - password
+
+      properties:
+
+        username:
+
+          type: string
+
+          minLength: 3
+
+          maxLength: 30
+
+          example: emircan
+
+        email:
+
+          type: string
+
+          format: email
+
+          example: emircan@example.com
+
+        password:
+
+          type: string
+
+          minLength: 12
+
+          example: MyStrongPassword123!
+
+        displayName:
+
+          type: string
+
+          maxLength: 50
+
+        birthDate:
+
+          type: string
+
+          format: date
+
+        country:
+
+          type: string
+
+        language:
+
+          type: string
+
+          example: tr
+
+    LoginRequest:
+
+      type: object
+
+      required:
+
+        - email
+        - password
+
+      properties:
+
+        email:
+
+          type: string
+
+          format: email
+
+        password:
+
+          type: string
+
+        rememberMe:
+
+          type: boolean
+
+          default: false
+
+    RefreshTokenRequest:
+
+      type: object
+
+      required:
+
+        - refreshToken
+
+      properties:
+
+        refreshToken:
+
+          type: string
+
+    AuthResponse:
+
+      type: object
+
+      properties:
+
+        accessToken:
+
+          type: string
+
+        refreshToken:
+
+          type: string
+
+        expiresIn:
+
+          type: integer
+
+        tokenType:
+
+          type: string
+
+          example: Bearer
+
+        user:
+
+          $ref: '#/components/schemas/AuthenticatedUser'
+
+    AuthenticatedUser:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        username:
+
+          type: string
+
+        displayName:
+
+          type: string
+
+        avatar:
+
+          type: string
+
+        verified:
+
+          type: boolean
+
+        role:
+
+          type: string
+
+          enum:
+            - USER
+            - DEVELOPER
+            - STUDIO
+            - MODERATOR
+            - ADMIN
+
+    ForgotPasswordRequest:
+
+      type: object
+
+      required:
+
+        - email
+
+      properties:
+
+        email:
+
+          type: string
+
+          format: email
+
+    ResetPasswordRequest:
+
+      type: object
+
+      required:
+
+        - token
+        - password
+
+      properties:
+
+        token:
+
+          type: string
+
+        password:
+
+          type: string
+
+          minLength: 12
+
+    VerifyEmailRequest:
+
+      type: object
+
+      required:
+
+        - code
+
+      properties:
+
+        code:
+
+          type: string
+
+    ChangePasswordRequest:
+
+      type: object
+
+      required:
+
+        - currentPassword
+        - newPassword
+
+      properties:
+
+        currentPassword:
+
+          type: string
+
+        newPassword:
+
+          type: string
+
+          minLength: 12
+
+    AvailabilityResponse:
+
+      type: object
+
+      properties:
+
+        available:
+
+          type: boolean
+
+        reason:
+
+          type: string
+
+          nullable: true
+
+    Session:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        deviceName:
+
+          type: string
+
+        platform:
+
+          type: string
+
+          enum:
+            - IOS
+            - ANDROID
+            - WEB
+            - WINDOWS
+            - MACOS
+            - LINUX
+
+        browser:
+
+          type: string
+
+        ipAddress:
+
+          type: string
+
+        country:
+
+          type: string
+
+        lastSeen:
+
+          type: string
+
+          format: date-time
+
+        current:
+
+          type: boolean
+
+    DeviceRegistration:
+
+      type: object
+
+      required:
+
+        - deviceId
+        - platform
+
+      properties:
+
+        deviceId:
+
+          type: string
+
+        platform:
+
+          type: string
+
+        appVersion:
+
+          type: string
+
+        osVersion:
+
+          type: string
+
+    PushTokenRequest:
+
+      type: object
+
+      required:
+
+        - provider
+        - token
+
+      properties:
+
+        provider:
+
+          type: string
+
+          enum:
+            - FCM
+            - APNS
+
+        token:
+
+          type: string
+
+    ExportJob:
+
+      type: object
+
+      properties:
+
+        jobId:
+
+          type: string
+
+          format: uuid
+
+        status:
+
+          type: string
+
+          enum:
+            - QUEUED
+            - PROCESSING
+            - READY
+
+    DeletionStatus:
+
+      type: object
+
+      properties:
+
+        scheduled:
+
+          type: boolean
+
+        deletionDate:
+
+          type: string
+
+          format: date-time
+
+    TwoFactorStatus:
+
+      type: object
+
+      properties:
+
+        enabled:
+
+          type: boolean
+
+        recoveryCodesRemaining:
+
+          type: integer
+
+    TwoFactorSetup:
+
+      type: object
+
+      properties:
+
+        secret:
+
+          type: string
+
+        qrCode:
+
+          type: string
+
+          format: uri
+
+    VerifyTwoFactorRequest:
+
+      type: object
+
+      required:
+
+        - code
+
+      properties:
+
+        code:
+
+          type: string
+
+    DisableTwoFactorRequest:
+
+      type: object
+
+      required:
+
+        - password
+
+      properties:
+
+        password:
+
+          type: string
+
+    SecureEvent:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          type: string
+
+        ip:
+
+          type: string
+
+        country:
+
+          type: string
+
+        device:
+
+          type: string
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    SecureEventPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/SecureEvent'
+
+
+
+
+
+  responses:
+
+
+
+
+
+
+
+
+    UserAlreadyExists:
+
+      description: User already exists
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+          example:
+
+            type: https://api.gmrlog.com/errors/user-already-exists
+
+            title: User Already Exists
+
+            status: 409
+
+            detail: Email is already registered.
+
+    InvalidCredentials:
+
+      description: Invalid credentials
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+          example:
+
+            type: https://api.gmrlog.com/errors/invalid-credentials
+
+            title: Invalid Credentials
+
+            status: 401
+
+            detail: Invalid email or password.
+
+    RefreshExpired:
+
+      description: Refresh token expired
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+          example:
+
+            type: https://api.gmrlog.com/errors/refresh-expired
+
+            title: Refresh Token Expired
+
+            status: 401
+
+            detail: Refresh token has expired.
+
+    UserNotFound:
+
+      description: User not found
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    InvalidResetToken:
+
+      description: Invalid password reset token
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    ExpiredResetToken:
+
+      description: Password reset token expired
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    InvalidVerificationCode:
+
+      description: Invalid verification code
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    VerificationExpired:
+
+      description: Verification expired
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    InvalidPassword:
+
+      description: Invalid password
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './common/schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+  examples:
+
+    SuccessResponse:
+
+      value:
+
+        success: true
+
+    UnauthorizedResponse:
+
+      value:
+
+        type: https://api.gmrlog.com/errors/unauthorized
+
+        title: Unauthorized
+
+        status: 401
+
+        detail: Authentication required.
+
+x-tagGroups:
+
+  - name: Authentication
+
+    tags:
+
+      - Authentication
+
+x-security:
+
+  refreshRotation: true
+
+  revokeOnPasswordChange: true
+
+  revokeOnAccountDeletion: true
+
+  emailVerificationRequired: true
+
+  oauthAccountLinking: true
+
+  deviceSessions: true
+
+x-websocket-events:
+
+  - auth:login
+
+  - auth:logout
+
+  - auth:session_revoked
+
+  - auth:password_changed
+
+  - auth:email_verified
+
+  - auth:account_deleted
+
+################################################################################
+# File End
+################################################################################

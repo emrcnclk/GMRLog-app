@@ -1,0 +1,20 @@
+components:
+  schemas:
+    AuditMetadata:
+      type: object
+      description: Server-side audit timestamps and actor references for privileged resources.
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true

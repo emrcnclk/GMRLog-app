@@ -1,0 +1,2064 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Search API
+  version: 1.0.0
+  description: |
+    Global search, autocomplete, entity-scoped search and discovery.
+
+    Aggregates search across games, users, reviews, collections, lists,
+    tier lists and metadata entities.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Search
+    description: Search and discovery
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Global Search
+  ################################################################################
+
+  /search:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Global search
+
+      operationId: globalSearch
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - name: types
+
+          in: query
+
+          required: false
+
+          description: Limit results to entity types (comma-separated)
+
+          style: form
+
+          explode: false
+
+          schema:
+
+            type: array
+
+            items:
+
+              $ref: '#/components/schemas/SearchEntityType'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GlobalSearchResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  ################################################################################
+  # Advanced Search
+  ################################################################################
+
+  /search/advanced:
+
+    post:
+
+      tags:
+        - Search
+
+      summary: Advanced search
+
+      operationId: advancedSearch
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AdvancedSearchRequest'
+
+      responses:
+
+        "200":
+
+          description: Advanced search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GlobalSearchResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Autocomplete
+  ################################################################################
+
+  /search/autocomplete:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Autocomplete
+
+      operationId: autocomplete
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - name: types
+
+          in: query
+
+          required: false
+
+          style: form
+
+          explode: false
+
+          schema:
+
+            type: array
+
+            items:
+
+              $ref: '#/components/schemas/SearchEntityType'
+
+        - name: limit
+
+          in: query
+
+          required: false
+
+          schema:
+
+            type: integer
+
+            minimum: 1
+
+            maximum: 20
+
+            default: 10
+
+      responses:
+
+        "200":
+
+          description: Autocomplete suggestions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AutocompleteResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  ################################################################################
+  # Suggestions
+  ################################################################################
+
+  /search/suggestions:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search suggestions
+
+      operationId: suggestions
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Search suggestions
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SearchSuggestionPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  ################################################################################
+  # Recent Searches
+  ################################################################################
+
+  /search/recent:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Recent searches
+
+      operationId: recentSearches
+
+      responses:
+
+        "200":
+
+          description: Recent searches
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/RecentSearchPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    delete:
+
+      tags:
+        - Search
+
+      summary: Clear recent searches
+
+      operationId: clearRecentSearches
+
+      responses:
+
+        "204":
+
+          description: Recent searches cleared
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Saved Searches
+  ################################################################################
+
+  /search/saved:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Saved searches
+
+      operationId: savedSearches
+
+      responses:
+
+        "200":
+
+          description: Saved searches
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SavedSearchPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Search
+
+      summary: Save search
+
+      operationId: saveSearch
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/SaveSearchRequest'
+
+      responses:
+
+        "201":
+
+          description: Search saved
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SavedSearch'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /search/saved/{searchId}:
+
+    delete:
+
+      tags:
+        - Search
+
+      summary: Delete saved search
+
+      operationId: deleteSavedSearch
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchId'
+
+      responses:
+
+        "204":
+
+          description: Saved search deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Trending & Popular
+  ################################################################################
+
+  /search/trending:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Trending searches
+
+      operationId: trendingSearches
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Trending searches
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TrendingSearchPage'
+
+  /search/popular:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Popular searches
+
+      operationId: popularSearches
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Popular searches
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TrendingSearchPage'
+
+  /search/recommendations:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Personalized recommendations
+
+      operationId: searchRecommendations
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Personalized search recommendations
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SearchRecommendationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Filter Metadata & Analytics
+  ################################################################################
+
+  /search/filters:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Available search filters
+
+      operationId: searchFilters
+
+      security: []
+
+      parameters:
+
+        - name: type
+
+          in: query
+
+          required: false
+
+          schema:
+
+            $ref: '#/components/schemas/SearchEntityType'
+
+      responses:
+
+        "200":
+
+          description: Available search filters
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SearchFiltersResponse'
+
+  /search/analytics:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search analytics
+
+      operationId: searchAnalytics
+
+      parameters:
+
+        - name: period
+
+          in: query
+
+          required: false
+
+          schema:
+
+            type: string
+
+            enum:
+              - DAY
+              - WEEK
+              - MONTH
+              - YEAR
+
+            default: WEEK
+
+      responses:
+
+        "200":
+
+          description: Search analytics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SearchAnalyticsResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  ################################################################################
+  # Entity Search
+  ################################################################################
+
+  /search/games:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search games
+
+      operationId: searchGames
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Game search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './GAME_API.yaml#/components/schemas/GameSearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/reviews:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search reviews
+
+      operationId: searchReviews
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Review search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/ReviewPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/users:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search users
+
+      operationId: searchUsers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: User search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './COLLECTION_API.yaml#/components/schemas/UserPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/collections:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search collections
+
+      operationId: searchCollections
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Collection search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './COLLECTION_API.yaml#/components/schemas/CollectionPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/lists:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search lists
+
+      operationId: searchLists
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: List search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './LIST_API.yaml#/components/schemas/ListPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/tierlists:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search tier lists
+
+      operationId: searchTierLists
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Tier list search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './TIERLIST_API.yaml#/components/schemas/TierListPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/developers:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search developers
+
+      operationId: searchDevelopers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Developer search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanySearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/publishers:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search publishers
+
+      operationId: searchPublishers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Publisher search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanySearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/franchises:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search franchises
+
+      operationId: searchFranchises
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Franchise search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FranchiseSearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/genres:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search genres
+
+      operationId: searchGenres
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Genre search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './GAME_API.yaml#/components/schemas/GenrePage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/platforms:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search platforms
+
+      operationId: searchPlatforms
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Platform search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './GAME_API.yaml#/components/schemas/PlatformPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/tags:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search tags
+
+      operationId: searchTags
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Tag search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TagSearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  /search/companies:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Search companies
+
+      operationId: searchCompanies
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/SearchQuery'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Company search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CompanySearchPage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+  ################################################################################
+  # Discover & Explore
+  ################################################################################
+
+  /discover:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Discover content
+
+      operationId: discover
+
+      security: []
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Discover feed
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/DiscoverResponse'
+
+  /discover/because-you-played:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Because You Played discovery module
+
+      operationId: getBecauseYouPlayed
+
+      parameters:
+
+        - name: seedGameId
+
+          in: query
+
+          required: false
+
+          schema:
+
+            type: string
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Deterministic Because You Played sections (reviews · collections · communities · events · guides)
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/BecauseYouPlayedResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/BadRequest'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /explore:
+
+    get:
+
+      tags:
+        - Search
+
+      summary: Explore page
+
+      operationId: explore
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Explore page sections
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ExploreResponse'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    SearchQuery:
+
+      name: q
+
+      in: query
+
+      required: true
+
+      description: Search query string
+
+      schema:
+
+        type: string
+
+        minLength: 1
+
+        maxLength: 200
+
+    SearchId:
+
+      name: searchId
+
+      in: path
+
+      required: true
+
+      description: Saved search UUID
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    SearchEntityType:
+
+      type: string
+
+      enum:
+        - GAME
+        - USER
+        - REVIEW
+        - COLLECTION
+        - LIST
+        - TIERLIST
+        - DEVELOPER
+        - PUBLISHER
+        - FRANCHISE
+        - GENRE
+        - PLATFORM
+        - TAG
+
+    GlobalSearchResponse:
+
+      type: object
+
+      properties:
+
+        games:
+
+          $ref: './common/schemas/game-summary-page.yaml#/components/schemas/GameSummaryPage'
+
+        users:
+
+          $ref: './COLLECTION_API.yaml#/components/schemas/UserPage'
+
+        reviews:
+
+          $ref: './REVIEW_API.yaml#/components/schemas/ReviewPage'
+
+        collections:
+
+          $ref: './COLLECTION_API.yaml#/components/schemas/CollectionPage'
+
+        lists:
+
+          $ref: './LIST_API.yaml#/components/schemas/ListPage'
+
+        tierLists:
+
+          $ref: './TIERLIST_API.yaml#/components/schemas/TierListPage'
+
+        developers:
+
+          type: array
+
+          items:
+
+            $ref: './GAME_API.yaml#/components/schemas/Company'
+
+        publishers:
+
+          type: array
+
+          items:
+
+            $ref: './GAME_API.yaml#/components/schemas/Company'
+
+        franchises:
+
+          type: array
+
+          items:
+
+            $ref: './GAME_API.yaml#/components/schemas/Franchise'
+
+        totalResults:
+
+          type: integer
+
+    SearchSuggestion:
+
+      type: object
+
+      properties:
+
+        text:
+
+          type: string
+
+        type:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+        image:
+
+          type: string
+
+          format: uri
+
+        entityId:
+
+          type: string
+
+    SearchSuggestionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/SearchSuggestion'
+
+
+    AutocompleteResponse:
+
+      type: object
+
+      properties:
+
+        query:
+
+          type: string
+
+        suggestions:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchSuggestion'
+
+    RecentSearch:
+
+      type: object
+
+      properties:
+
+        query:
+
+          type: string
+
+        types:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchEntityType'
+
+        searchedAt:
+
+          type: string
+
+          format: date-time
+
+    RecentSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/RecentSearch'
+
+
+    SavedSearch:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        query:
+
+          type: string
+
+        name:
+
+          type: string
+
+        types:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchEntityType'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    SavedSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/SavedSearch'
+
+
+    SaveSearchRequest:
+
+      type: object
+
+      required:
+
+        - query
+
+      properties:
+
+        query:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 200
+
+        name:
+
+          type: string
+
+          maxLength: 100
+
+        types:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchEntityType'
+
+    TrendingSearch:
+
+      type: object
+
+      properties:
+
+        query:
+
+          type: string
+
+        count:
+
+          type: integer
+
+        type:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+    TrendingSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/TrendingSearch'
+
+
+    SearchRecommendation:
+
+      type: object
+
+      properties:
+
+        query:
+
+          type: string
+
+        reason:
+
+          type: string
+
+        type:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+    SearchRecommendationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/SearchRecommendation'
+
+
+    AdvancedSearchRequest:
+
+      type: object
+
+      required:
+
+        - query
+
+      properties:
+
+        query:
+
+          type: string
+
+        types:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchEntityType'
+
+        filters:
+
+          $ref: '#/components/schemas/AdvancedSearchFilters'
+
+        sort:
+
+          type: string
+
+          enum:
+            - RELEVANCE
+            - POPULARITY
+            - RECENT
+            - RATING
+
+          default: RELEVANCE
+
+        cursor:
+
+          type: string
+
+        limit:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 100
+
+          default: 20
+
+    AdvancedSearchFilters:
+
+      type: object
+
+      properties:
+
+        genres:
+
+          type: array
+
+          items:
+
+            type: integer
+
+        platforms:
+
+          type: array
+
+          items:
+
+            type: integer
+
+        releaseYearFrom:
+
+          type: integer
+
+        releaseYearTo:
+
+          type: integer
+
+        minRating:
+
+          type: number
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+    SearchFilterOption:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        label:
+
+          type: string
+
+        count:
+
+          type: integer
+
+    SearchFilterGroup:
+
+      type: object
+
+      properties:
+
+        key:
+
+          type: string
+
+        label:
+
+          type: string
+
+        options:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchFilterOption'
+
+    SearchFiltersResponse:
+
+      type: object
+
+      properties:
+
+        entityType:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+        filters:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/SearchFilterGroup'
+
+    SearchAnalyticsResponse:
+
+      type: object
+
+      properties:
+
+        period:
+
+          type: string
+
+        totalSearches:
+
+          type: integer
+
+        uniqueQueries:
+
+          type: integer
+
+        topQueries:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/TrendingSearch'
+
+        topEntityTypes:
+
+          type: array
+
+          items:
+
+            type: object
+
+            properties:
+
+              type:
+
+                $ref: '#/components/schemas/SearchEntityType'
+
+              count:
+
+                type: integer
+
+    SearchTag:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        usageCount:
+
+          type: integer
+
+    TagSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/SearchTag'
+
+
+    CompanySearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './GAME_API.yaml#/components/schemas/Company'
+
+
+    FranchiseSearchPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './GAME_API.yaml#/components/schemas/Franchise'
+
+
+    DiscoverSection:
+
+      type: object
+
+      properties:
+
+        title:
+
+          type: string
+
+        type:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+        items:
+
+          type: array
+
+          items:
+
+            type: object
+
+            additionalProperties: true
+
+    DiscoverResponse:
+
+      type: object
+
+      properties:
+
+        sections:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/DiscoverSection'
+
+    BecauseYouPlayedResponse:
+
+      type: object
+
+      required:
+        - sourceGameId
+        - sourceGameTitle
+        - reasonKey
+        - recommended
+        - relatedReviews
+        - collections
+        - communities
+        - events
+        - guides
+        - nextCursor
+
+      properties:
+
+        sourceGameId:
+
+          type: string
+
+        sourceGameTitle:
+
+          type: string
+
+        reasonKey:
+
+          type: string
+
+          enum:
+            - because_you_played
+
+        recommended:
+
+          type: array
+
+          items:
+
+            type: object
+
+        relatedReviews:
+
+          type: array
+
+          items:
+
+            type: object
+
+        collections:
+
+          type: array
+
+          items:
+
+            type: object
+
+        communities:
+
+          type: array
+
+          items:
+
+            type: object
+
+        events:
+
+          type: array
+
+          items:
+
+            type: object
+
+        guides:
+
+          type: array
+
+          items:
+
+            type: object
+
+        nextCursor:
+
+          type: string
+
+          nullable: true
+
+    ExploreSection:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        title:
+
+          type: string
+
+        description:
+
+          type: string
+
+        type:
+
+          $ref: '#/components/schemas/SearchEntityType'
+
+        href:
+
+          type: string
+
+          format: uri
+
+    ExploreResponse:
+
+      type: object
+
+      properties:
+
+        sections:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/ExploreSection'
+
+x-tagGroups:
+
+  - name: Search
+
+    tags:
+
+      - Search
+
+################################################################################
+# File End — SEARCH_API.yaml
+################################################################################

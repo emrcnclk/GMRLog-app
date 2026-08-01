@@ -1,0 +1,14 @@
+# Deprecated barrel — import from ./schemas/*.yaml directly.
+
+components:
+  schemas:
+    ProblemDetails:
+      $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+    DeletionStatus:
+      $ref: './schemas/deletion-status.yaml#/components/schemas/DeletionStatus'
+    OAuthProvider:
+      $ref: './schemas/oauth-provider.yaml#/components/schemas/OAuthProvider'
+    DevicePlatform:
+      $ref: './schemas/device-platform.yaml#/components/schemas/DevicePlatform'
+    TokenMetadata:
+      $ref: './schemas/token-metadata.yaml#/components/schemas/TokenMetadata'

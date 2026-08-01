@@ -1,0 +1,16 @@
+components:
+  schemas:
+    CursorPage:
+      type: object
+      required:
+        - items
+        - hasNext
+      properties:
+        items:
+          type: array
+        nextCursor:
+          type: string
+          nullable: true
+        hasNext:
+          type: boolean
+          description: Whether more results exist after this page

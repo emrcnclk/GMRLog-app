@@ -1,0 +1,31 @@
+---
+description: Veritabanı kuralları — GMRLOG-OS
+globs: docs/07_DATABASE/**,**/*.{sql,prisma}
+alwaysApply: false
+---
+
+# Database Kuralları
+
+Önce oku: `docs/00_PROJECT/TECH_STACK_DECISIONS.md`, `docs/07_DATABASE/`, `docs/06_BACKEND/`
+
+## Onaylı stack
+
+- **Primary:** PostgreSQL 17+
+- **ORM:** Prisma (`packages/database`)
+- **Cache:** Redis (sessions, feed, rate limiting, presence)
+- **Scaling:** read replicas, partitioning, connection pooling (future)
+
+## Schema kuralları (`DATABASE_SPECIFICATION.md`)
+
+- Tables/columns: `snake_case`; Prisma models: `PascalCase`
+- UUID primary keys; `created_at`, `updated_at`; soft delete (`deleted_at`) tercih
+- Normalize by default; explicit relations; no implicit many-to-many
+- Every FK indexed; Decimal for ratings; JSON only when necessary
+- Query targets: read <50ms, write <100ms, feed <150ms, search <200ms
+
+## Davranış
+
+- Prisma: models `PascalCase`, fields `camelCase`; DB mapping via `@@map` / `@map` (`PRISMA_SCHEMA.md`)
+- Explicit relations only; join tables as own models; enums for repeated values
+- `findMany` always with `take` or cursor; prefer `select` over full model; cursor pagination
+- Transactions for reviews, game logs, friend requests, notifications

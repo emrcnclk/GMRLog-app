@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.expo/
+.turbo/
+out/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local database dumps (D3.20)
+backups/
+
+# Generated (never commit)
+packages/api-sdk/src/generated/
+packages/database/prisma/*.db
+
+# Transient test/debug output
+coverage-out.txt
+**/coverage-run.txt
+**/discover-out.txt
+**/search-fail.txt
+**/search-test-out.json
+
+# Misc
+.vercel

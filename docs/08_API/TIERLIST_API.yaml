@@ -1,0 +1,1441 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Tier List API
+  version: 1.0.0
+  description: |
+    User-generated tier list endpoints for GMRLOG.
+
+    Supports custom tier rows, game placement, social interactions,
+    discovery, templates, share and export.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Tier Lists
+    description: Tier list management
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Tier Lists
+  ################################################################################
+
+  /tierlists:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Get tier lists
+
+      operationId: getTierLists
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: visibility
+
+          in: query
+
+          schema:
+
+            $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierListPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Create tier list
+
+      operationId: createTierList
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateTierListRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierList'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Discover
+  ################################################################################
+
+  /tierlists/trending:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Trending tier lists
+
+      operationId: trendingTierLists
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Trending tier lists
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierListPage'
+
+  /tierlists/featured:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Featured tier lists
+
+      operationId: featuredTierLists
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Featured tier lists
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierListPage'
+
+  /tierlists/templates:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Get tier list templates
+
+      operationId: getTierListTemplates
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Templates
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierListTemplatePage'
+
+  /tierlists/{tierListId}:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Get tier list
+
+      operationId: getTierList
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierList'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Tier Lists
+
+      summary: Update tier list
+
+      operationId: updateTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateTierListRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierList'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Tier Lists
+
+      summary: Delete tier list
+
+      operationId: deleteTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Rows
+  ################################################################################
+
+  /tierlists/{tierListId}/rows:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Create row
+
+      operationId: createTierRow
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateTierRowRequest'
+
+      responses:
+
+        "201":
+
+          description: Row created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierRow'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/rows/{rowId}:
+
+    patch:
+
+      tags:
+        - Tier Lists
+
+      summary: Update row
+
+      operationId: updateTierRow
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - $ref: '#/components/parameters/RowId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateTierRowRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierRow'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Tier Lists
+
+      summary: Delete row
+
+      operationId: deleteTierRow
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - $ref: '#/components/parameters/RowId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Items
+  ################################################################################
+
+  /tierlists/{tierListId}/items:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Add game
+
+      operationId: addTierItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AddTierItemRequest'
+
+      responses:
+
+        "201":
+
+          description: Added
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierItem'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/items/{itemId}:
+
+    patch:
+
+      tags:
+        - Tier Lists
+
+      summary: Move game
+
+      operationId: moveTierItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - $ref: '#/components/parameters/ItemId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/MoveTierItemRequest'
+
+      responses:
+
+        "200":
+
+          description: Moved
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierItem'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Tier Lists
+
+      summary: Remove game
+
+      operationId: removeTierItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - $ref: '#/components/parameters/ItemId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Social
+  ################################################################################
+
+  /tierlists/{tierListId}/likes:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Like tier list
+
+      operationId: likeTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "204":
+
+          description: Liked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Tier Lists
+
+      summary: Unlike tier list
+
+      operationId: unlikeTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "204":
+
+          description: Unliked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/comments:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Comments
+
+      operationId: getTierComments
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Comments
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/CommentPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Create comment
+
+      operationId: createTierComment
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: './REVIEW_API.yaml#/components/schemas/CreateCommentRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/Comment'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/bookmark:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Bookmark
+
+      operationId: bookmarkTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "204":
+
+          description: Bookmarked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Tier Lists
+
+      summary: Remove bookmark
+
+      operationId: removeTierBookmark
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Clone / Share / Export
+  ################################################################################
+
+  /tierlists/{tierListId}/clone:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Clone tier list
+
+      operationId: cloneTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "201":
+
+          description: Cloned
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierList'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/share:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Share tier list
+
+      operationId: shareTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      responses:
+
+        "200":
+
+          description: Share link
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ShareTierListResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /tierlists/{tierListId}/export:
+
+    get:
+
+      tags:
+        - Tier Lists
+
+      summary: Export tier list
+
+      operationId: exportTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+        - name: format
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum:
+              - json
+              - png
+              - pdf
+
+            default: png
+
+      responses:
+
+        "200":
+
+          description: Export
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TierListExport'
+
+            image/png:
+
+              schema:
+
+                type: string
+
+                format: binary
+
+            application/pdf:
+
+              schema:
+
+                type: string
+
+                format: binary
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Vote
+  ################################################################################
+
+  /tierlists/{tierListId}/vote:
+
+    post:
+
+      tags:
+        - Tier Lists
+
+      summary: Vote on tier list
+
+      operationId: voteTierList
+
+      parameters:
+
+        - $ref: '#/components/parameters/TierListId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/VoteTierListRequest'
+
+      responses:
+
+        "204":
+
+          description: Vote recorded
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    TierListId:
+
+      name: tierListId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    RowId:
+
+      name: rowId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    ItemId:
+
+      name: itemId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    TierList:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        owner:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        title:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        description:
+
+          type: string
+
+        coverImage:
+
+          type: string
+
+          format: uri
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+        likes:
+
+          type: integer
+
+        comments:
+
+          type: integer
+
+        bookmarks:
+
+          type: integer
+
+        views:
+
+          type: integer
+
+        votes:
+
+          type: integer
+
+        rows:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/TierRow'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    TierRow:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        name:
+
+          type: string
+
+        color:
+
+          type: string
+
+        order:
+
+          type: integer
+
+        items:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/TierItem'
+
+    TierItem:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        note:
+
+          type: string
+
+        order:
+
+          type: integer
+
+    TierListPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/TierList'
+
+
+            total:
+
+              type: integer
+
+    TierListTemplate:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        name:
+
+          type: string
+
+        rows:
+
+          type: array
+
+          items:
+
+            type: string
+
+        description:
+
+          type: string
+
+    TierListTemplatePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/TierListTemplate'
+
+
+    CreateTierListRequest:
+
+      type: object
+
+      required:
+
+        - title
+
+      properties:
+
+        title:
+
+          type: string
+
+          minLength: 2
+
+          maxLength: 100
+
+        description:
+
+          type: string
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+        rows:
+
+          type: array
+
+          items:
+
+            type: string
+
+          example:
+            - S
+            - A
+            - B
+            - C
+            - D
+            - F
+
+    UpdateTierListRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/CreateTierListRequest'
+
+    CreateTierRowRequest:
+
+      type: object
+
+      required:
+
+        - name
+
+      properties:
+
+        name:
+
+          type: string
+
+        color:
+
+          type: string
+
+        order:
+
+          type: integer
+
+    UpdateTierRowRequest:
+
+      type: object
+
+      properties:
+
+        name:
+
+          type: string
+
+        color:
+
+          type: string
+
+        order:
+
+          type: integer
+
+    AddTierItemRequest:
+
+      type: object
+
+      required:
+
+        - gameId
+        - rowId
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        rowId:
+
+          type: string
+
+          format: uuid
+
+        note:
+
+          type: string
+
+        order:
+
+          type: integer
+
+    MoveTierItemRequest:
+
+      type: object
+
+      required:
+
+        - rowId
+
+      properties:
+
+        rowId:
+
+          type: string
+
+          format: uuid
+
+        order:
+
+          type: integer
+
+    VoteTierListRequest:
+
+      type: object
+
+      required:
+
+        - rating
+
+      properties:
+
+        rating:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 5
+
+    ShareTierListResponse:
+
+      type: object
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+    TierListExport:
+
+      type: object
+
+      properties:
+
+        downloadUrl:
+
+          type: string
+
+          format: uri
+
+        format:
+
+          type: string
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+x-tagGroups:
+
+  - name: Tier Lists
+
+    tags:
+
+      - Tier Lists
+
+################################################################################
+# File End — TIERLIST_API.yaml
+################################################################################

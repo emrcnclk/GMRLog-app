@@ -1,0 +1,2928 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG User API
+  version: 1.0.0
+  description: |
+    User profile, identity and preferences endpoints for GMRLOG.
+
+    Owns public/private profiles, avatar, banner, gaming identity,
+    privacy, customization, connected accounts, statistics, badges
+    and achievements.
+
+    Social graph actions live in SOCIAL_API. Notification delivery
+    settings live in NOTIFICATION_API. Search lives in SEARCH_API.
+
+servers:
+
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+
+  - name: Users
+    description: User management
+
+  - name: Profiles
+    description: Public and private profiles
+
+  - name: Preferences
+    description: User preferences
+
+  - name: Privacy
+    description: Privacy settings
+
+security:
+
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Current User
+  ################################################################################
+
+  /users/me:
+
+    get:
+
+      tags:
+        - Users
+
+      summary: Get current authenticated user
+
+      operationId: userGetCurrentUser
+
+      responses:
+
+        "200":
+
+          description: Current user profile
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPrivateProfile'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    patch:
+
+      tags:
+        - Users
+
+      summary: Update current user
+
+      operationId: updateCurrentUser
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateUserRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated profile
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPrivateProfile'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    delete:
+
+      tags:
+        - Users
+
+      summary: Schedule account deletion
+
+      operationId: deleteCurrentUser
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/DeleteAccountRequest'
+
+      responses:
+
+        "202":
+
+          description: Deletion scheduled
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './common/schemas.yaml#/components/schemas/DeletionStatus'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Public Profile
+  ################################################################################
+
+  /users/{username}:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get public profile
+
+      operationId: getPublicProfile
+
+      security: []
+
+      parameters:
+
+        - name: username
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+      responses:
+
+        "200":
+
+          description: Public profile
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Avatar Management
+  ################################################################################
+
+  /users/me/avatar:
+
+    put:
+
+      tags:
+        - Profiles
+
+      summary: Upload user avatar
+
+      operationId: uploadAvatar
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          multipart/form-data:
+
+            schema:
+
+              type: object
+
+              required:
+
+                - file
+
+              properties:
+
+                file:
+
+                  type: string
+
+                  format: binary
+
+      responses:
+
+        "200":
+
+          description: Avatar updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPrivateProfile'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    delete:
+
+      tags:
+        - Profiles
+
+      summary: Remove avatar
+
+      operationId: removeAvatar
+
+      responses:
+
+        "204":
+
+          description: Avatar removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Banner Management
+  ################################################################################
+
+  /users/me/banner:
+
+    put:
+
+      tags:
+        - Profiles
+
+      summary: Upload profile banner
+
+      operationId: uploadBanner
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          multipart/form-data:
+
+            schema:
+
+              type: object
+
+              required:
+
+                - file
+
+              properties:
+
+                file:
+
+                  type: string
+
+                  format: binary
+
+      responses:
+
+        "200":
+
+          description: Banner updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPrivateProfile'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    delete:
+
+      tags:
+        - Profiles
+
+      summary: Remove banner
+
+      operationId: removeBanner
+
+      responses:
+
+        "204":
+
+          description: Banner removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Profile Customization
+  ################################################################################
+
+  /users/me/profile-theme:
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update profile appearance
+
+      operationId: updateProfileTheme
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ProfileThemeRequest'
+
+      responses:
+
+        "200":
+
+          description: Theme updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileTheme'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Social Links
+  ################################################################################
+
+  /users/me/social-links:
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update social links
+
+      operationId: updateSocialLinks
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/SocialLinksRequest'
+
+      responses:
+
+        "200":
+
+          description: Social links updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPrivateProfile'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Connected Accounts
+  ################################################################################
+
+  /users/me/connections:
+
+    get:
+
+      tags:
+        - Users
+
+      summary: List connected accounts
+
+      operationId: getConnections
+
+      responses:
+
+        "200":
+
+          description: Connected providers
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/ConnectedAccount'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Users
+
+      summary: Connect external account
+
+      operationId: connectProvider
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ConnectProviderRequest'
+
+      responses:
+
+        "201":
+
+          description: Account connected
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ConnectedAccount'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/me/connections/{provider}:
+
+    delete:
+
+      tags:
+        - Users
+
+      summary: Disconnect external account
+
+      operationId: disconnectProvider
+
+      parameters:
+
+        - name: provider
+
+          in: path
+
+          required: true
+
+          schema:
+
+            $ref: '#/components/schemas/ConnectionProvider'
+
+      responses:
+
+        "204":
+
+          description: Provider disconnected
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Privacy
+  ################################################################################
+
+  /users/me/privacy:
+
+    patch:
+
+      tags:
+        - Privacy
+
+      summary: Update privacy settings
+
+      operationId: updatePrivacySettings
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/PrivacySettings'
+
+      responses:
+
+        "200":
+
+          description: Privacy updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PrivacySettings'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Preferences
+  ################################################################################
+
+  /users/me/preferences:
+
+    patch:
+
+      tags:
+        - Preferences
+
+      summary: Update user preferences
+
+      operationId: updatePreferences
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UserPreferences'
+
+      responses:
+
+        "200":
+
+          description: Preferences updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPreferences'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Language
+  ################################################################################
+
+  /users/me/language:
+
+    patch:
+
+      tags:
+        - Preferences
+
+      summary: Update language
+
+      operationId: updateLanguage
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/LanguageSettings'
+
+      responses:
+
+        "200":
+
+          description: Language updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/LanguageSettings'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Theme
+  ################################################################################
+
+  /users/me/theme:
+
+    patch:
+
+      tags:
+        - Preferences
+
+      summary: Update application theme
+
+      operationId: updateTheme
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ThemeSettings'
+
+      responses:
+
+        "200":
+
+          description: Theme updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ThemeSettings'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # User Statistics
+  ################################################################################
+
+  /users/{userId}/stats:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get user statistics
+
+      operationId: getUserStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: User statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Favorite Games
+  ################################################################################
+
+  /users/me/favorite-games:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get favorite games
+
+      operationId: getFavoriteGames
+
+      responses:
+
+        "200":
+
+          description: Favorite games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FavoriteGamePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    put:
+
+      tags:
+        - Profiles
+
+      summary: Update favorite games
+
+      operationId: updateFavoriteGames
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateFavoriteGamesRequest'
+
+      responses:
+
+        "200":
+
+          description: Favorite games updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/FavoriteGamePage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Favorite Studios
+  ################################################################################
+
+  /users/me/favorite-studios:
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update favorite studios
+
+      operationId: updateFavoriteStudios
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateFavoriteStudiosRequest'
+
+      responses:
+
+        "200":
+
+          description: Favorite studios updated
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Favorite Developers
+  ################################################################################
+
+  /users/me/favorite-developers:
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update favorite developers
+
+      operationId: updateFavoriteDevelopers
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateFavoriteDevelopersRequest'
+
+      responses:
+
+        "200":
+
+          description: Favorite developers updated
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Gaming Identity
+  ################################################################################
+
+  /users/me/gaming-identity:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get gaming identity
+
+      operationId: getGamingIdentity
+
+      responses:
+
+        "200":
+
+          description: Gaming identity
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamingIdentity'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update gaming identity
+
+      operationId: updateGamingIdentity
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateGamingIdentityRequest'
+
+      responses:
+
+        "200":
+
+          description: Gaming identity updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamingIdentity'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Badges
+  ################################################################################
+
+  /users/{userId}/badges:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get user badges
+
+      operationId: getUserBadges
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Badge collection
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/BadgePage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Achievements
+  ################################################################################
+
+  /users/{userId}/achievements:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get user achievements
+
+      operationId: getUserAchievements
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Achievement list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AchievementPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Profile Insights
+  ################################################################################
+
+  /users/me/insights:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get profile insights
+
+      operationId: getProfileInsights
+
+      responses:
+
+        "200":
+
+          description: Insights
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileInsights'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Contact Import
+  ################################################################################
+
+  /users/me/import-contacts:
+
+    post:
+
+      tags:
+        - Friends
+
+      summary: Import contacts
+
+      operationId: importContacts
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ImportContactsRequest'
+
+      responses:
+
+        "202":
+
+          description: Import started
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Invite Friends
+  ################################################################################
+
+  /users/me/invite:
+
+    post:
+
+      tags:
+        - Friends
+
+      summary: Invite friends
+
+      operationId: inviteFriends
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/InviteFriendsRequest'
+
+      responses:
+
+        "202":
+
+          description: Invitations sent
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Profile Showcase
+  ################################################################################
+
+  /users/{userId}/showcase:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get profile showcase
+
+      operationId: getProfileShowcase
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: User showcase
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileShowcase'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/me/showcase:
+
+    patch:
+
+      tags:
+        - Profiles
+
+      summary: Update profile showcase
+
+      description: |
+        Pins featured content on the authenticated user's profile:
+        best review, favorite game, collection, tier list,
+        selected badges and achievements.
+
+      operationId: updateProfileShowcase
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateProfileShowcaseRequest'
+
+      responses:
+
+        "200":
+
+          description: Showcase updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileShowcase'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Profile Visitors (Premium)
+  ################################################################################
+
+  /users/me/profile-visitors:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Recent profile visitors
+
+      description: |
+        Returns users who viewed the authenticated profile in the last 30 days.
+        Premium feature.
+
+      operationId: getProfileVisitors
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Visitors
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileVisitorPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  ################################################################################
+  # Taste Match
+  ################################################################################
+
+  /users/{userId}/taste-match:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Compare gaming taste
+
+      description: |
+        Calculates taste similarity between the authenticated user
+        and the target user based on shared games, reviews and preferences.
+
+      operationId: getTasteMatch
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Taste comparison
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TasteMatch'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Gamer DNA
+  ################################################################################
+
+  /users/{userId}/gamer-dna:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Gamer DNA profile
+
+      description: |
+        Returns the automatically generated play-style identity for a user.
+        Used on profiles and by the recommendation engine.
+
+      operationId: getGamerDNA
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Gamer DNA
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamerDNA'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # D3.24 Profile Hero · Reputation · Creator
+  ################################################################################
+
+  /users/{userId}/hero:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get profile hero composition
+
+      operationId: getProfileHero
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Profile Hero (Steam · completion · archetypes · reputation · creator)
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileHeroResponse'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/{userId}/reputation:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: List gaming reputation badges
+
+      operationId: listUserReputation
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Behavior-derived reputation badges
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/UserReputationResponse'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /users/{userId}/reputation/recompute:
+
+    post:
+
+      tags:
+        - Profiles
+
+      summary: Recompute reputation badges for self
+
+      operationId: recomputeUserReputation
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Recomputed reputation badges
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/UserReputationResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /users/{userId}/creator:
+
+    get:
+
+      tags:
+        - Profiles
+
+      summary: Get creator profile surface
+
+      operationId: getCreatorProfile
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Creator profile (badge · featured · guides · collections)
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CreatorProfileResponse'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    UserId:
+
+      name: userId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+
+  schemas:
+
+
+    UserPrivateProfile:
+
+      allOf:
+
+        - $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        - type: object
+
+          properties:
+
+            email:
+
+              type: string
+
+              format: email
+
+            language:
+
+              type: string
+
+            timezone:
+
+              type: string
+
+            notificationEnabled:
+
+              type: boolean
+
+    UpdateUserRequest:
+
+      type: object
+
+      properties:
+
+        displayName:
+
+          type: string
+
+          maxLength: 50
+
+        bio:
+
+          type: string
+
+          maxLength: 500
+
+        language:
+
+          type: string
+
+        timezone:
+
+          type: string
+
+    DeleteAccountRequest:
+
+      type: object
+
+      required:
+
+        - password
+
+      properties:
+
+        password:
+
+          type: string
+
+        reason:
+
+          type: string
+
+          nullable: true
+
+    ProfileTheme:
+
+      type: object
+
+      properties:
+
+        accentColor:
+
+          type: string
+
+        profileLayout:
+
+          type: string
+
+        avatarFrame:
+
+          type: string
+
+        featuredGameId:
+
+          type: string
+
+          format: uuid
+
+        featuredReviewId:
+
+          type: string
+
+          format: uuid
+
+        featuredTierListId:
+
+          type: string
+
+          format: uuid
+
+        featuredCollectionId:
+
+          type: string
+
+          format: uuid
+
+    ProfileThemeRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/ProfileTheme'
+
+    SocialLinksRequest:
+
+      type: object
+
+      properties:
+
+        website:
+
+          type: string
+
+          format: uri
+
+        steam:
+
+          type: string
+
+          format: uri
+
+        discord:
+
+          type: string
+
+        github:
+
+          type: string
+
+          format: uri
+
+        twitch:
+
+          type: string
+
+          format: uri
+
+        youtube:
+
+          type: string
+
+          format: uri
+
+        x:
+
+          type: string
+
+          format: uri
+
+        tiktok:
+
+          type: string
+
+          format: uri
+
+        bluesky:
+
+          type: string
+
+          format: uri
+
+        threads:
+
+          type: string
+
+          format: uri
+
+    ConnectionProvider:
+
+      type: string
+
+      enum:
+        - STEAM
+        - EPIC
+        - XBOX
+        - PLAYSTATION
+        - NINTENDO
+        - EA
+        - UBISOFT
+        - RIOT
+        - BATTLENET
+        - DISCORD
+
+    ConnectedAccount:
+
+      type: object
+
+      properties:
+
+        provider:
+
+          $ref: '#/components/schemas/ConnectionProvider'
+
+        username:
+
+          type: string
+
+        connectedAt:
+
+          type: string
+
+          format: date-time
+
+        verified:
+
+          type: boolean
+
+    ConnectProviderRequest:
+
+      type: object
+
+      required:
+
+        - provider
+
+      properties:
+
+        provider:
+
+          $ref: '#/components/schemas/ConnectionProvider'
+
+
+    PrivacySettings:
+
+      type: object
+
+      properties:
+
+        profileVisibility:
+
+          type: string
+
+          enum:
+            - PUBLIC
+            - FRIENDS
+            - PRIVATE
+
+        showGameLibrary:
+
+          type: boolean
+
+        showActivity:
+
+          type: boolean
+
+        allowMessages:
+
+          type: string
+
+          enum:
+            - EVERYONE
+            - FRIENDS
+            - NOBODY
+
+    UserPreferences:
+
+      type: object
+
+      properties:
+
+        autoplayVideos:
+
+          type: boolean
+
+        showAdultContent:
+
+          type: boolean
+
+        defaultFeed:
+
+          type: string
+
+          enum:
+            - FOR_YOU
+            - FOLLOWING
+            - FRIENDS
+
+        defaultPlatform:
+
+          type: string
+
+        spoilerProtection:
+
+          type: boolean
+
+    LanguageSettings:
+
+      type: object
+
+      properties:
+
+        language:
+
+          type: string
+
+        region:
+
+          type: string
+
+        timezone:
+
+          type: string
+
+    ThemeSettings:
+
+      type: object
+
+      properties:
+
+        appTheme:
+
+          type: string
+
+          enum:
+            - SYSTEM
+            - LIGHT
+            - DARK
+            - OLED
+
+        accentColor:
+
+          type: string
+
+
+    UserStatistics:
+
+      type: object
+
+      properties:
+
+        gamesLogged:
+
+          type: integer
+
+        reviewsWritten:
+
+          type: integer
+
+        postsCreated:
+
+          type: integer
+
+        commentsWritten:
+
+          type: integer
+
+        followers:
+
+          type: integer
+
+        following:
+
+          type: integer
+
+        friends:
+
+          type: integer
+
+        collections:
+
+          type: integer
+
+        tierLists:
+
+          type: integer
+
+        averageRating:
+
+          type: number
+
+        profileViews:
+
+          type: integer
+
+        helpfulVotes:
+
+          type: integer
+
+        currentStreak:
+
+          type: integer
+
+        longestStreak:
+
+          type: integer
+
+        joinedAt:
+
+          type: string
+
+          format: date-time
+
+        totalHoursPlayed:
+
+          type: integer
+
+        gamesCompleted:
+
+          type: integer
+
+        perfectCompletions:
+
+          type: integer
+
+        backlogSize:
+
+          type: integer
+
+        wishlistSize:
+
+          type: integer
+
+        averageReviewLength:
+
+          type: number
+
+        mostPlayedGenre:
+
+          type: string
+
+        mostPlayedPlatform:
+
+          type: string
+
+        monthlyActivityScore:
+
+          type: integer
+
+        reviewLikeRatio:
+
+          type: number
+
+        followersLast30Days:
+
+          type: integer
+
+        profileViewsLast30Days:
+
+          type: integer
+
+        averageSessionLength:
+
+          type: integer
+
+          description: Average minutes per session
+
+        reviewsWithSpoilers:
+
+          type: integer
+
+        gamesDropped:
+
+          type: integer
+
+        gamesCompletedThisYear:
+
+          type: integer
+
+        reviewsThisYear:
+
+          type: integer
+
+        collectionsCreated:
+
+          type: integer
+
+        tierListsCreated:
+
+          type: integer
+
+        developerFollows:
+
+          type: integer
+
+        studioFollows:
+
+          type: integer
+
+        badgesEarned:
+
+          type: integer
+
+        achievementsUnlocked:
+
+          type: integer
+
+        accountAgeDays:
+
+          type: integer
+
+        profileCompletion:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        reviewConsistency:
+
+          type: number
+
+          description: Review writing consistency score
+
+        communityReputation:
+
+          type: number
+
+          description: Reputation score calculated from likes and reports
+
+        tasteSimilarityRank:
+
+          type: number
+
+          description: Similarity percentile compared to other users
+
+        discoveryScore:
+
+          type: number
+
+          description: Measures diversity of played games
+
+        indieSupportScore:
+
+          type: number
+
+          description: Percentage of indie games in library
+
+        completionRate:
+
+          type: number
+
+        averageCompletionTime:
+
+          type: number
+
+        rareAchievementCount:
+
+          type: integer
+
+        hiddenGemReviews:
+
+          type: integer
+
+        topGenre:
+
+          type: string
+
+        topDeveloper:
+
+          type: string
+
+        topStudio:
+
+          type: string
+
+    GamingIdentity:
+
+      type: object
+
+      properties:
+
+        favoritePlatform:
+
+          type: string
+
+          enum:
+            - PC
+            - PLAYSTATION
+            - XBOX
+            - NINTENDO
+            - MOBILE
+
+        favoriteGenre:
+
+          type: string
+
+        favoriteFranchise:
+
+          type: string
+
+        favoriteStudio:
+
+          type: string
+
+        favoriteDeveloper:
+
+          type: string
+
+        favoriteCharacter:
+
+          type: string
+
+        favoriteSoundtrack:
+
+          type: string
+
+        currentlyPlaying:
+
+          type: string
+
+          format: uuid
+
+        nextToPlay:
+
+          type: string
+
+          format: uuid
+
+        completedThisYear:
+
+          type: integer
+
+          minimum: 0
+
+    UpdateGamingIdentityRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/GamingIdentity'
+
+    Activity:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          type: string
+
+          enum:
+            - GAME_LOGGED
+            - REVIEW_CREATED
+            - POST_CREATED
+            - COMMENT_CREATED
+            - COLLECTION_CREATED
+            - TIERLIST_CREATED
+            - BADGE_EARNED
+            - ACHIEVEMENT_UNLOCKED
+            - FRIEND_ADDED
+            - USER_FOLLOWED
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        metadata:
+
+          type: object
+
+          additionalProperties: true
+
+
+    UpdateFavoriteGamesRequest:
+
+      type: object
+
+      properties:
+
+        gameIds:
+
+          type: array
+
+          maxItems: 10
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    UpdateFavoriteStudiosRequest:
+
+      type: object
+
+      properties:
+
+        studioIds:
+
+          type: array
+
+          maxItems: 10
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    UpdateFavoriteDevelopersRequest:
+
+      type: object
+
+      properties:
+
+        developerIds:
+
+          type: array
+
+          maxItems: 10
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    FavoriteGamePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+
+    Badge:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        name:
+
+          type: string
+
+        icon:
+
+          type: string
+
+        rarity:
+
+          type: string
+
+          enum:
+            - COMMON
+            - RARE
+            - EPIC
+            - LEGENDARY
+
+    BadgePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Badge'
+
+
+    Achievement:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        title:
+
+          type: string
+
+        description:
+
+          type: string
+
+        unlockedAt:
+
+          type: string
+
+          format: date-time
+
+    AchievementPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Achievement'
+
+
+    UserCursorPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+
+    ProfileInsights:
+
+      type: object
+
+      properties:
+
+        weeklyProfileViews:
+
+          type: integer
+
+        monthlyProfileViews:
+
+          type: integer
+
+        newFollowers:
+
+          type: integer
+
+        profileCompletion:
+
+          type: integer
+
+        engagementRate:
+
+          type: number
+
+        searchAppearances:
+
+          type: integer
+
+        recommendationAppearances:
+
+          type: integer
+
+    ImportContactsRequest:
+
+      type: object
+
+      properties:
+
+        provider:
+
+          type: string
+
+          enum:
+            - GOOGLE
+            - APPLE
+            - DISCORD
+
+    InviteFriendsRequest:
+
+      type: object
+
+      properties:
+
+        emails:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: email
+
+    ProfileShowcase:
+
+      type: object
+
+      properties:
+
+        featuredGameId:
+
+          type: string
+
+          format: uuid
+
+        featuredReviewId:
+
+          type: string
+
+          format: uuid
+
+        featuredCollectionId:
+
+          type: string
+
+          format: uuid
+
+        featuredTierListId:
+
+          type: string
+
+          format: uuid
+
+        featuredBadgeIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: uuid
+
+        featuredAchievementIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    UpdateProfileShowcaseRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/ProfileShowcase'
+
+    ProfileVisitor:
+
+      type: object
+
+      properties:
+
+        user:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        visitedAt:
+
+          type: string
+
+          format: date-time
+
+    ProfileVisitorPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ProfileVisitor'
+
+
+    TasteMatch:
+
+      type: object
+
+      properties:
+
+        compatibility:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        commonGames:
+
+          type: integer
+
+        commonReviews:
+
+          type: integer
+
+        commonGenres:
+
+          type: integer
+
+        commonStudios:
+
+          type: integer
+
+        commonDevelopers:
+
+          type: integer
+
+        strongestGenre:
+
+          type: string
+
+    GamerDNA:
+
+      type: object
+
+      properties:
+
+        primaryType:
+
+          type: string
+
+          enum:
+            - EXPLORER
+            - COMPLETIONIST
+            - STORY_LOVER
+            - ACHIEVEMENT_HUNTER
+            - RETRO_GAMER
+            - INDIE_SUPPORTER
+            - COMPETITIVE
+            - COLLECTOR
+            - CASUAL
+            - SOCIAL
+
+        secondaryType:
+
+          type: string
+
+        score:
+
+          type: integer
+
+    ProfileHeroResponse:
+
+      type: object
+
+      required:
+        - steamLevel
+        - completionPercent
+        - currentlyPlayingGameId
+        - favoriteGameIds
+        - pinnedCollectionId
+        - archetypeKeys
+        - memberSince
+        - topGenre
+        - totalHours
+        - reputationBadges
+        - creatorBadge
+
+      properties:
+
+        steamLevel:
+
+          type: integer
+
+          nullable: true
+
+        completionPercent:
+
+          type: number
+
+          nullable: true
+
+        currentlyPlayingGameId:
+
+          type: string
+
+          nullable: true
+
+        favoriteGameIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+        pinnedCollectionId:
+
+          type: string
+
+          nullable: true
+
+        archetypeKeys:
+
+          type: array
+
+          items:
+
+            type: string
+
+        memberSince:
+
+          type: string
+
+          format: date-time
+
+        topGenre:
+
+          type: string
+
+          nullable: true
+
+        totalHours:
+
+          type: number
+
+          nullable: true
+
+        reputationBadges:
+
+          type: array
+
+          items:
+
+            type: string
+
+            enum:
+              - helpful_reviewer
+              - strategy_expert
+              - lore_master
+              - achievement_hunter
+              - community_leader
+
+        creatorBadge:
+
+          type: boolean
+
+    UserReputationResponse:
+
+      type: object
+
+      required:
+        - badge
+        - awardedAt
+
+      properties:
+
+        badge:
+
+          type: string
+
+          enum:
+            - helpful_reviewer
+            - strategy_expert
+            - lore_master
+            - achievement_hunter
+            - community_leader
+
+        awardedAt:
+
+          type: string
+
+          format: date-time
+
+    CreatorProfileResponse:
+
+      type: object
+
+      required:
+        - eligible
+        - creatorBadge
+        - followerCount
+        - featuredPosts
+        - guides
+        - collections
+
+      properties:
+
+        eligible:
+
+          type: boolean
+
+        creatorBadge:
+
+          type: boolean
+
+        followerCount:
+
+          type: integer
+
+        featuredPosts:
+
+          type: array
+
+          items:
+
+            type: object
+
+        guides:
+
+          type: array
+
+          items:
+
+            type: object
+
+        collections:
+
+          type: array
+
+          items:
+
+            type: object
+
+x-tagGroups:
+
+  - name: Users
+
+    tags:
+
+      - Users
+      - Profiles
+      - Friends
+      - Followers
+      - Blocking
+      - Preferences
+      - Privacy
+
+################################################################################
+# File End — USER_API.yaml (Final)
+################################################################################

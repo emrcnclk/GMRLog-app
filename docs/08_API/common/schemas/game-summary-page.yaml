@@ -1,0 +1,11 @@
+components:
+  schemas:
+    GameSummaryPage:
+      allOf:
+        - $ref: './cursor-page.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: './game-summary.yaml#/components/schemas/GameSummary'

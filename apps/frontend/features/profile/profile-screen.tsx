@@ -1,0 +1,346 @@
+import { FadeInView, IconButton, Screen, SegmentedTabs, useTheme } from '@gmrlog/ui';
+import { useRouter } from 'expo-router';
+import { Settings2, Sparkles } from 'lucide-react-native';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { FlatList, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useConnectivityStore } from '../../src/state/stores';
+
+import { CollectionCard } from './components/collection-card';
+import { EditProfileModal } from './components/edit-profile-modal';
+import { EmptyCollections } from './components/empty-collections';
+import { EmptyReviews } from './components/empty-reviews';
+import { EmptyTierLists } from './components/empty-tier-lists';
+import { LibrarySkeleton } from './components/library-skeleton';
+import { CustomizationSheet } from './components/premium/customization-sheet';
+import { GameShelves } from './components/premium/game-shelves';
+import { ProfilePremiumHero } from './components/premium/profile-hero';
+import { ProfileOverview } from './components/premium/profile-overview';
+import { ProfileStatsGrid } from './components/premium/profile-stats-grid';
+import { ProfileErrorState } from './components/profile-error-state';
+import { ProfileRefreshContainer } from './components/profile-refresh-container';
+import { ProfileSkeleton } from './components/profile-skeleton';
+import { TierListCard } from './components/tier-list-card';
+import { FAVORITE_PLATFORM_OPTIONS } from './hooks/profile-customization-model';
+import { PROFILE_TAB_LABELS, PROFILE_TABS, type ProfileTabId } from './hooks/profile-model';
+import { useProfileScreenData, useProfileTab } from './hooks/use-profile';
+import { useProfileCustomization } from './hooks/use-profile-customization';
+import { useProfileHero } from './hooks/use-profile-hero';
+import { useReviews } from './hooks/use-reviews';
+import { useMeStatisticsHistory } from './hooks/use-statistics-history';
+
+/**
+ * D3.27 — Premium profile.
+ *
+ * Hero (banner · avatar · level · rank) → headline statistics → tabs. The
+ * Overview tab composes the player's configured widgets; Library is the Steam-
+ * style shelf showcase. Tab chrome comes from the design system's SegmentedTabs
+ * so it matches the Game Hub exactly.
+ */
+export function ProfileScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const isOnline = useConnectivityStore((s) => s.isOnline);
+  const { tab, setTab } = useProfileTab();
+  const data = useProfileScreenData();
+  const reviews = useReviews();
+  const heroUserId = data.profile.user?.id ?? '';
+  const hero = useProfileHero(heroUserId);
+  const history = useMeStatisticsHistory('daily');
+  const { customization } = useProfileCustomization();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  const goDiscover = useCallback(() => {
+    router.push('/(app)/(tabs)/discover');
+  }, [router]);
+
+  const createCollection = useCallback(() => {
+    router.push('/(app)/collections/create');
+  }, [router]);
+
+  const createTierList = useCallback(() => {
+    router.push('/(app)/tier-lists/create');
+  }, [router]);
+
+  const openSettings = useCallback(() => {
+    router.push('/(settings)');
+  }, [router]);
+
+  const openFriends = useCallback(() => {
+    router.push('/(app)/friends');
+  }, [router]);
+
+  const openGame = useCallback(
+    (gameId: string) => {
+      router.push(`/(app)/game/${gameId}`);
+    },
+    [router],
+  );
+
+  const openCollection = useCallback(
+    (id: string) => {
+      router.push(`/(app)/collection/${id}`);
+    },
+    [router],
+  );
+
+  const openTierList = useCallback(
+    (id: string) => {
+      router.push(`/(app)/tier-list/${id}`);
+    },
+    [router],
+  );
+
+  const openUser = useCallback(
+    (userId: string) => {
+      router.push(`/(app)/user/${userId}`);
+    },
+    [router],
+  );
+
+  const openRoute = useCallback(
+    (route: string) => {
+      router.push(route);
+    },
+    [router],
+  );
+
+  const tabItems = useMemo(
+    () => PROFILE_TABS.map((id) => ({ id, label: PROFILE_TAB_LABELS[id] })),
+    [],
+  );
+
+  const libraryEntries = data.library.status === 'ready' ? data.library.items : [];
+  const collections = data.collections.status === 'ready' ? data.collections.items : [];
+
+  if (data.profile.status === 'loading') {
+    return (
+      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <View style={{ paddingTop: insets.top }}>
+          <ProfileSkeleton />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (data.profile.status === 'error' || data.profile.status === 'empty' || !data.profile.user) {
+    return (
+      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <View style={{ flex: 1, paddingTop: insets.top }}>
+          <ProfileRefreshContainer refreshing={data.isRefreshing} onRefresh={data.refresh}>
+            <ProfileErrorState
+              isOffline={!isOnline}
+              onRetry={() => {
+                void data.profile.refetch();
+              }}
+            />
+          </ProfileRefreshContainer>
+        </View>
+      </Screen>
+    );
+  }
+
+  const user = data.profile.user;
+
+  const header = (
+    <View>
+      <View
+        style={{
+          position: 'absolute',
+          top: insets.top + theme.space('space.2'),
+          right: theme.space('space.3'),
+          zIndex: 2,
+          flexDirection: 'row',
+          gap: theme.space('space.2'),
+        }}
+      >
+        <IconButton
+          accessibilityLabel="Customize profile"
+          onPress={() => {
+            setCustomizeOpen(true);
+          }}
+        >
+          <Sparkles size={18} color={theme.color('color.text.primary')} />
+        </IconButton>
+        <IconButton accessibilityLabel="Open settings" onPress={openSettings}>
+          <Settings2 size={18} color={theme.color('color.text.primary')} />
+        </IconButton>
+      </View>
+
+      <ProfilePremiumHero
+        user={user}
+        hero={hero.hero}
+        statistics={data.statistics.statistics}
+        bannerStyle={customization.bannerStyle}
+        isPending={data.statistics.isPending}
+      />
+
+      <View style={{ height: theme.space('space.4') }} />
+
+      <ProfileStatsGrid
+        statistics={data.statistics.statistics}
+        isPending={data.statistics.isPending}
+        onPressFollowers={openFriends}
+        onPressFollowing={openFriends}
+        onPressLibrary={() => {
+          setTab('library');
+        }}
+      />
+
+      <View style={{ height: theme.space('space.4') }} />
+
+      <SegmentedTabs
+        items={tabItems}
+        activeId={tab}
+        onChange={(next: ProfileTabId) => {
+          setTab(next);
+        }}
+        accessibilityLabel="Profile sections"
+      />
+    </View>
+  );
+
+  const listProps = {
+    refreshing: data.isRefreshing,
+    onRefresh: () => {
+      void data.refresh();
+    },
+    ListHeaderComponent: header,
+    contentContainerStyle: {
+      flexGrow: 1,
+      paddingBottom: theme.space('space.10'),
+    },
+    initialNumToRender: 8,
+    windowSize: 7,
+    removeClippedSubviews: true,
+  };
+
+  // Header stays static across tab changes; only the panel animates in, so the
+  // hero never re-plays its entrance and nothing above the fold shifts.
+  const scrollableTab = (children: ReactNode) => (
+    <ProfileRefreshContainer refreshing={data.isRefreshing} onRefresh={data.refresh}>
+      {header}
+      <FadeInView triggerKey={tab}>{children}</FadeInView>
+    </ProfileRefreshContainer>
+  );
+
+  return (
+    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      {tab === 'overview'
+        ? scrollableTab(
+            <ProfileOverview
+              customization={customization}
+              statistics={data.statistics.statistics}
+              history={history.history}
+              archetypes={data.archetypes.items}
+              achievements={data.achievements.items}
+              libraryEntries={libraryEntries}
+              collections={collections}
+              recentActivity={data.activity.items}
+              isPending={data.statistics.isPending}
+              onPressGame={openGame}
+              onPressCollection={openCollection}
+              onPressRoute={openRoute}
+              onPressUser={openUser}
+            />,
+          )
+        : null}
+
+      {tab === 'library'
+        ? data.library.status === 'loading'
+          ? scrollableTab(<LibrarySkeleton />)
+          : data.library.status === 'error'
+            ? scrollableTab(
+                <ProfileErrorState
+                  title="Could not load library"
+                  isOffline={!isOnline}
+                  onRetry={() => {
+                    void data.library.refetch();
+                  }}
+                />,
+              )
+            : scrollableTab(
+                <View style={{ paddingVertical: theme.space('space.4') }}>
+                  <GameShelves entries={libraryEntries} isPending={false} onPressGame={openGame} />
+                </View>,
+              )
+        : null}
+
+      {tab === 'reviews'
+        ? scrollableTab(
+            <EmptyReviews listUnavailable={reviews.listUnavailable} onDiscover={goDiscover} />,
+          )
+        : null}
+
+      {tab === 'collections' ? (
+        data.collections.status === 'loading' ? (
+          scrollableTab(<LibrarySkeleton sections={2} />)
+        ) : data.collections.status === 'empty' ? (
+          scrollableTab(<EmptyCollections onCreate={createCollection} onDiscover={goDiscover} />)
+        ) : data.collections.status === 'error' ? (
+          scrollableTab(
+            <ProfileErrorState
+              title="Could not load collections"
+              isOffline={!isOnline}
+              onRetry={() => {
+                void data.collections.refetch();
+              }}
+            />,
+          )
+        ) : (
+          <FlatList
+            data={data.collections.items}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <CollectionCard collection={item} onPress={openCollection} />}
+            {...listProps}
+          />
+        )
+      ) : null}
+
+      {tab === 'tier-lists' ? (
+        data.tierLists.status === 'loading' ? (
+          scrollableTab(<LibrarySkeleton sections={2} />)
+        ) : data.tierLists.status === 'empty' ? (
+          scrollableTab(<EmptyTierLists onCreate={createTierList} onDiscover={goDiscover} />)
+        ) : data.tierLists.status === 'error' ? (
+          scrollableTab(
+            <ProfileErrorState
+              title="Could not load tier lists"
+              isOffline={!isOnline}
+              onRetry={() => {
+                void data.tierLists.refetch();
+              }}
+            />,
+          )
+        ) : (
+          <FlatList
+            data={data.tierLists.items}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <TierListCard tierList={item} onPress={openTierList} />}
+            {...listProps}
+          />
+        )
+      ) : null}
+
+      <EditProfileModal
+        visible={editOpen}
+        user={user}
+        onClose={() => {
+          setEditOpen(false);
+        }}
+      />
+
+      <CustomizationSheet
+        visible={customizeOpen}
+        platformOptions={FAVORITE_PLATFORM_OPTIONS}
+        onClose={() => {
+          setCustomizeOpen(false);
+        }}
+      />
+    </Screen>
+  );
+}

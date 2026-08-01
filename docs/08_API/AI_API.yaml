@@ -1,0 +1,2217 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG AI API
+  version: 1.0.0
+  description: |
+    Artificial intelligence services for recommendations, review assistance,
+    user insights, content generation, moderation and conversational assistant.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: AI
+    description: AI-powered features
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Recommendations
+  ################################################################################
+
+  /ai/recommendations:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Personalized recommendations
+
+      operationId: getRecommendations
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Personalized game recommendations
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/RecommendationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/recommendations/next:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: What should I play next
+
+      operationId: nextGameRecommendation
+
+      responses:
+
+        "200":
+
+          description: Next game recommendation
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Recommendation'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/recommendations/similar/{gameId}:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Similar games
+
+      operationId: similarGames
+
+      parameters:
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: AI similar game recommendations
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/RecommendationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Review AI
+  ################################################################################
+
+  /ai/reviews/summarize:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Summarize review
+
+      operationId: summarizeReview
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Review summary
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewAiTextResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/improve:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Improve review
+
+      operationId: improveReview
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Improved review text
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewAiTextResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/spellcheck:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Grammar correction
+
+      operationId: spellCheckReview
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Corrected review text
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ReviewAiTextResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/spoilers:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Detect spoilers
+
+      operationId: detectSpoilers
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Spoiler detection result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SpoilerDetectionResult'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/sentiment:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Sentiment analysis
+
+      operationId: sentimentAnalysis
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Sentiment analysis result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/SentimentResult'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/toxicity:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Toxicity analysis
+
+      operationId: toxicityAnalysis
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Toxicity analysis result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ToxicityResult'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /ai/reviews/tags:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Auto generate tags
+
+      operationId: generateTags
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReviewAiRequest'
+
+      responses:
+
+        "200":
+
+          description: Generated tags
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TagGenerationResult'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Search
+  ################################################################################
+
+  /ai/search:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Natural language search
+
+      operationId: aiSearch
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AiNaturalLanguageSearchRequest'
+
+      responses:
+
+        "200":
+
+          description: Natural language search results
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AiNaturalLanguageSearchResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Collections
+  ################################################################################
+
+  /ai/collections/generate:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Generate collection
+
+      operationId: generateCollection
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/GenerateCollectionRequest'
+
+      responses:
+
+        "200":
+
+          description: Generated collection draft
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GenerateCollectionResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Lists
+  ################################################################################
+
+  /ai/lists/generate:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Generate list
+
+      operationId: generateList
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/GenerateListRequest'
+
+      responses:
+
+        "200":
+
+          description: Generated list draft
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GenerateListResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Tier Lists
+  ################################################################################
+
+  /ai/tierlists/generate:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Generate tier list
+
+      operationId: generateTierList
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/GenerateTierListRequest'
+
+      responses:
+
+        "200":
+
+          description: Generated tier list draft
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GenerateTierListResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Image Analysis
+  ################################################################################
+
+  /ai/images/analyze:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Analyze uploaded image
+
+      operationId: analyzeImage
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AnalyzeImageRequest'
+
+          multipart/form-data:
+
+            schema:
+
+              type: object
+
+              required:
+
+                - file
+
+              properties:
+
+                file:
+
+                  type: string
+
+                  format: binary
+
+                prompt:
+
+                  type: string
+
+      responses:
+
+        "200":
+
+          description: Image analysis result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AnalyzeImageResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # OCR
+  ################################################################################
+
+  /ai/ocr:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: OCR recognition
+
+      operationId: recognizeText
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/OcrRequest'
+
+          multipart/form-data:
+
+            schema:
+
+              type: object
+
+              required:
+
+                - file
+
+              properties:
+
+                file:
+
+                  type: string
+
+                  format: binary
+
+                language:
+
+                  type: string
+
+      responses:
+
+        "200":
+
+          description: Recognized text
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/OcrResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Translation
+  ################################################################################
+
+  /ai/translate:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Translate content
+
+      operationId: translate
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/TranslationRequest'
+
+      responses:
+
+        "200":
+
+          description: Translated content
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/TranslationResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Chat
+  ################################################################################
+
+  /ai/chat:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: AI assistant
+
+      operationId: aiAssistant
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ChatRequest'
+
+      responses:
+
+        "200":
+
+          description: Assistant response
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ChatResponse'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  ################################################################################
+  # Moderation
+  ################################################################################
+
+  /ai/moderation:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: Moderate content
+
+      operationId: moderateContent
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ModerationRequest'
+
+      responses:
+
+        "200":
+
+          description: Moderation result
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ModerationResult'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Prompt Templates
+  ################################################################################
+
+  /ai/prompts:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Prompt templates
+
+      operationId: promptTemplates
+
+      parameters:
+
+        - name: category
+
+          in: query
+
+          required: false
+
+          schema:
+
+            type: string
+
+            enum:
+              - REVIEW
+              - COLLECTION
+              - LIST
+              - TIERLIST
+              - CHAT
+              - MODERATION
+
+      responses:
+
+        "200":
+
+          description: Prompt templates
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PromptTemplatePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Usage
+  ################################################################################
+
+  /ai/usage:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: AI usage statistics
+
+      operationId: aiUsage
+
+      parameters:
+
+        - name: period
+
+          in: query
+
+          required: false
+
+          schema:
+
+            type: string
+
+            enum:
+              - DAY
+              - WEEK
+              - MONTH
+
+            default: MONTH
+
+      responses:
+
+        "200":
+
+          description: AI usage statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AiUsageResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Models
+  ################################################################################
+
+  /ai/models:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Available models
+
+      operationId: availableModels
+
+      responses:
+
+        "200":
+
+          description: Available AI models
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AiModelPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Feedback
+  ################################################################################
+
+  /ai/feedback:
+
+    post:
+
+      tags:
+        - AI
+
+      summary: AI response feedback
+
+      operationId: aiFeedback
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AiFeedbackRequest'
+
+      responses:
+
+        "202":
+
+          description: Feedback submitted
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # User Insights
+  ################################################################################
+
+  /ai/users/{userId}/insights:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Gaming insights
+
+      operationId: userInsights
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Gaming insights
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserInsightsResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /ai/users/{userId}/profile-summary:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Profile summary
+
+      operationId: profileSummary
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: AI-generated profile summary
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ProfileSummaryResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /ai/users/{userId}/gaming-style:
+
+    get:
+
+      tags:
+        - AI
+
+      summary: Gaming style
+
+      operationId: gamingStyle
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: Gaming style analysis
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GamingStyleResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  schemas:
+
+    AIResponse:
+
+      type: object
+
+      properties:
+
+        model:
+
+          type: string
+
+        latency:
+
+          type: integer
+
+          description: Response latency in milliseconds
+
+        tokens:
+
+          type: integer
+
+        response:
+
+          type: string
+
+    Recommendation:
+
+      type: object
+
+      properties:
+
+        game:
+
+          $ref: './common/schemas/game-summary.yaml#/components/schemas/GameSummary'
+
+        score:
+
+          type: number
+
+        confidence:
+
+          type: number
+
+        explanation:
+
+          type: string
+
+    RecommendationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Recommendation'
+
+
+    UserInsight:
+
+      type: object
+
+      properties:
+
+        title:
+
+          type: string
+
+        description:
+
+          type: string
+
+        confidence:
+
+          type: number
+
+    UserInsightsResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            insights:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/UserInsight'
+
+    ProfileSummaryResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            summary:
+
+              type: string
+
+            highlights:
+
+              type: array
+
+              items:
+
+                type: string
+
+    GamingStyleResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            style:
+
+              type: string
+
+            traits:
+
+              type: array
+
+              items:
+
+                type: string
+
+            preferredGenres:
+
+              type: array
+
+              items:
+
+                type: string
+
+    AIModel:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        provider:
+
+          type: string
+
+        name:
+
+          type: string
+
+        supportsStreaming:
+
+          type: boolean
+
+        supportsVision:
+
+          type: boolean
+
+        supportsFunctionCalling:
+
+          type: boolean
+
+    AiModelPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/AIModel'
+
+
+    ReviewAiRequest:
+
+      type: object
+
+      properties:
+
+        reviewId:
+
+          type: string
+
+          format: uuid
+
+        text:
+
+          type: string
+
+          maxLength: 10000
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+    ReviewAiTextResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            text:
+
+              type: string
+
+            changes:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/TextChange'
+
+    TextChange:
+
+      type: object
+
+      properties:
+
+        original:
+
+          type: string
+
+        suggestion:
+
+          type: string
+
+        reason:
+
+          type: string
+
+    SpoilerDetectionResult:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            hasSpoilers:
+
+              type: boolean
+
+            spoilerSections:
+
+              type: array
+
+              items:
+
+                type: object
+
+                properties:
+
+                  text:
+
+                    type: string
+
+                  severity:
+
+                    type: string
+
+                    enum:
+                      - LOW
+                      - MEDIUM
+                      - HIGH
+
+    SentimentResult:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            sentiment:
+
+              type: string
+
+              enum:
+                - POSITIVE
+                - NEUTRAL
+                - NEGATIVE
+                - MIXED
+
+            score:
+
+              type: number
+
+    ToxicityResult:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            isToxic:
+
+              type: boolean
+
+            score:
+
+              type: number
+
+            categories:
+
+              type: array
+
+              items:
+
+                type: string
+
+    TagGenerationResult:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            tags:
+
+              type: array
+
+              items:
+
+                type: string
+
+    AiNaturalLanguageSearchRequest:
+
+      type: object
+
+      required:
+
+        - query
+
+      properties:
+
+        query:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 500
+
+        limit:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 50
+
+          default: 20
+
+    AiNaturalLanguageSearchResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            interpretation:
+
+              type: string
+
+            gameIds:
+
+              type: array
+
+              items:
+
+                type: string
+
+                format: uuid
+
+    GenerateCollectionRequest:
+
+      type: object
+
+      required:
+
+        - prompt
+
+      properties:
+
+        prompt:
+
+          type: string
+
+          maxLength: 500
+
+        gameCount:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 100
+
+          default: 20
+
+    GenerateCollectionResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            name:
+
+              type: string
+
+            description:
+
+              type: string
+
+            gameIds:
+
+              type: array
+
+              items:
+
+                type: string
+
+                format: uuid
+
+    GenerateListRequest:
+
+      type: object
+
+      required:
+
+        - prompt
+
+      properties:
+
+        prompt:
+
+          type: string
+
+          maxLength: 500
+
+        ranked:
+
+          type: boolean
+
+          default: true
+
+        gameCount:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 100
+
+          default: 10
+
+    GenerateListResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            name:
+
+              type: string
+
+            description:
+
+              type: string
+
+            gameIds:
+
+              type: array
+
+              items:
+
+                type: string
+
+                format: uuid
+
+    GenerateTierListRequest:
+
+      type: object
+
+      required:
+
+        - prompt
+
+      properties:
+
+        prompt:
+
+          type: string
+
+          maxLength: 500
+
+        gameCount:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 50
+
+          default: 20
+
+    GenerateTierListResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            name:
+
+              type: string
+
+            description:
+
+              type: string
+
+            tiers:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GeneratedTierRow'
+
+    GeneratedTierRow:
+
+      type: object
+
+      properties:
+
+        label:
+
+          type: string
+
+        gameIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    AnalyzeImageRequest:
+
+      type: object
+
+      properties:
+
+        imageUrl:
+
+          type: string
+
+          format: uri
+
+        prompt:
+
+          type: string
+
+    AnalyzeImageResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            description:
+
+              type: string
+
+            detectedGameId:
+
+              type: string
+
+              format: uuid
+
+            tags:
+
+              type: array
+
+              items:
+
+                type: string
+
+    OcrRequest:
+
+      type: object
+
+      properties:
+
+        imageUrl:
+
+          type: string
+
+          format: uri
+
+        language:
+
+          type: string
+
+          default: auto
+
+    OcrResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            text:
+
+              type: string
+
+            language:
+
+              type: string
+
+            confidence:
+
+              type: number
+
+    TranslationRequest:
+
+      type: object
+
+      required:
+
+        - text
+        - targetLanguage
+
+      properties:
+
+        text:
+
+          type: string
+
+        sourceLanguage:
+
+          type: string
+
+        targetLanguage:
+
+          type: string
+
+    TranslationResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            text:
+
+              type: string
+
+            sourceLanguage:
+
+              type: string
+
+            targetLanguage:
+
+              type: string
+
+    ChatRequest:
+
+      type: object
+
+      required:
+
+        - message
+
+      properties:
+
+        message:
+
+          type: string
+
+          maxLength: 4000
+
+        context:
+
+          type: string
+
+        conversationId:
+
+          type: string
+
+          format: uuid
+
+        modelId:
+
+          type: string
+
+    ChatResponse:
+
+      allOf:
+
+        - $ref: '#/components/schemas/AIResponse'
+
+        - type: object
+
+          properties:
+
+            message:
+
+              type: string
+
+            conversationId:
+
+              type: string
+
+              format: uuid
+
+    ModerationRequest:
+
+      type: object
+
+      required:
+
+        - text
+
+      properties:
+
+        text:
+
+          type: string
+
+        entityType:
+
+          type: string
+
+          enum:
+            - REVIEW
+            - COMMENT
+            - POST
+            - USER
+            - LIST
+            - COLLECTION
+            - TIERLIST
+
+    ModerationResult:
+
+      type: object
+
+      properties:
+
+        flagged:
+
+          type: boolean
+
+        categories:
+
+          type: array
+
+          items:
+
+            type: string
+
+        score:
+
+          type: number
+
+        model:
+
+          type: string
+
+    PromptTemplate:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+        category:
+
+          type: string
+
+        name:
+
+          type: string
+
+        description:
+
+          type: string
+
+        template:
+
+          type: string
+
+    PromptTemplatePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/PromptTemplate'
+
+
+    AiUsageResponse:
+
+      type: object
+
+      properties:
+
+        period:
+
+          type: string
+
+        totalRequests:
+
+          type: integer
+
+        totalTokens:
+
+          type: integer
+
+        remainingQuota:
+
+          type: integer
+
+        byFeature:
+
+          type: array
+
+          items:
+
+            type: object
+
+            properties:
+
+              feature:
+
+                type: string
+
+              requests:
+
+                type: integer
+
+              tokens:
+
+                type: integer
+
+    AiFeedbackRequest:
+
+      type: object
+
+      required:
+
+        - requestId
+        - rating
+
+      properties:
+
+        requestId:
+
+          type: string
+
+          format: uuid
+
+        rating:
+
+          type: string
+
+          enum:
+            - POSITIVE
+            - NEGATIVE
+
+        comment:
+
+          type: string
+
+          maxLength: 1000
+
+x-tagGroups:
+
+  - name: AI
+
+    tags:
+
+      - AI
+
+################################################################################
+# File End — AI_API.yaml
+################################################################################

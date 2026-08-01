@@ -1,0 +1,17 @@
+{
+  "name": "@gmrlog/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TypeScript configuration for the GMRLOG monorepo",
+  "files": [
+    "*.json"
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./library.json": "./library.json",
+    "./node.json": "./node.json",
+    "./nestjs.json": "./nestjs.json",
+    "./expo.json": "./expo.json",
+    "./react-native-library.json": "./react-native-library.json"
+  }
+}

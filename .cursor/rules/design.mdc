@@ -1,0 +1,106 @@
+---
+description: Tasarım sistemi kuralları — GMRLOG-OS
+globs: docs/02_DESIGN/**,docs/03_UX/**
+alwaysApply: false
+---
+
+# Design Kuralları
+
+Önce oku:
+
+1. `docs/02_DESIGN/MASTER_PRODUCT_AND_DESIGN_DIRECTION.md` — **LOCKED SSOT** (UI/UX/frontend yönü)
+2. `docs/02_DESIGN/SPRINT_F1_FOUNDATION.md` — **LOCKED** foundation + signature component specs
+3. `docs/02_DESIGN/SPRINT_F2_1_INFORMATION_ARCHITECTURE.md` — **LOCKED** navigation & information architecture
+4. `docs/02_DESIGN/SPRINT_F2_2_AUTHENTICATION_EXPERIENCE.md` — **LOCKED** authentication experience
+5. `docs/02_DESIGN/SPRINT_F2_2_1_AUTH_POLISH.md` — **LOCKED** auth identity polish amendment
+6. `docs/02_DESIGN/SPRINT_F2_3_HOME_FEED.md` — **LOCKED** Home Feed architecture
+7. `docs/02_DESIGN/SPRINT_F2_3_1_FEED_IDENTITY_REFINEMENT.md` — **LOCKED** feed identity refinement
+8. `docs/02_DESIGN/SPRINT_F2_4_GAME_EXPERIENCE.md` — **LOCKED** Game Detail experience
+9. `docs/02_DESIGN/SPRINT_F2_4_1_GAME_IDENTITY_REFINEMENT.md` — **LOCKED** game identity refinement
+10. `docs/02_DESIGN/SPRINT_F2_5_GAMER_IDENTITY_PROFILE.md` — **LOCKED** Gamer Identity Profile
+11. `docs/02_DESIGN/SPRINT_F2_5_1_GAMER_IDENTITY_REFINEMENT.md` — **LOCKED** profile identity refinement
+12. `docs/02_DESIGN/SPRINT_F2_6_LIBRARY_COLLECTIONS.md` — **LOCKED** Library & Collections
+13. `docs/02_DESIGN/SPRINT_F2_7_HOME_FEED.md` — **LOCKED** Home Feed & Discovery
+14. `docs/02_DESIGN/SPRINT_F2_8_SOCIAL_COMMUNICATION.md` — **LOCKED** Social & Communication
+15. `docs/02_DESIGN/SPRINT_F2_9_NOTIFICATIONS_ACTIVITY_CENTER.md` — **LOCKED** Notifications & Activity Center
+16. `docs/02_DESIGN/SPRINT_F2_10_DISCOVER_SEARCH.md` — **LOCKED** Discover & Search
+17. `docs/02_DESIGN/SPRINT_F2_11_COMMUNITIES_GUILDS.md` — **LOCKED** Communities & Guilds
+18. `docs/02_DESIGN/SPRINT_F2_12_CREATOR_PLATFORM.md` — **LOCKED** Creator Platform
+19. `docs/02_DESIGN/SPRINT_F2_13_REPUTATION_RECOGNITION.md` — **LOCKED** Reputation & Recognition
+20. `docs/02_DESIGN/SPRINT_F2_14_ACHIEVEMENT_LEGACY.md` — **LOCKED** Achievement, Legacy & Journey
+21. `docs/02_DESIGN/SPRINT_F2_15_EVENTS_SEASONAL.md` — **LOCKED** Events & Seasonal
+22. `docs/02_DESIGN/SPRINT_F2_16_PREMIUM_MEMBERSHIP.md` — **LOCKED** Premium & Membership (constitutional ethics)
+23. `docs/02_DESIGN/SPRINT_F2_17_TRUST_SAFETY_GOVERNANCE.md` — **LOCKED** Trust, Safety & Governance
+24. `docs/02_DESIGN/SPRINT_F2_18_ACCESSIBILITY_GLOBAL_EXPERIENCE.md` — **LOCKED** Accessibility, Inclusivity & Global Experience
+25. `docs/02_DESIGN/SPRINT_F2_19_INTELLIGENCE_AI_RECOMMENDATION.md` — **LOCKED** Intelligence, AI & Recommendation
+26. `docs/02_DESIGN/SPRINT_F2_20_SETTINGS_PERSONALIZATION.md` — **LOCKED** Settings, Personalization & User Control
+27. `docs/02_DESIGN/SPRINT_F2_21_EXTERNAL_INTEGRATIONS_ECOSYSTEM.md` — **LOCKED** External Integrations & Ecosystem
+28. `docs/02_DESIGN/SPRINT_F2_22_PLATFORM_INTELLIGENCE_OPERATIONS.md` — **LOCKED** Platform Intelligence & Operational Excellence
+29. `docs/02_DESIGN/SPRINT_F2_23_ANALYTICS_INSIGHTS_PRODUCT_INTELLIGENCE.md` — **LOCKED** Analytics, Insights & Product Intelligence
+30. `docs/02_DESIGN/SPRINT_F2_24_ENTERPRISE_STUDIO_ORGANIZATION.md` — **LOCKED** Enterprise, Studio & Organization
+31. `docs/02_DESIGN/SPRINT_F2_25_GROWTH_ADOPTION_ECOSYSTEM_EXPANSION.md` — **LOCKED** Growth, Adoption & Ecosystem Expansion
+32. `docs/02_DESIGN/SPRINT_F2_26_MONETIZATION_COMMERCE_SUSTAINABLE_ECONOMY.md` — **LOCKED** Monetization, Commerce & Sustainable Economy
+33. `docs/02_DESIGN/SPRINT_F2_27_SECURITY_PRIVACY_DATA_GOVERNANCE.md` — **LOCKED** Security, Privacy & Data Governance
+34. `docs/02_DESIGN/SPRINT_F2_28_DEVELOPER_PLATFORM_API_EXTENSIBILITY.md` — **LOCKED** Developer Platform, API & Extensibility
+35. `docs/02_DESIGN/SPRINT_F2_29_PRODUCT_CONSTITUTION_GOVERNANCE_EVOLUTION.md` — **LOCKED** Final Product Constitution (F2 series close)
+36. İlgili subordinate: `DESIGN_TOKENS.md`, `COMPONENT_LIBRARY.md`, `MOTION_GUIDELINES.md`, `ACCESSIBILITY.md`
+37. `docs/03_UX/` — etkileşim detayları (Master ile çelişirse Master kazanır)
+38. **F2 Product Design Constitution CLOSED.** Sonraki faz: **F3 — UX & Interaction Design**
+39. `docs/03_UX/F3_1_UX_FOUNDATION_INTERACTION_PRINCIPLES.md` — **LOCKED** UX Constitution (F3.1)
+40. `docs/03_UX/F3_2_INFORMATION_ARCHITECTURE_NAVIGATION_EXPERIENCE.md` — **LOCKED** Navigation Experience (F3.2); structure still F2.1
+41. `docs/03_UX/F3_3_VISUAL_HIERARCHY_LAYOUT_SYSTEM.md` — **LOCKED** Visual Hierarchy & Layout System (F3.3)
+42. `docs/03_UX/F3_4_INTERACTION_MICROINTERACTION_PHILOSOPHY.md` — **LOCKED** Interaction & Microinteraction Philosophy (F3.4)
+43. `docs/03_UX/F3_5_MOTION_ANIMATION_PHILOSOPHY.md` — **LOCKED** Motion & Animation Philosophy (F3.5)
+44. `docs/03_UX/F3_6_COMPONENTS_FORMS_STATES_SEARCH_EXPERIENCE.md` — **LOCKED** Components, Forms, States & Search (F3.6)
+45. `docs/03_UX/F3_7_PROFILE_IDENTITY_LIBRARY_EXPERIENCE.md` — **LOCKED** Profile, Identity & Library Experience (F3.7)
+46. `docs/03_UX/F3_8_HOME_DISCOVER_GAME_EXPERIENCE.md` — **LOCKED** Home, Discover & Game Experience (F3.8)
+47. `docs/03_UX/F3_9_COMMUNITY_CREATOR_SOCIAL_EXPERIENCE.md` — **LOCKED** Community, Creator & Social Experience (F3.9)
+48. `docs/03_UX/F3_10_RESPONSIVE_DESKTOP_CROSS_PLATFORM_EXPERIENCE.md` — **LOCKED** Responsive, Desktop & Cross-Platform (F3.10)
+49. `docs/03_UX/F3_11_UX_WRITING_VOICE_LANGUAGE_LOCALIZATION.md` — **LOCKED** UX Writing, Voice & Localization (F3.11)
+50. `docs/03_UX/F3_12_UX_GOVERNANCE_EXPERIENCE_AUDIT_FINAL_CONSTITUTION.md` — **LOCKED** UX Governance · **F3 CLOSED**
+51. **F3 UX & Interaction Design Phase CLOSED.** Sonraki faz: **F4 — UI Design**. Yeni F3 anayasa sprint’i yalnızca core UX philosophy değişirse.
+52. `docs/04_UI/F4_1_UI_FOUNDATION_VISUAL_DESIGN_PHILOSOPHY.md` — **LOCKED** UI Foundation & Visual Design Philosophy (F4.1); felsefe only — renk/type/component yok
+53. `docs/04_UI/F4_2_COLOR_PHILOSOPHY_SEMANTIC_COLOR_SYSTEM.md` — **LOCKED** Color Philosophy & Semantic Color System (F4.2); anlam first — HEX/palette yok
+54. `docs/04_UI/F4_3_TYPOGRAPHY_PHILOSOPHY_TYPE_SYSTEM.md` — **LOCKED** Typography Philosophy & Type System (F4.3); okuma first — font/size yok
+55. `docs/04_UI/F4_4_GRID_LAYOUT_SPACING_SYSTEM.md` — **LOCKED** Grid, Layout & Spacing System (F4.4); uzay first — px/kolon yok
+56. `docs/04_UI/F4_5_SURFACE_ELEVATION_LAYERING_SYSTEM.md` — **LOCKED** Surface, Elevation & Layering System (F4.5); derinlik meaning — shadow/radius yok
+57. `docs/04_UI/F4_6_ICONOGRAPHY_ILLUSTRATION_VISUAL_SYMBOL_LANGUAGE.md` — **LOCKED** Iconography, Illustration & Visual Symbol Language (F4.6); sembol meaning — asset/pack yok
+58. `docs/04_UI/F4_7_INTERACTION_COMPONENTS_PHILOSOPHY.md` — **LOCKED** Interaction Components Philosophy (F4.7); object behavior — button/card spec yok
+59. `docs/04_UI/F4_8_COMPONENT_DESIGN_SYSTEM_CONSTITUTION.md` — **LOCKED** Component Design System Constitution (F4.8); sistem hukuku — COMPONENT_LIBRARY buna itaat eder
+60. `docs/04_UI/F4_9_MOTION_LANGUAGE_TRANSITION_SYSTEM.md` — **LOCKED** Motion Language & Transition System (F4.9); hareket meaning — ms/easing yok
+61. `docs/04_UI/F4_10_DESIGN_TOKEN_ARCHITECTURE_SEMANTIC_FOUNDATION.md` — **LOCKED** Design Token Architecture & Semantic Foundation (F4.10); anlam first — değer/JSON yok
+62. `docs/04_UI/F4_11_RESPONSIVE_UI_ADAPTIVE_LAYOUT_CONSTITUTION.md` — **LOCKED** Responsive UI & Adaptive Layout Constitution (F4.11); canvas adapts — identity sabit; breakpoint yok
+63. `docs/04_UI/F4_12_DESIGN_SYSTEM_GOVERNANCE_EVOLUTION_CONSTITUTION.md` — **LOCKED** Design System Governance & Evolution Constitution (F4.12); tek otorite · anti-fork · breaking-change review
+64. `docs/04_UI/F4_13_UI_CONSTITUTION_FINALIZATION_PHASE_CLOSURE.md` — **LOCKED** UI Constitution Finalization · **F4 CLOSED** → F5
+65. **F4 UI Design Phase CLOSED.** Sonraki faz: **F5 — Production & Design Implementation**. Yeni F4 anayasa sprint’i yalnızca formal amendment ile.
+66. `docs/05_PRODUCT_ARCHITECTURE/F5_1_INFORMATION_ARCHITECTURE_NAVIGATION_SPECIFICATION.md` — **DRAFT** Product IA & Navigation Specification (structure SSOT; obeys F2.1)
+67. `docs/05_PRODUCT_ARCHITECTURE/F5_2_HOME_FEED_PRODUCT_ARCHITECTURE_SPECIFICATION.md` — **DRAFT** Home Feed Product Architecture (Home owns feed · not Shared Destinations)
+68. `docs/05_PRODUCT_ARCHITECTURE/F5_3_SCREEN_SPECIFICATIONS.md` — **DRAFT** Screen Specifications (full catalog · no UI)
+69. `docs/05_PRODUCT_ARCHITECTURE/F5_4_INTERACTION_COMPONENT_BEHAVIOR_SPECIFICATION.md` — **DRAFT** Interaction & Component Behavior (predictable · consistent · no UI)
+70. `docs/05_PRODUCT_ARCHITECTURE/F5_5_DESIGN_SYSTEM_IMPLEMENTATION_RULES.md` — **DRAFT** Design System & Implementation Rules · **F5 close upon LOCK**; yeni mimari yalnızca amendment
+71. Subordinate UX: `INTERACTION_GUIDELINES.md`, `NAVIGATION_SPECIFICATION.md`, journeys, wireframes — yapı F5.1; davranış F5.4; build F5.5
+72. İlgili subordinate design: `DESIGN_TOKENS.md`, `COMPONENT_LIBRARY.md`, `MOTION_GUIDELINES.md`, `ACCESSIBILITY.md` — F1–F5’e itaat; implementation anayasa yaratmaz
+
+## Görsel dil
+
+- **Story Ember** — dark first, layered surfaces, Warm Ember Orange under 8% of screen
+- Altı eşit pillar; Reviews merkez değil
+- 8 imza bileşen (Game Card, Review Ledger, Post Card, Profile Header, Collection Shelf, Tier Canvas, GameLog Timeline, Activity Feed)
+- 8pt spacing grid; arbitrary spacing yok
+- Typography hierarchy > color
+- Creator Economy: premium/creator enhance eder, core culture paywall olmaz; purple identity accents
+- Mobile-first, Desktop-ready: tek component sistemi; layout adapts, meaning does not
+- WCAG 2.2 AA minimum; `SPRINT_F2_18_ACCESSIBILITY_GLOBAL_EXPERIENCE.md` constitution + `ACCESSIBILITY.md` detail
+- Touch target 48×48dp min; renk tek başına indicator olamaz; screen reader: label, role, state, value
+- Reduced motion, keyboard nav (web), RTL, dynamic type destekle
+- Component naming: `Category / Variant / State`
+- Recognizability filter: *Does this make GMRLOG more recognizable?*
+
+## Davranış
+
+- Hardcoded renk/spacing kullanma; `packages/design-tokens` ve semantic tokens (`docs/02_DESIGN/DESIGN_TOKENS.md`)
+- Token hierarchy: Primitive → Semantic → Component → Theme; primitive colors component'te doğrudan kullanılmaz
+- Naming: `category.property.variant` (ör. `color.background.primary`, `space.6`)
+- Figma = kod 1:1 mapping (`FIGMA_CONVENTIONS.md`); frame naming: `DOMAIN / SCREEN / STATE`
+- Tokens Figma'dan export; manuel duplication yasak
+- Motion: 180–250ms core, no bounce (`animation.mdc` + Master §6)

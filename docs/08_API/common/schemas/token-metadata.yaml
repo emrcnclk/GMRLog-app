@@ -1,0 +1,16 @@
+components:
+  schemas:
+    TokenMetadata:
+      type: object
+      properties:
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+        deviceId:
+          type: string

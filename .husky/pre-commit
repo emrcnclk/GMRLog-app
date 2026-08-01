@@ -1,0 +1,8 @@
+# `--concurrent false` and the raised heap are not tuning — they are what makes
+# this hook survive a large commit. lint-staged defaults to running its tasks in
+# parallel, and on a commit staging the whole monorepo that fans out to enough
+# concurrent eslint processes for the OS to OOM-kill them; the hook then fails
+# with "eslint --fix failed without output (KILLED)", which reads like a lint
+# error and is not one. Serial is slower on a big commit and indistinguishable
+# on a normal one.
+NODE_OPTIONS="--max-old-space-size=8192" pnpm lint-staged --concurrent false

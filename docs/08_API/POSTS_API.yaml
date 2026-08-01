@@ -1,0 +1,1135 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Posts API
+  version: 1.0.0
+  description: |
+    Social posts (text + media), timeline, replies, likes, and reposts.
+
+    Posts BC owns the post aggregate. Feed / Notifications / Search /
+    Analytics / Moderation consume `post.*` events.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Posts
+    description: Social posts and engagement
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /posts:
+
+    post:
+
+      tags:
+        - Posts
+
+      summary: Create post
+
+      operationId: createPost
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreatePostRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Post'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /posts/timeline:
+
+    get:
+
+      tags:
+        - Posts
+
+      summary: Home timeline (followed users + self)
+
+      operationId: getPostsTimeline
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PostPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  /posts/user/{userId}:
+
+    get:
+
+      tags:
+        - Posts
+
+      summary: Author timeline (viewer-visible posts)
+
+      operationId: getPostsByUser
+
+      security: []
+
+      parameters:
+
+        - name: userId
+
+          in: path
+
+          required: true
+
+          schema:
+
+            type: string
+
+            format: uuid
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PostPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}:
+
+    get:
+
+      tags:
+        - Posts
+
+      summary: Get post by id
+
+      operationId: getPostById
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Post'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Posts
+
+      summary: Update post
+
+      operationId: updatePost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdatePostRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Post'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Posts
+
+      summary: Soft-delete post
+
+      operationId: deletePost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "204":
+
+          description: No Content
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/replies:
+
+    get:
+
+      tags:
+        - Posts
+
+      summary: List post replies
+
+      operationId: listPostReplies
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PostReplyPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/like:
+
+    post:
+
+      tags:
+        - Posts
+
+      summary: Like post
+
+      operationId: likePost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "204":
+
+          description: No Content
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+    delete:
+
+      tags:
+        - Posts
+
+      summary: Unlike post
+
+      operationId: unlikePost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "204":
+
+          description: No Content
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/reply:
+
+    post:
+
+      tags:
+        - Posts
+
+      summary: Reply to post
+
+      operationId: replyToPost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreatePostReplyRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PostReply'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/repost:
+
+    post:
+
+      tags:
+        - Posts
+
+      summary: Repost
+
+      operationId: repostPost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/RepostResult'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+
+  /posts/{id}/bookmark:
+    post:
+      tags: [Posts]
+      summary: Bookmark a post (private)
+      operationId: bookmarkPost
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkResult'
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+    delete:
+      tags: [Posts]
+      summary: Remove bookmark
+      operationId: unbookmarkPost
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/pin:
+    post:
+      tags: [Posts]
+      summary: Pin own post
+      operationId: pinPost
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "200":
+          description: Pinned post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "403":
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+    delete:
+      tags: [Posts]
+      summary: Unpin own post
+      operationId: unpinPost
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "200":
+          description: Unpinned post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/poll/vote:
+    post:
+      tags: [Posts]
+      summary: Vote on a poll attached to a post
+      operationId: votePostPoll
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [optionIndex]
+              properties:
+                optionIndex:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: Updated poll
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Poll'
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/poll/close:
+    post:
+      tags: [Posts]
+      summary: Author closes an open poll early
+      operationId: closePostPoll
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "200":
+          description: Closed poll with aggregated results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Poll'
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+        "403":
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /posts/{id}/poll:
+    get:
+      tags: [Posts]
+      summary: Get aggregated poll results for a post
+      operationId: getPostPoll
+      parameters:
+        - $ref: '#/components/parameters/PostId'
+      responses:
+        "200":
+          description: Poll aggregation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Poll'
+        "404":
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /bookmarks:
+    get:
+      tags: [Posts]
+      summary: List viewer bookmarks
+      operationId: listBookmarks
+      parameters:
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+      responses:
+        "200":
+          description: Bookmarks page
+        "401":
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    PostId:
+
+      name: id
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    PostVisibility:
+
+      type: string
+
+      enum: [PUBLIC, FOLLOWERS, PRIVATE]
+
+    PostMediaType:
+
+      type: string
+
+      enum: [IMAGE, GIF]
+
+    PostAuthor:
+
+      type: object
+
+      required: [id, username, displayName]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        username:
+
+          type: string
+
+        displayName:
+
+          type: string
+
+        avatar:
+
+          type: string
+
+          nullable: true
+
+    PostMedia:
+
+      type: object
+
+      required: [id, url, mediaType, sortOrder]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        url:
+
+          type: string
+
+          format: uri
+
+        mediaType:
+
+          $ref: '#/components/schemas/PostMediaType'
+
+        sortOrder:
+
+          type: integer
+
+          minimum: 0
+
+    PostGame:
+
+      type: object
+
+      required: [id, slug, title]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        slug:
+
+          type: string
+
+        title:
+
+          type: string
+
+        cover:
+
+          type: string
+
+          nullable: true
+
+    Post:
+
+      type: object
+
+      required:
+        - id
+        - author
+        - postType
+        - visibility
+        - media
+        - hashtags
+        - likeCount
+        - commentCount
+        - shareCount
+        - createdAt
+        - updatedAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        author:
+
+          $ref: '#/components/schemas/PostAuthor'
+
+        body:
+
+          type: string
+
+          nullable: true
+
+          maxLength: 5000
+
+        postType:
+
+          type: string
+
+          enum: [TEXT]
+
+        visibility:
+
+          $ref: '#/components/schemas/PostVisibility'
+
+        game:
+
+          allOf:
+            - $ref: '#/components/schemas/PostGame'
+          nullable: true
+
+        media:
+
+          type: array
+
+          maxItems: 4
+
+          items:
+
+            $ref: '#/components/schemas/PostMedia'
+
+        hashtags:
+
+          type: array
+
+          items:
+
+            type: string
+
+        likeCount:
+
+          type: integer
+
+          minimum: 0
+
+        commentCount:
+
+          type: integer
+
+          minimum: 0
+
+        shareCount:
+
+          type: integer
+
+          minimum: 0
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    PostPage:
+
+      type: object
+
+      required: [items, nextCursor, hasNext]
+
+      properties:
+
+        items:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/Post'
+
+        nextCursor:
+
+          type: string
+
+          nullable: true
+
+        hasNext:
+
+          type: boolean
+
+    PostReply:
+
+      type: object
+
+      required:
+        - id
+        - postId
+        - author
+        - body
+        - likeCount
+        - createdAt
+        - updatedAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        postId:
+
+          type: string
+
+          format: uuid
+
+        parentId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+        author:
+
+          $ref: '#/components/schemas/PostAuthor'
+
+        body:
+
+          type: string
+
+        likeCount:
+
+          type: integer
+
+          minimum: 0
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    PostReplyPage:
+
+      type: object
+
+      required: [items, nextCursor, hasNext]
+
+      properties:
+
+        items:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/PostReply'
+
+        nextCursor:
+
+          type: string
+
+          nullable: true
+
+        hasNext:
+
+          type: boolean
+
+    CreatePostMediaRequest:
+
+      type: object
+
+      required: [url, mediaType]
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        mediaType:
+
+          $ref: '#/components/schemas/PostMediaType'
+
+        sortOrder:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 99
+
+    CreatePostRequest:
+
+      type: object
+
+      properties:
+
+        body:
+
+          type: string
+
+          maxLength: 5000
+
+        visibility:
+
+          $ref: '#/components/schemas/PostVisibility'
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        media:
+
+          type: array
+
+          maxItems: 4
+
+          items:
+
+            $ref: '#/components/schemas/CreatePostMediaRequest'
+
+    UpdatePostRequest:
+
+      type: object
+
+      properties:
+
+        body:
+
+          type: string
+
+          nullable: true
+
+          maxLength: 5000
+
+        visibility:
+
+          $ref: '#/components/schemas/PostVisibility'
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+        media:
+
+          type: array
+
+          maxItems: 4
+
+          items:
+
+            $ref: '#/components/schemas/CreatePostMediaRequest'
+
+    CreatePostReplyRequest:
+
+      type: object
+
+      required: [body]
+
+      properties:
+
+        body:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 5000
+
+        parentId:
+
+          type: string
+
+          format: uuid
+
+    RepostResult:
+
+      type: object
+
+      required: [repostId, postId, shareCount]
+
+      properties:
+
+        repostId:
+
+          type: string
+
+          format: uuid
+
+        postId:
+
+          type: string
+
+          format: uuid
+
+        shareCount:
+
+          type: integer
+
+          minimum: 0
+
+    BookmarkResult:
+      type: object
+      required: [id, postId, createdAt]
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Poll:
+      type: object
+      required: [id, postId, question, options, endsAt, viewerVoteIndex, totalVotes]
+      properties:
+        id: { type: string }
+        postId: { type: string }
+        question: { type: string }
+        options:
+          type: array
+          items:
+            type: object
+            required: [index, label, voteCount]
+            properties:
+              index: { type: integer }
+              label: { type: string }
+              voteCount: { type: integer }
+        endsAt: { type: string, format: date-time, nullable: true }
+        viewerVoteIndex: { type: integer, nullable: true }
+        totalVotes: { type: integer }
+

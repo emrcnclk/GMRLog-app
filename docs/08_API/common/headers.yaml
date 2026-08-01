@@ -1,0 +1,49 @@
+components:
+
+  headers:
+
+    X-Request-ID:
+
+      description: Unique request identifier
+
+      schema:
+
+        type: string
+
+    X-Trace-ID:
+
+      description: Distributed tracing identifier
+
+      schema:
+
+        type: string
+
+    X-RateLimit-Limit:
+
+      schema:
+
+        type: integer
+
+    X-RateLimit-Remaining:
+
+      schema:
+
+        type: integer
+
+    Retry-After:
+
+      schema:
+
+        type: integer
+
+    ETag:
+
+      schema:
+
+        type: string
+
+    X-Correlation-ID:
+
+      schema:
+
+        type: string

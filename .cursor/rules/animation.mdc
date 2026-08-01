@@ -1,0 +1,39 @@
+---
+description: Animasyon ve motion kuralları — GMRLOG OS
+globs: docs/02_DESIGN/**,**/*.{tsx,css,scss}
+alwaysApply: false
+---
+
+# Animation Kuralları
+
+Önce oku: `docs/02_DESIGN/MOTION_GUIDELINES.md`, `docs/02_DESIGN/DESIGN_TOKENS.md`
+
+## Performance
+
+- Min 60 FPS, hedef 120 FPS; frame budget 16ms
+- Max süreler: UI 500ms, page transition 400ms, micro interaction 200ms
+- React Native Reanimated kullan; layout thrashing ve gereksiz rerender'dan kaçın
+
+## Token kullanımı
+
+Hardcoded duration/easing yasak. Örnekler:
+- `motion.duration.fast` (150ms), `motion.duration.normal` (220ms)
+- `motion.easing.standard`, `motion.spring.soft`
+
+## Navigation
+
+- Push: 300ms slide left + fade
+- Pop: 250ms
+- Modal: 280ms fade backdrop + slide up
+- Bottom sheet: spring, velocity-aware, snap 25/50/75/100%
+- Navigation'da elastic/bounce kullanma
+
+## Reduced Motion
+
+Parallax, particles, büyük scale, complex shared elements devre dışı → fade/opacity/küçük translation
+
+## Kategoriler
+
+Navigation, Feedback, Content, Loading (skeleton tercih), System, Ambient (subtle, reduced motion'da kapalı)
+
+Her animasyon bir amaca hizmet etmeli: relationship, context, feedback, attention, cognitive load.

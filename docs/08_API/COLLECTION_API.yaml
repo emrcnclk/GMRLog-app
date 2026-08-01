@@ -1,0 +1,1538 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Collection API
+  version: 1.0.0
+  description: |
+    Collection management endpoints for GMRLOG.
+
+    User-created game lists with social features including
+    follow, like, collaboration and export.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Collections
+    description: User game collection management
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Collections
+  ################################################################################
+
+  /collections:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get collections
+
+      operationId: collectionGetCollections
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: visibility
+
+          in: query
+
+          schema:
+
+            $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+      responses:
+
+        "200":
+
+          description: Collections
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Create collection
+
+      operationId: createCollection
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateCollectionRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Collection'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # D3.24 Collection Hub Discover
+  ################################################################################
+
+  /collections/discover:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Discover collections
+
+      operationId: discoverCollections
+
+      security: []
+
+      parameters:
+
+        - name: sort
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum: [top, newest, trending, following]
+
+            default: top
+
+        - name: tag
+
+          in: query
+
+          schema:
+
+            type: string
+
+            maxLength: 64
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Discoverable collections
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+  ################################################################################
+  # Featured Collections
+  ################################################################################
+
+  /collections/featured:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Featured collections
+
+      operationId: getFeaturedCollections
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Featured
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionPage'
+
+  ################################################################################
+  # Trending Collections
+  ################################################################################
+
+  /collections/trending:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Trending collections
+
+      operationId: getTrendingCollections
+
+      security: []
+
+      responses:
+
+        "200":
+
+          description: Trending
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionPage'
+
+  /collections/{collectionId}:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get collection
+
+      operationId: getCollection
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "200":
+
+          description: Collection
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Collection'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Collections
+
+      summary: Update collection
+
+      operationId: updateCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateCollectionRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Collection'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Collections
+
+      summary: Delete collection
+
+      operationId: deleteCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Games
+  ################################################################################
+
+  /collections/{collectionId}/games:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get collection games
+
+      operationId: getCollectionGames
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Games
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './common/schemas/game-summary-page.yaml#/components/schemas/GameSummaryPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Add game
+
+      operationId: addGameToCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AddGameRequest'
+
+      responses:
+
+        "201":
+
+          description: Added
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+        "409":
+
+          $ref: './common/responses.yaml#/components/responses/Conflict'
+
+  /collections/{collectionId}/games/{gameId}:
+
+    delete:
+
+      tags:
+        - Collections
+
+      summary: Remove game
+
+      operationId: removeGameFromCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './GAME_API.yaml#/components/parameters/GameId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Follow Collection
+  ################################################################################
+
+  /collections/{collectionId}/follow:
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Follow collection
+
+      operationId: followCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "204":
+
+          description: Followed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Collections
+
+      summary: Unfollow collection
+
+      operationId: unfollowCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "204":
+
+          description: Unfollowed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Like Collection
+  ################################################################################
+
+  /collections/{collectionId}/likes:
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Like collection
+
+      operationId: likeCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "204":
+
+          description: Liked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Collections
+
+      summary: Unlike collection
+
+      operationId: unlikeCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Duplicate
+  ################################################################################
+
+  /collections/{collectionId}/duplicate:
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Duplicate collection
+
+      operationId: duplicateCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Collection'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Export
+  ################################################################################
+
+  /collections/{collectionId}/export:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Export collection
+
+      operationId: exportCollection
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - name: format
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum:
+              - json
+              - csv
+              - pdf
+
+            default: json
+
+      responses:
+
+        "200":
+
+          description: Export
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionExport'
+
+            text/csv:
+
+              schema:
+
+                type: string
+
+            application/pdf:
+
+              schema:
+
+                type: string
+
+                format: binary
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Members (Collaborative Collections)
+  ################################################################################
+
+  /collections/{collectionId}/members:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get collection members
+
+      operationId: getCollectionMembers
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "200":
+
+          description: Members
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionMemberPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Invite member
+
+      operationId: inviteCollectionMember
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/InviteCollectionMemberRequest'
+
+      responses:
+
+        "201":
+
+          description: Invitation sent
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /collections/{collectionId}/members/{userId}:
+
+    patch:
+
+      tags:
+        - Collections
+
+      summary: Update member role
+
+      operationId: updateCollectionMember
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateCollectionMemberRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionMember'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Collections
+
+      summary: Remove member
+
+      operationId: removeCollectionMember
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Comments
+  ################################################################################
+
+  /collections/{collectionId}/comments:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get comments
+
+      operationId: getCollectionComments
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Comments
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/CommentPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Collections
+
+      summary: Create comment
+
+      operationId: createCollectionComment
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: './REVIEW_API.yaml#/components/schemas/CreateCommentRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: './REVIEW_API.yaml#/components/schemas/Comment'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Statistics
+  ################################################################################
+
+  /collections/{collectionId}/statistics:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Collection statistics
+
+      operationId: getCollectionStatistics
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+      responses:
+
+        "200":
+
+          description: Statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionStatistics'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Activity
+  ################################################################################
+
+  /collections/{collectionId}/activity:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Collection activity
+
+      operationId: getCollectionActivity
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Activity
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CollectionActivityPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Collection Followers
+  ################################################################################
+
+  /collections/{collectionId}/followers:
+
+    get:
+
+      tags:
+        - Collections
+
+      summary: Get followers
+
+      operationId: getCollectionFollowers
+
+      security: []
+
+      parameters:
+
+        - $ref: '#/components/parameters/CollectionId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: Followers
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/UserPage'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    CollectionId:
+
+      name: collectionId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+
+    Collection:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        owner:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        name:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        description:
+
+          type: string
+
+        coverImage:
+
+          type: string
+
+          format: uri
+
+        bannerImage:
+
+          type: string
+
+          format: uri
+
+        icon:
+
+          type: string
+
+          format: uri
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+        gameCount:
+
+          type: integer
+
+        followerCount:
+
+          type: integer
+
+        likeCount:
+
+          type: integer
+
+        featured:
+
+          type: boolean
+
+        verified:
+
+          type: boolean
+
+        collaborative:
+
+          type: boolean
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    CollectionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Collection'
+
+
+            total:
+
+              type: integer
+
+              description: Optional total count when available
+
+
+    CreateCollectionRequest:
+
+      type: object
+
+      required:
+
+        - name
+
+      properties:
+
+        name:
+
+          type: string
+
+          minLength: 2
+
+          maxLength: 100
+
+        description:
+
+          type: string
+
+        visibility:
+
+          $ref: './common/schemas/visibility.yaml#/components/schemas/Visibility'
+
+        collaborative:
+
+          type: boolean
+
+    UpdateCollectionRequest:
+
+      allOf:
+
+        - $ref: '#/components/schemas/CreateCollectionRequest'
+
+    AddGameRequest:
+
+      type: object
+
+      required:
+
+        - gameId
+
+      properties:
+
+        gameId:
+
+          type: string
+
+          format: uuid
+
+        note:
+
+          type: string
+
+        favorite:
+
+          type: boolean
+
+        completed:
+
+          type: boolean
+
+        order:
+
+          type: integer
+
+    CollectionExport:
+
+      type: object
+
+      properties:
+
+        downloadUrl:
+
+          type: string
+
+          format: uri
+
+        format:
+
+          type: string
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+    CollectionMember:
+
+      type: object
+
+      properties:
+
+        user:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        role:
+
+          type: string
+
+          enum:
+            - OWNER
+            - ADMIN
+            - EDITOR
+            - VIEWER
+
+        joinedAt:
+
+          type: string
+
+          format: date-time
+
+    CollectionMemberPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/CollectionMember'
+
+
+    InviteCollectionMemberRequest:
+
+      type: object
+
+      required:
+
+        - userId
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        role:
+
+          type: string
+
+          enum:
+            - EDITOR
+            - VIEWER
+
+    UpdateCollectionMemberRequest:
+
+      type: object
+
+      required:
+
+        - role
+
+      properties:
+
+        role:
+
+          type: string
+
+          enum:
+            - ADMIN
+            - EDITOR
+            - VIEWER
+
+    CollectionStatistics:
+
+      type: object
+
+      properties:
+
+        gameCount:
+
+          type: integer
+
+        completedGames:
+
+          type: integer
+
+        averageRating:
+
+          type: number
+
+        totalPlaytime:
+
+          type: integer
+
+        followers:
+
+          type: integer
+
+        likes:
+
+          type: integer
+
+        views:
+
+          type: integer
+
+        shares:
+
+          type: integer
+
+        comments:
+
+          type: integer
+
+    CollectionActivity:
+
+      type: object
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          type: string
+
+          enum:
+            - CREATED
+            - UPDATED
+            - GAME_ADDED
+            - GAME_REMOVED
+            - MEMBER_JOINED
+            - MEMBER_LEFT
+            - COMMENT_ADDED
+            - FOLLOWED
+            - LIKED
+
+        actor:
+
+          $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    CollectionActivityPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/CollectionActivity'
+
+
+    UserPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: './common/schemas/user-public-profile.yaml#/components/schemas/UserPublicProfile'
+
+
+x-tagGroups:
+
+  - name: Collections
+
+    tags:
+
+      - Collections
+
+################################################################################
+# File End — COLLECTION_API.yaml
+################################################################################

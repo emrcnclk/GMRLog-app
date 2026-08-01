@@ -1,0 +1,4825 @@
+openapi: 3.1.0
+
+info:
+
+  title: GMRLOG Communication API
+
+  version: 1.0.0
+
+  description: |
+    Production OpenAPI contract for the GMRLOG **Communication Platform**.
+
+    **Communication Platform Freeze v1.0** (Sprint 9.0.1). Normative decisions:
+    leave ≠ delete, GroupMember→ConversationMember ownership, O(N) cache ban,
+    DM block privacy (404), Sprint 9.1 scope lock. See
+    `docs/00_PROJECT/COMMUNICATION_PLATFORM_FREEZE_v1.md`.
+
+    This module is the canonical REST owner for conversations, messages, groups,
+    channels, reactions, threads, polls, mentions, pins and related engagement.
+
+    It is **not** a narrow "DM-only Messaging" feature — it is the shared
+    communication bounded context that future WebSocket, Notification, Feed,
+    Search, AI, Community and Indie Hub integrations will consume via events.
+
+    ## Sprint 9.1 normative slice (implement ONLY these)
+
+    Operations tagged `x-gmrlog-sprint: '9.1'` and **not** `x-gmrlog-status: future`:
+    list/create/get/patch conversations, leave conversation, list participants,
+    list/create/get messages. Create message accepts **TEXT** only (SYSTEM is
+    server-emitted). All other paths are non-normative appendix until their sprint.
+
+    ## Implementation status
+
+    OpenAPI-first SSOT. Backend implementation lands in Sprint 9.1+.
+    Extensions marked `x-gmrlog-status: future` require Database Freeze
+    follow-ups before shipping.
+
+    ## Database Freeze alignment
+
+    Present today: `Conversation`, `ConversationMember`, `Message`,
+    `MessageRead`, `MessageAttachment`, `TypingStatus`.
+
+    Future schema (documented here, not yet in DB Freeze): Groups, Channels,
+    Threads (`parentMessageId`), Pins, Polls, Voice rooms, Forward graph.
+
+    ## Realtime
+
+    WebSocket / typing / presence / delivery ACKs are **out of this REST file**.
+    See `docs/06_BACKEND/WEBSOCKET_ARCHITECTURE.md` and Sprint 9.4–9.5.
+
+servers:
+
+  - url: https://api.gmrlog.com/api/v1
+
+    description: Production
+
+  - url: https://staging-api.gmrlog.com/api/v1
+
+    description: Staging
+
+  - url: http://localhost:4000/api/v1
+
+    description: Local Development
+
+tags:
+
+  - name: Conversations
+    description: Direct and group-backed conversation inbox
+
+  - name: Participants
+    description: Conversation membership
+
+  - name: Messages
+    description: Message CRUD, rich types, search
+
+  - name: ReadReceipts
+    description: Message read state (Freeze MessageRead)
+
+  - name: Reactions
+    description: Likes and emoji reactions
+
+  - name: Threads
+    description: Reply threads (future Freeze column)
+
+  - name: Groups
+    description: Public / private / invite-only communities
+
+  - name: GroupMembers
+    description: Owner / moderator / member roles
+
+  - name: Channels
+    description: Topic channels under a group
+
+  - name: Polls
+    description: In-conversation polls
+
+  - name: Mentions
+    description: Mention inbox and per-message mentions
+
+  - name: Pins
+    description: Pinned messages
+
+  - name: Bookmarks
+    description: Saved messages
+
+  - name: Attachments
+    description: Media attachments (API surface future)
+
+  - name: VoiceRooms
+    description: Voice channels (future)
+
+security:
+
+  - BearerAuth: []
+
+paths:
+
+  /conversations:
+
+    get:
+
+      tags:
+        - Conversations
+
+      summary: List conversations
+
+      operationId: listConversations
+
+      description: |
+        Inbox for the authenticated user (participant only).
+
+      x-rate-limit: 180/min
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ConversationPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Conversations
+
+      summary: Create conversation
+
+      operationId: createConversation
+
+      description: |
+        Creates a DIRECT conversation (or resolves existing DM pair). Group chats are created via Groups/Channels (9.3).
+        
+        Privacy: if either party has a Social block (either direction), respond **404** (same as non-participant private resource) — never 403 that reveals a block. Friend-gate is out of scope for 9.1; rate limits are the primary spam control.
+
+      x-rate-limit: 30/min
+
+      x-gmrlog-sprint: '9.1'
+
+      x-idempotent: true
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateConversationRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Conversation'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}:
+
+    get:
+
+      tags:
+        - Conversations
+
+      summary: Get conversation
+
+      operationId: getConversation
+
+      x-rate-limit: 180/min
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Conversation'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Conversations
+
+      summary: Update conversation
+
+      operationId: updateConversation
+
+      description: |
+        Participant may update title/archive flags where permitted.
+
+      x-rate-limit: 60/min
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateConversationRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Conversation'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Conversations
+
+      summary: Leave conversation
+
+      operationId: leaveConversation
+
+      description: |
+        **Leave only** — never destroys the Conversation aggregate or messages.
+        
+        Sets `ConversationMember.leftAt` for the caller. Emits `conversation.participant.left.v1` (not `conversation.deleted.v1`).
+        
+        Archive/mute are **PATCH** (`archived` / `muted`). Hard-delete of a conversation is out of scope for 9.1–9.6 (no public destroy endpoint).
+
+      x-rate-limit: 60/min
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      responses:
+
+        "204":
+
+          description: Left (ConversationMember.leftAt set)
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/participants:
+
+    get:
+
+      tags:
+        - Participants
+
+      summary: List participants
+
+      operationId: listConversationParticipants
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ConversationParticipantPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Participants
+
+      summary: Add participant
+
+      operationId: addConversationParticipant
+
+      description: |
+        Group-backed conversations only. DIRECT is fixed at two members.
+
+      x-rate-limit: 30/min
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AddParticipantRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ConversationParticipant'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/participants/{userId}:
+
+    delete:
+
+      tags:
+        - Participants
+
+      summary: Remove participant
+
+      operationId: removeConversationParticipant
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages:
+
+    get:
+
+      tags:
+        - Messages
+
+      summary: List messages
+
+      operationId: listMessages
+
+      description: |
+        Cursor page, newest first. Soft-deleted messages omitted unless `includeDeleted` (moderator).
+
+      x-rate-limit: 180/min
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessagePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Messages
+
+      summary: Send message
+
+      operationId: sendMessage
+
+      description: |
+        Requires write permission (active participant; not blocked).
+        
+        Sprint **9.1**: `messageType` MUST be `TEXT` only. `SYSTEM` is server-emitted. Rich card types and media types are non-normative until later sprints (see MessageType description).
+        
+        Idempotency-Key header recommended.
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-sprint: '9.1'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateMessageRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/search:
+
+    get:
+
+      tags:
+        - Messages
+
+      summary: Search messages in conversation
+
+      operationId: searchConversationMessages
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.6'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessagePage'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/read:
+
+    post:
+
+      tags:
+        - ReadReceipts
+
+      summary: Mark messages read
+
+      operationId: markMessagesRead
+
+      description: |
+        Writes MessageRead rows and updates ConversationMember.lastReadAt.
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-sprint: '9.5'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/MarkMessagesReadRequest'
+
+      responses:
+
+        "204":
+
+          description: Read state updated
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}:
+
+    get:
+
+      tags:
+        - Messages
+
+      summary: Get message
+
+      operationId: getMessage
+
+      x-gmrlog-sprint: '9.1'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Messages
+
+      summary: Edit message
+
+      operationId: updateMessage
+
+      description: |
+        Sender only within edit window. Emits message.updated.v1.
+
+      x-rate-limit: 60/min
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateMessageRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Messages
+
+      summary: Soft-delete message
+
+      operationId: deleteMessage
+
+      description: |
+        Sets Message.deletedAt. Sender or moderator.
+
+      x-rate-limit: 60/min
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/like:
+
+    post:
+
+      tags:
+        - Reactions
+
+      summary: Like message
+
+      operationId: likeMessage
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Liked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Reactions
+
+      summary: Unlike message
+
+      operationId: unlikeMessage
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Unliked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/reactions:
+
+    get:
+
+      tags:
+        - Reactions
+
+      summary: List reactions
+
+      operationId: listMessageReactions
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessageReactionPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Reactions
+
+      summary: Add emoji reaction
+
+      operationId: addMessageReaction
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateMessageReactionRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessageReaction'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/reactions/{reactionId}:
+
+    delete:
+
+      tags:
+        - Reactions
+
+      summary: Remove reaction
+
+      operationId: removeMessageReaction
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+        - $ref: '#/components/parameters/ReactionId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/replies:
+
+    post:
+
+      tags:
+        - Threads
+
+      summary: Reply in thread
+
+      operationId: replyToMessage
+
+      description: |
+        Requires parentMessageId Freeze column.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateMessageRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/thread:
+
+    get:
+
+      tags:
+        - Threads
+
+      summary: Get thread replies
+
+      operationId: getMessageThread
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessagePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/pin:
+
+    post:
+
+      tags:
+        - Pins
+
+      summary: Pin message
+
+      operationId: pinMessage
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Pinned
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Pins
+
+      summary: Unpin message
+
+      operationId: unpinMessage
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Unpinned
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/pins:
+
+    get:
+
+      tags:
+        - Pins
+
+      summary: List pinned messages
+
+      operationId: listPinnedMessages
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/PinnedMessagePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/bookmark:
+
+    post:
+
+      tags:
+        - Bookmarks
+
+      summary: Bookmark message
+
+      operationId: bookmarkMessage
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Bookmarked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Bookmarks
+
+      summary: Remove bookmark
+
+      operationId: unbookmarkMessage
+
+      x-gmrlog-sprint: '9.2'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /messages/bookmarks:
+
+    get:
+
+      tags:
+        - Bookmarks
+
+      summary: List bookmarked messages
+
+      operationId: listMessageBookmarks
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessagePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/report:
+
+    post:
+
+      tags:
+        - Messages
+
+      summary: Report message
+
+      operationId: reportMessage
+
+      x-rate-limit: 10/min
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ReportMessageRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessageReportReceipt'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /messages/mentions:
+
+    get:
+
+      tags:
+        - Mentions
+
+      summary: List mentions for me
+
+      operationId: listMyMentions
+
+      x-gmrlog-sprint: '9.2'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MentionPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/forward:
+
+    post:
+
+      tags:
+        - Messages
+
+      summary: Forward message
+
+      operationId: forwardMessage
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.6'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ForwardMessageRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/polls:
+
+    post:
+
+      tags:
+        - Polls
+
+      summary: Create poll
+
+      operationId: createPoll
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreatePollRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Poll'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/polls/{pollId}:
+
+    get:
+
+      tags:
+        - Polls
+
+      summary: Get poll
+
+      operationId: getPoll
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/PollId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Poll'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/polls/{pollId}/votes:
+
+    post:
+
+      tags:
+        - Polls
+
+      summary: Cast poll vote
+
+      operationId: castPollVote
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/PollId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CastPollVoteRequest'
+
+      responses:
+
+        "204":
+
+          description: Vote recorded
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Polls
+
+      summary: Retract poll vote
+
+      operationId: retractPollVote
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      x-idempotent: true
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/PollId'
+
+      responses:
+
+        "204":
+
+          description: Vote retracted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups:
+
+    get:
+
+      tags:
+        - Groups
+
+      summary: List my groups
+
+      operationId: listMyGroups
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+    post:
+
+      tags:
+        - Groups
+
+      summary: Create group
+
+      operationId: createGroup
+
+      x-rate-limit: 10/min
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateGroupRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Group'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+
+  ################################################################################
+  /groups/discover:
+
+    get:
+
+      tags:
+        - Groups
+
+      summary: Discover public groups
+
+      operationId: discoverGroups
+
+      description: |
+        Public visibility only. Invite-only and private groups are never listed.
+
+      security: []
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupPage'
+
+
+  ################################################################################
+  /groups/{groupId}:
+
+    get:
+
+      tags:
+        - Groups
+
+      summary: Get group
+
+      operationId: getGroup
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Group'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Groups
+
+      summary: Update group
+
+      operationId: updateGroup
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateGroupRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Group'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Groups
+
+      summary: Delete group
+
+      operationId: deleteGroup
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/join:
+
+    post:
+
+      tags:
+        - Groups
+
+      summary: Join group
+
+      operationId: joinGroup
+
+      description: |
+        PUBLIC groups only. PRIVATE/INVITE_ONLY return 403.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      responses:
+
+        "204":
+
+          description: Joined
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/leave:
+
+    post:
+
+      tags:
+        - Groups
+
+      summary: Leave group
+
+      operationId: leaveGroup
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      responses:
+
+        "204":
+
+          description: Left
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/invites:
+
+    get:
+
+      tags:
+        - Groups
+
+      summary: List invites
+
+      operationId: listGroupInvites
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupInvitePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Groups
+
+      summary: Create invite
+
+      operationId: createGroupInvite
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateGroupInviteRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupInvite'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/invites/{token}/accept:
+
+    post:
+
+      tags:
+        - Groups
+
+      summary: Accept group invite
+
+      operationId: acceptGroupInvite
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+
+      responses:
+
+        "204":
+
+          description: Accepted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/members:
+
+    get:
+
+      tags:
+        - GroupMembers
+
+      summary: List group members
+
+      operationId: listGroupMembers
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupMemberPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/members/{userId}:
+
+    patch:
+
+      tags:
+        - GroupMembers
+
+      summary: Update member role
+
+      operationId: updateGroupMemberRole
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/UserId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateGroupMemberRoleRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/GroupMember'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - GroupMembers
+
+      summary: Remove member
+
+      operationId: removeGroupMember
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Removed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/channels:
+
+    get:
+
+      tags:
+        - Channels
+
+      summary: List channels
+
+      operationId: listChannels
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ChannelPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Channels
+
+      summary: Create channel
+
+      operationId: createChannel
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateChannelRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Channel'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/channels/{channelId}:
+
+    get:
+
+      tags:
+        - Channels
+
+      summary: Get channel
+
+      operationId: getChannel
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Channel'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Channels
+
+      summary: Update channel
+
+      operationId: updateChannel
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateChannelRequest'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Channel'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - Channels
+
+      summary: Delete channel
+
+      operationId: deleteChannel
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/channels/{channelId}/messages:
+
+    get:
+
+      tags:
+        - Channels
+
+      summary: List channel messages
+
+      operationId: listChannelMessages
+
+      description: |
+        Alias over the channel's linked Conversation message stream.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessagePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Channels
+
+      summary: Send channel message
+
+      operationId: sendChannelMessage
+
+      x-rate-limit: 120/min
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: '9.3'
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateMessageRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/Message'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /conversations/{conversationId}/messages/{messageId}/attachments:
+
+    get:
+
+      tags:
+        - Attachments
+
+      summary: List attachments
+
+      operationId: listMessageAttachments
+
+      x-gmrlog-sprint: '9.4'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Cursor'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Limit'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessageAttachmentPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - Attachments
+
+      summary: Attach media to message
+
+      operationId: addMessageAttachment
+
+      description: |
+        Prefer media presign pipeline. Freeze table MessageAttachment exists.
+        Only the message sender may attach. Publishes existing `message.updated.v1`.
+
+      x-gmrlog-sprint: '9.4'
+
+      parameters:
+
+        - $ref: '#/components/parameters/ConversationId'
+
+        - $ref: '#/components/parameters/MessageId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateMessageAttachmentRequest'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/MessageAttachment'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+  /groups/{groupId}/channels/{channelId}/voice-room:
+
+    get:
+
+      tags:
+        - VoiceRooms
+
+      summary: Get voice room
+
+      operationId: getVoiceRoom
+
+      description: |
+        Deferred after MVP — Phase 2 / Voice Platform.
+        Not part of Sprint 9.4 (Message Attachments only).
+        Requires a future Voice Database Freeze before implementation.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: 'phase-2'
+
+      x-gmrlog-deferred: after-mvp
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      responses:
+
+        "200":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/VoiceRoom'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    post:
+
+      tags:
+        - VoiceRooms
+
+      summary: Open voice room
+
+      operationId: openVoiceRoom
+
+      description: |
+        Deferred after MVP — Phase 2 / Voice Platform.
+        Not part of Sprint 9.4 (Message Attachments only).
+        Requires a future Voice Database Freeze before implementation.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: 'phase-2'
+
+      x-gmrlog-deferred: after-mvp
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      responses:
+
+        "201":
+
+          description: OK
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/VoiceRoom'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - VoiceRooms
+
+      summary: Close voice room
+
+      operationId: closeVoiceRoom
+
+      description: |
+        Deferred after MVP — Phase 2 / Voice Platform.
+        Not part of Sprint 9.4 (Message Attachments only).
+        Requires a future Voice Database Freeze before implementation.
+
+      x-gmrlog-status: future
+
+      x-gmrlog-sprint: 'phase-2'
+
+      x-gmrlog-deferred: after-mvp
+
+      parameters:
+
+        - $ref: '#/components/parameters/GroupId'
+
+        - $ref: '#/components/parameters/ChannelId'
+
+      responses:
+
+        "204":
+
+          description: Closed
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+
+  ################################################################################
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    ConversationId:
+
+      name: conversationId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    MessageId:
+
+      name: messageId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    GroupId:
+
+      name: groupId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    ChannelId:
+
+      name: channelId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    UserId:
+
+      name: userId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    ReactionId:
+
+      name: reactionId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    PollId:
+
+      name: pollId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+  schemas:
+
+    ConversationType:
+
+      type: string
+
+      enum: [DIRECT, GROUP]
+
+    MessageType:
+
+      type: string
+
+      description: |
+        Full platform vocabulary (bible + future appendix).
+
+        **Database Freeze values (shippable when attachment/media paths exist):**
+        TEXT, IMAGE, GIF, VIDEO, GAME_SHARE, SYSTEM.
+
+        **Sprint 9.1 normative write set:** TEXT only (`SYSTEM` is server-emitted).
+        Clients MUST NOT send Freeze media/share types or rich-card types in 9.1.
+
+        **Rich / future cards (non-normative until engagement/share sprints):**
+        GAME_CARD, REVIEW_SHARE, COLLECTION_SHARE, LIST_SHARE, TIERLIST_SHARE,
+        GAME_LOG_SHARE, ACHIEVEMENT_SHARE, DEVELOPER_POST, BROWSER_GAME, POLL, MEDIA.
+
+        Rich cards reference foreign aggregate ids only — Communication never owns
+        Review/List/Collection/TierList domain logic.
+      enum:
+        - TEXT
+        - IMAGE
+        - GIF
+        - VIDEO
+        - GAME_SHARE
+        - SYSTEM
+        - GAME_CARD
+        - REVIEW_SHARE
+        - COLLECTION_SHARE
+        - LIST_SHARE
+        - TIERLIST_SHARE
+        - GAME_LOG_SHARE
+        - ACHIEVEMENT_SHARE
+        - DEVELOPER_POST
+        - BROWSER_GAME
+        - POLL
+        - MEDIA
+      x-gmrlog-sprint-9-1-write: [TEXT]
+
+    GroupVisibility:
+
+      type: string
+
+      enum: [PUBLIC, PRIVATE, INVITE_ONLY, HIDDEN]
+
+      x-gmrlog-status: future
+
+    GroupMemberRole:
+
+      type: string
+
+      enum: [OWNER, MODERATOR, MEMBER]
+
+      x-gmrlog-status: future
+
+    ChannelKind:
+
+      type: string
+
+      enum: [GENERAL, ANNOUNCEMENTS, MEDIA, STRATEGY, LFG, VOICE]
+
+      x-gmrlog-status: future
+
+    Conversation:
+
+      type: object
+
+      required: [id, type, createdAt, updatedAt, participants]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        type:
+
+          $ref: '#/components/schemas/ConversationType'
+
+        title:
+
+          type: string
+
+          nullable: true
+
+          maxLength: 120
+
+        groupId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+          x-gmrlog-status: future
+
+        channelId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+          x-gmrlog-status: future
+
+        participants:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/ConversationParticipant'
+
+        lastMessage:
+
+          allOf:
+
+            - $ref: '#/components/schemas/Message'
+
+          nullable: true
+
+        unreadCount:
+
+          type: integer
+
+          minimum: 0
+
+        archived:
+
+          type: boolean
+
+          default: false
+
+        muted:
+
+          type: boolean
+
+          default: false
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    ConversationPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Conversation'
+
+    ConversationParticipant:
+
+      type: object
+
+      required: [userId, joinedAt]
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        user:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        joinedAt:
+
+          type: string
+
+          format: date-time
+
+        leftAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        lastReadAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+    ConversationParticipantPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ConversationParticipant'
+
+    CreateConversationRequest:
+
+      type: object
+
+      required: [participantIds]
+
+      properties:
+
+        participantIds:
+
+          type: array
+
+          minItems: 1
+
+          maxItems: 1
+
+          description: Other user id for DIRECT (caller implied).
+
+          items:
+
+            type: string
+
+            format: uuid
+
+        title:
+
+          type: string
+
+          maxLength: 120
+
+        initialMessage:
+
+          $ref: '#/components/schemas/CreateMessageRequest'
+
+      example:
+
+        participantIds:
+          - "11111111-1111-4111-8111-111111111111"
+
+        initialMessage:
+
+          body: "Hey — want to co-op tonight?"
+
+          messageType: TEXT
+
+    UpdateConversationRequest:
+
+      type: object
+
+      properties:
+
+        title:
+
+          type: string
+
+          maxLength: 120
+
+          nullable: true
+
+        archived:
+
+          type: boolean
+
+        muted:
+
+          type: boolean
+
+    AddParticipantRequest:
+
+      type: object
+
+      required: [userId]
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+      x-gmrlog-status: future
+
+    Message:
+
+      type: object
+
+      required: [id, conversationId, senderId, messageType, createdAt, updatedAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        conversationId:
+
+          type: string
+
+          format: uuid
+
+        senderId:
+
+          type: string
+
+          format: uuid
+
+        sender:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        messageType:
+
+          $ref: '#/components/schemas/MessageType'
+
+        body:
+
+          type: string
+
+          nullable: true
+
+          maxLength: 8000
+
+        parentMessageId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+          x-gmrlog-status: future
+
+        richPayload:
+
+          type: object
+
+          additionalProperties: true
+
+          nullable: true
+
+          description: Typed card payload for share message types (gameId, reviewId, …).
+
+        likeCount:
+
+          type: integer
+
+          minimum: 0
+
+          default: 0
+
+        reactionCount:
+
+          type: integer
+
+          minimum: 0
+
+          default: 0
+
+        replyCount:
+
+          type: integer
+
+          minimum: 0
+
+          default: 0
+
+        pinned:
+
+          type: boolean
+
+          default: false
+
+        edited:
+
+          type: boolean
+
+          default: false
+
+        deletedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+      example:
+
+        id: "22222222-2222-4222-8222-222222222222"
+
+        conversationId: "33333333-3333-4333-8333-333333333333"
+
+        senderId: "11111111-1111-4111-8111-111111111111"
+
+        messageType: TEXT
+
+        body: "gg"
+
+        likeCount: 0
+
+        reactionCount: 0
+
+        replyCount: 0
+
+        pinned: false
+
+        edited: false
+
+        deletedAt: null
+
+        createdAt: "2026-07-18T01:00:00.000Z"
+
+        updatedAt: "2026-07-18T01:00:00.000Z"
+
+    MessagePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Message'
+
+    CreateMessageRequest:
+
+      type: object
+
+      properties:
+
+        body:
+
+          type: string
+
+          maxLength: 8000
+
+        messageType:
+
+          $ref: '#/components/schemas/MessageType'
+
+          default: TEXT
+
+          description: |
+            Sprint 9.1 writes: TEXT only. Other enum values are rejected with 400
+            until their sprint enables them.
+
+        richPayload:
+
+          type: object
+
+          additionalProperties: true
+
+          description: |
+            Reserved for rich cards. MUST be omitted/ignored in Sprint 9.1.
+          x-gmrlog-status: future
+
+        parentMessageId:
+
+          type: string
+
+          format: uuid
+
+          x-gmrlog-status: future
+
+        clientMessageId:
+
+          type: string
+
+          format: uuid
+
+          description: Client idempotency token (optional if Idempotency-Key header set).
+
+      example:
+
+        body: "Hey — want to co-op tonight?"
+
+        messageType: TEXT
+
+    UpdateMessageRequest:
+
+      type: object
+
+      required: [body]
+
+      properties:
+
+        body:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 8000
+
+    MarkMessagesReadRequest:
+
+      type: object
+
+      properties:
+
+        upToMessageId:
+
+          type: string
+
+          format: uuid
+
+        messageIds:
+
+          type: array
+
+          items:
+
+            type: string
+
+            format: uuid
+
+    MessageReaction:
+
+      type: object
+
+      required: [id, messageId, userId, emoji, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        messageId:
+
+          type: string
+
+          format: uuid
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        emoji:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 32
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    MessageReactionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/MessageReaction'
+
+    CreateMessageReactionRequest:
+
+      type: object
+
+      required: [emoji]
+
+      properties:
+
+        emoji:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 32
+
+    PinnedMessage:
+
+      type: object
+
+      required: [messageId, pinnedAt, pinnedBy]
+
+      properties:
+
+        messageId:
+
+          type: string
+
+          format: uuid
+
+        message:
+
+          $ref: '#/components/schemas/Message'
+
+        pinnedAt:
+
+          type: string
+
+          format: date-time
+
+        pinnedBy:
+
+          type: string
+
+          format: uuid
+
+      x-gmrlog-status: future
+
+    PinnedMessagePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/PinnedMessage'
+
+      x-gmrlog-status: future
+
+    ReportMessageRequest:
+
+      type: object
+
+      required: [reasonId]
+
+      properties:
+
+        reasonId:
+
+          type: string
+
+          format: uuid
+
+        description:
+
+          type: string
+
+          maxLength: 2000
+
+    MessageReportReceipt:
+
+      type: object
+
+      required: [reportId, createdAt]
+
+      properties:
+
+        reportId:
+
+          type: string
+
+          format: uuid
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    Mention:
+
+      type: object
+
+      required: [id, messageId, mentionedUserId, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        messageId:
+
+          type: string
+
+          format: uuid
+
+        conversationId:
+
+          type: string
+
+          format: uuid
+
+        mentionedUserId:
+
+          type: string
+
+          format: uuid
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    MentionPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Mention'
+
+    ForwardMessageRequest:
+
+      type: object
+
+      required: [targetConversationId]
+
+      properties:
+
+        targetConversationId:
+
+          type: string
+
+          format: uuid
+
+        note:
+
+          type: string
+
+          maxLength: 500
+
+      x-gmrlog-status: future
+
+    Poll:
+
+      type: object
+
+      required: [id, conversationId, question, options, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        conversationId:
+
+          type: string
+
+          format: uuid
+
+        messageId:
+
+          type: string
+
+          format: uuid
+
+          nullable: true
+
+        question:
+
+          type: string
+
+          maxLength: 500
+
+        options:
+
+          type: array
+
+          minItems: 2
+
+          maxItems: 10
+
+          items:
+
+            $ref: '#/components/schemas/PollOption'
+
+        endsAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    PollOption:
+
+      type: object
+
+      required: [id, label, voteCount]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        label:
+
+          type: string
+
+          maxLength: 200
+
+        voteCount:
+
+          type: integer
+
+          minimum: 0
+
+      x-gmrlog-status: future
+
+    CreatePollRequest:
+
+      type: object
+
+      required: [question, options]
+
+      properties:
+
+        question:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 500
+
+        options:
+
+          type: array
+
+          minItems: 2
+
+          maxItems: 10
+
+          items:
+
+            type: string
+
+            minLength: 1
+
+            maxLength: 200
+
+        endsAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    CastPollVoteRequest:
+
+      type: object
+
+      required: [optionId]
+
+      properties:
+
+        optionId:
+
+          type: string
+
+          format: uuid
+
+      x-gmrlog-status: future
+
+    Group:
+
+      type: object
+
+      required: [id, name, visibility, createdAt, updatedAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        name:
+
+          type: string
+
+          maxLength: 80
+
+        slug:
+
+          type: string
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 2000
+
+          nullable: true
+
+        rules:
+
+          type: string
+
+          maxLength: 8000
+
+          nullable: true
+
+        visibility:
+
+          $ref: '#/components/schemas/GroupVisibility'
+
+        avatarUrl:
+
+          type: string
+
+          format: uri
+
+          nullable: true
+
+        bannerUrl:
+
+          type: string
+
+          format: uri
+
+          nullable: true
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+          maxItems: 20
+
+        memberCount:
+
+          type: integer
+
+          minimum: 0
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    GroupPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Group'
+
+      x-gmrlog-status: future
+
+    CreateGroupRequest:
+
+      type: object
+
+      required: [name, visibility]
+
+      properties:
+
+        name:
+
+          type: string
+
+          minLength: 2
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 2000
+
+        visibility:
+
+          $ref: '#/components/schemas/GroupVisibility'
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+      x-gmrlog-status: future
+
+    UpdateGroupRequest:
+
+      type: object
+
+      properties:
+
+        name:
+
+          type: string
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 2000
+
+          nullable: true
+
+        rules:
+
+          type: string
+
+          maxLength: 8000
+
+          nullable: true
+
+        visibility:
+
+          $ref: '#/components/schemas/GroupVisibility'
+
+        avatarUrl:
+
+          type: string
+
+          format: uri
+
+          nullable: true
+
+        bannerUrl:
+
+          type: string
+
+          format: uri
+
+          nullable: true
+
+        tags:
+
+          type: array
+
+          items:
+
+            type: string
+
+      x-gmrlog-status: future
+
+    GroupMember:
+
+      type: object
+
+      required: [userId, role, joinedAt]
+
+      properties:
+
+        userId:
+
+          type: string
+
+          format: uuid
+
+        user:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        role:
+
+          $ref: '#/components/schemas/GroupMemberRole'
+
+        joinedAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    GroupMemberPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GroupMember'
+
+      x-gmrlog-status: future
+
+    UpdateGroupMemberRoleRequest:
+
+      type: object
+
+      required: [role]
+
+      properties:
+
+        role:
+
+          $ref: '#/components/schemas/GroupMemberRole'
+
+      x-gmrlog-status: future
+
+    GroupInvite:
+
+      type: object
+
+      required: [id, groupId, token, createdAt, expiresAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        groupId:
+
+          type: string
+
+          format: uuid
+
+        token:
+
+          type: string
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        expiresAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    GroupInvitePage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/GroupInvite'
+
+      x-gmrlog-status: future
+
+    CreateGroupInviteRequest:
+
+      type: object
+
+      properties:
+
+        expiresInHours:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 720
+
+          default: 168
+
+        maxUses:
+
+          type: integer
+
+          minimum: 1
+
+          nullable: true
+
+      x-gmrlog-status: future
+
+    Channel:
+
+      type: object
+
+      required: [id, groupId, kind, name, conversationId, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        groupId:
+
+          type: string
+
+          format: uuid
+
+        kind:
+
+          $ref: '#/components/schemas/ChannelKind'
+
+        name:
+
+          type: string
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 500
+
+          nullable: true
+
+        conversationId:
+
+          type: string
+
+          format: uuid
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+
+    ChannelPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/Channel'
+
+      x-gmrlog-status: future
+
+    CreateChannelRequest:
+
+      type: object
+
+      required: [kind, name]
+
+      properties:
+
+        kind:
+
+          $ref: '#/components/schemas/ChannelKind'
+
+        name:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 500
+
+      x-gmrlog-status: future
+
+    UpdateChannelRequest:
+
+      type: object
+
+      properties:
+
+        name:
+
+          type: string
+
+          maxLength: 80
+
+        description:
+
+          type: string
+
+          maxLength: 500
+
+          nullable: true
+
+      x-gmrlog-status: future
+
+    MessageAttachment:
+
+      type: object
+
+      required: [id, messageId, url, mediaType, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        messageId:
+
+          type: string
+
+          format: uuid
+
+        url:
+
+          type: string
+
+          format: uri
+
+        mediaType:
+
+          type: string
+
+          description: Freeze MediaType — IMAGE | VIDEO | GIF | AUDIO
+
+          enum: [IMAGE, VIDEO, GIF, AUDIO]
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    MessageAttachmentPage:
+
+      allOf:
+
+        - $ref: './common/schemas/cursor-page.yaml#/components/schemas/CursorPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/MessageAttachment'
+
+    CreateMessageAttachmentRequest:
+
+      type: object
+
+      required: [url, mediaType]
+
+      properties:
+
+        url:
+
+          type: string
+
+          format: uri
+
+        mediaType:
+
+          type: string
+
+          description: Freeze MediaType — IMAGE | VIDEO | GIF | AUDIO
+
+          enum: [IMAGE, VIDEO, GIF, AUDIO]
+
+    VoiceRoom:
+
+      type: object
+
+      required: [id, channelId, status, createdAt]
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        channelId:
+
+          type: string
+
+          format: uuid
+
+        status:
+
+          type: string
+
+          enum: [OPEN, CLOSED]
+
+        participantCount:
+
+          type: integer
+
+          minimum: 0
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+      x-gmrlog-status: future
+

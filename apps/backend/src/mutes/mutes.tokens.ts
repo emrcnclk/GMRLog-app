@@ -1,0 +1,2 @@
+export const MUTE_REPOSITORY = Symbol('MUTE_REPOSITORY');
+export const MUTE_USER_REPOSITORY = Symbol('MUTE_USER_REPOSITORY');

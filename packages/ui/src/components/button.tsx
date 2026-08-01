@@ -1,0 +1,125 @@
+import { ActivityIndicator, Pressable, type PressableProps, type ViewStyle } from 'react-native';
+
+import { useReduceMotion } from '../motion/motion-provider';
+import { MIN_TOUCH_TARGET, pressableMotionStyle } from '../motion/pressable';
+import { useTheme } from '../theme/theme-provider';
+import type { SemanticSpaceToken } from '../theme/tokens';
+
+import { Text } from './text';
+
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
+  children: string;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  disabled?: boolean;
+  style?: ViewStyle | ViewStyle[];
+}
+
+const SIZE_PADDING_Y: Record<ButtonSize, SemanticSpaceToken> = {
+  sm: 'space.1',
+  md: 'space.2',
+  lg: 'space.3',
+};
+
+const SIZE_PADDING_X: Record<ButtonSize, SemanticSpaceToken> = {
+  sm: 'space.3',
+  md: 'space.4',
+  lg: 'space.5',
+};
+
+/**
+ * Action button — primary / secondary / ghost / danger (F4.7 · function before form).
+ */
+export function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  disabled = false,
+  style,
+  ...rest
+}: ButtonProps) {
+  const theme = useTheme();
+  const reduceMotion = useReduceMotion();
+  const isDisabled = disabled || loading;
+
+  const backgroundColor = (() => {
+    if (isDisabled) {
+      return theme.color('color.interactive.disabled');
+    }
+    switch (variant) {
+      case 'primary':
+        return theme.color('color.interactive.primary');
+      case 'secondary':
+        return theme.color('color.surface.secondary');
+      case 'ghost':
+        return 'transparent';
+      case 'danger':
+        return theme.color('color.status.error');
+      default: {
+        const _exhaustive: never = variant;
+        return _exhaustive;
+      }
+    }
+  })();
+
+  const textColor = (() => {
+    if (isDisabled) {
+      return 'color.text.inverse' as const;
+    }
+    switch (variant) {
+      case 'primary':
+      case 'danger':
+        return 'color.text.inverse' as const;
+      case 'secondary':
+      case 'ghost':
+        return 'color.text.primary' as const;
+      default: {
+        const _exhaustive: never = variant;
+        return _exhaustive;
+      }
+    }
+  })();
+
+  const borderColor =
+    variant === 'secondary' || variant === 'ghost'
+      ? theme.color('color.border.default')
+      : 'transparent';
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={isDisabled}
+      style={({ pressed }) => [
+        {
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'row',
+          gap: theme.space('space.2'),
+          paddingVertical: theme.space(SIZE_PADDING_Y[size]),
+          paddingHorizontal: theme.space(SIZE_PADDING_X[size]),
+          minHeight: MIN_TOUCH_TARGET,
+          borderRadius: theme.radius('radius.md'),
+          backgroundColor,
+          borderWidth: variant === 'secondary' || variant === 'ghost' ? 1 : 0,
+          borderColor,
+        },
+        pressableMotionStyle(pressed && !isDisabled, reduceMotion),
+        style,
+      ]}
+      {...rest}
+    >
+      {loading ? (
+        <ActivityIndicator color={theme.color(textColor)} />
+      ) : (
+        <Text role="label" color={textColor}>
+          {children}
+        </Text>
+      )}
+    </Pressable>
+  );
+}

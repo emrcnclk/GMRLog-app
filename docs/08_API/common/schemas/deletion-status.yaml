@@ -1,0 +1,10 @@
+components:
+  schemas:
+    DeletionStatus:
+      type: object
+      properties:
+        scheduled:
+          type: boolean
+        deletionDate:
+          type: string
+          format: date-time

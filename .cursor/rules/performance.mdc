@@ -1,0 +1,35 @@
+---
+description: Performans kuralları — GMRLOG OS
+globs: docs/05_FRONTEND/**,docs/06_BACKEND/**,docs/10_DEVOPS/**
+alwaysApply: false
+---
+
+# Performance Kuralları
+
+Önce oku: `SUCCESS_METRICS.md`, `BACKEND_ARCHITECTURE.md`, `FRONTEND_ARCHITECTURE.md`, `SYSTEM_ARCHITECTURE.md`
+
+## Backend targets
+
+Auth <100ms, Feed <150ms, Search <200ms, Game detail <120ms, Notifications <80ms, Messages <100ms
+
+## Frontend targets
+
+Launch <2s, Feed load <1s, Navigation <300ms, Game detail <500ms, Search <300ms
+
+## Infrastructure
+
+- Uptime 99.95%; horizontal scaling, Redis cache, CDN, read replicas
+- Analytics never block user requests (async queue)
+
+## API (SUCCESS_METRICS alignment)
+
+API <200ms avg, Feed API <500ms, Search <150ms, Messaging <200ms, CDN <300ms, crash-free 99.8%
+
+## Caching (`CACHE_STRATEGY.md`)
+
+- Pattern: Cache Aside; Redis 8; keys `domain:resource:id`
+- TTL örnekleri: feed 60s, trending 30s, game detail 24h, search suggestions 1h
+- Write: DB commit → invalidate → background refresh (never cache before commit)
+- Redis down → fallback PostgreSQL; cache is not source of truth
+- Never cache: passwords, JWT secrets, OAuth secrets, payment data
+- Targets: lookup <5ms, hit ratio >90%

@@ -1,0 +1,8 @@
+components:
+  schemas:
+    Visibility:
+      type: string
+      enum:
+        - PUBLIC
+        - FOLLOWERS
+        - PRIVATE

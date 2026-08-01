@@ -1,0 +1,2542 @@
+openapi: 3.1.0
+
+info:
+  title: GMRLOG Admin API
+  version: 1.0.0
+  description: |
+    Internal admin API for moderation, CMS, user administration, background jobs,
+    analytics, feature flags, and audit logging.
+
+    Requires JWT with `Moderator` or `Admin` role. All privileged actions are
+    audit-logged per ADMIN_ARCHITECTURE.md.
+
+servers:
+  - url: https://api.gmrlog.com/api/v1
+    description: Production
+  - url: https://staging-api.gmrlog.com/api/v1
+    description: Staging
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+tags:
+  - name: Moderation
+    description: Content moderation queue and resolution
+  - name: CMS
+    description: Platform-curated content management
+  - name: Users
+    description: User administration and role management
+  - name: Reports
+    description: User-submitted content reports
+  - name: Posts
+    description: Administrative post actions
+  - name: Jobs
+    description: Background job queue visibility and control
+  - name: Analytics
+    description: Internal platform and moderation analytics
+  - name: Feature Flags
+    description: Feature flag management
+  - name: Audit
+    description: Append-only audit log access
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  ################################################################################
+  # Moderation (static before parameterized)
+  ################################################################################
+
+  /admin/moderation/batch-scan:
+
+    post:
+
+      tags:
+        - Moderation
+
+      summary: Trigger AI moderation backfill
+
+      description: Admin only. Enqueues a batch AI scan job for the moderation queue.
+
+      operationId: adminBatchScanModeration
+
+      requestBody:
+
+        required: false
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ModerationBatchScanRequest'
+
+      responses:
+
+        "202":
+
+          description: Scan job accepted
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/JobAcceptedResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/moderation/queue:
+
+    get:
+
+      tags:
+        - Moderation
+
+      summary: List moderation queue items
+
+      description: Paginated moderation queue with filters by priority, SLA, and entity type.
+
+      operationId: adminListModerationQueue
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+        - name: entityType
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/ModerationEntityType'
+
+        - name: priority
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/ModerationPriority'
+
+        - name: status
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/ModerationQueueStatus'
+
+      responses:
+
+        "200":
+
+          description: Queue items
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ModerationQueuePage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/moderation/stats:
+
+    get:
+
+      tags:
+        - Moderation
+
+      summary: Get moderation statistics
+
+      description: SLA compliance, volume, and category breakdown for moderation dashboards.
+
+      operationId: adminGetModerationStats
+
+      parameters:
+
+        - name: from
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+        - name: to
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+      responses:
+
+        "200":
+
+          description: Moderation statistics
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ModerationStats'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/moderation/queue/{itemId}:
+
+    get:
+
+      tags:
+        - Moderation
+
+      summary: Get moderation queue item detail
+
+      operationId: adminGetModerationItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/ModerationItemId'
+
+      responses:
+
+        "200":
+
+          description: Queue item detail
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ModerationQueueItem'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/moderation/queue/{itemId}/resolve:
+
+    post:
+
+      tags:
+        - Moderation
+
+      summary: Resolve a moderation queue item
+
+      description: Approve, reject, edit, warn, suspend, or ban. Writes audit log entry.
+
+      operationId: adminResolveModerationItem
+
+      parameters:
+
+        - $ref: '#/components/parameters/ModerationItemId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/ModerationResolveRequest'
+
+      responses:
+
+        "200":
+
+          description: Resolved
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/ModerationQueueItem'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # CMS
+  ################################################################################
+
+  /admin/cms/{contentType}:
+
+    get:
+
+      tags:
+        - CMS
+
+      summary: List CMS content by type
+
+      description: Admin only. Lists drafts, scheduled, and published content.
+
+      operationId: adminListCmsContent
+
+      parameters:
+
+        - $ref: '#/components/parameters/CmsContentType'
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+        - name: status
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/CmsContentStatus'
+
+      responses:
+
+        "200":
+
+          description: CMS content list
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CmsContentPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+    post:
+
+      tags:
+        - CMS
+
+      summary: Create CMS content draft
+
+      operationId: adminCreateCmsContent
+
+      parameters:
+
+        - $ref: '#/components/parameters/CmsContentType'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/CreateCmsContentRequest'
+
+      responses:
+
+        "201":
+
+          description: Created
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CmsContent'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/cms/{contentType}/{contentId}:
+
+    patch:
+
+      tags:
+        - CMS
+
+      summary: Update CMS content
+
+      operationId: adminUpdateCmsContent
+
+      parameters:
+
+        - $ref: '#/components/parameters/CmsContentType'
+
+        - $ref: '#/components/parameters/CmsContentId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateCmsContentRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CmsContent'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    delete:
+
+      tags:
+        - CMS
+
+      summary: Archive CMS content
+
+      operationId: adminArchiveCmsContent
+
+      parameters:
+
+        - $ref: '#/components/parameters/CmsContentType'
+
+        - $ref: '#/components/parameters/CmsContentId'
+
+      responses:
+
+        "204":
+
+          description: Archived
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/cms/{contentType}/{contentId}/publish:
+
+    post:
+
+      tags:
+        - CMS
+
+      summary: Publish or schedule CMS content
+
+      operationId: adminPublishCmsContent
+
+      parameters:
+
+        - $ref: '#/components/parameters/CmsContentType'
+
+        - $ref: '#/components/parameters/CmsContentId'
+
+      requestBody:
+
+        required: false
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/PublishCmsContentRequest'
+
+      responses:
+
+        "200":
+
+          description: Published or scheduled
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/CmsContent'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Users & Reports
+  ################################################################################
+
+  /admin/users:
+
+    get:
+
+      tags:
+        - Users
+
+      summary: Search and list users
+
+      description: Admin user search with offset pagination.
+
+      operationId: adminListUsers
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+        - name: q
+
+          in: query
+
+          description: Search query (username, email, display name)
+
+          schema:
+
+            type: string
+
+        - name: role
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/AdminRole'
+
+      responses:
+
+        "200":
+
+          description: Users
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminUserPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/users/{userId}:
+
+    get:
+
+      tags:
+        - Users
+
+      summary: Get user admin profile
+
+      description: Full user profile including private fields for moderation.
+
+      operationId: adminGetUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "200":
+
+          description: User profile
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminUserDetail'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+    patch:
+
+      tags:
+        - Users
+
+      summary: Update user admin fields
+
+      description: Warn, suspend, ban, or update moderation state. Role changes use `/roles`.
+
+      operationId: adminUpdateUser
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AdminUpdateUserRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminUserDetail'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/users/{userId}/roles:
+
+    patch:
+
+      tags:
+        - Users
+
+      summary: Assign or remove user roles
+
+      description: Admin only.
+
+      operationId: adminUpdateUserRoles
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AdminUpdateUserRolesRequest'
+
+      responses:
+
+        "200":
+
+          description: Roles updated
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminUserDetail'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/users/{userId}/sessions/revoke:
+
+    post:
+
+      tags:
+        - Users
+
+      summary: Revoke all user sessions
+
+      description: Admin only. Forces re-authentication on all devices.
+
+      operationId: adminRevokeUserSessions
+
+      parameters:
+
+        - $ref: './USER_API.yaml#/components/parameters/UserId'
+
+      responses:
+
+        "204":
+
+          description: Sessions revoked
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/reports:
+
+    get:
+
+      tags:
+        - Reports
+
+      summary: List content reports
+
+      operationId: adminListReports
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+        - name: status
+
+          in: query
+
+          schema:
+
+            $ref: '#/components/schemas/ReportStatus'
+
+      responses:
+
+        "200":
+
+          description: Reports
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminReportPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/reports/{reportId}:
+
+    patch:
+
+      tags:
+        - Reports
+
+      summary: Update report status
+
+      operationId: adminUpdateReport
+
+      parameters:
+
+        - $ref: '#/components/parameters/ReportId'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/AdminUpdateReportRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated report
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminReport'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/posts/{postId}:
+
+    delete:
+
+      tags:
+        - Posts
+
+      summary: Delete a post (admin)
+
+      description: Hard-delete or soft-delete UGC post. Audit-logged.
+
+      operationId: adminDeletePost
+
+      parameters:
+
+        - $ref: '#/components/parameters/PostId'
+
+      responses:
+
+        "204":
+
+          description: Deleted
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Jobs
+  ################################################################################
+
+  /admin/jobs/queues:
+
+    get:
+
+      tags:
+        - Jobs
+
+      summary: List background job queue health
+
+      description: Queue depth, processing rate, and failed counts for BullMQ queues.
+
+      operationId: adminListJobQueues
+
+      responses:
+
+        "200":
+
+          description: Queue health
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/JobQueueHealth'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/jobs/{queueName}/{jobId}/retry:
+
+    post:
+
+      tags:
+        - Jobs
+
+      summary: Retry a failed job
+
+      description: Admin only.
+
+      operationId: adminRetryJob
+
+      parameters:
+
+        - $ref: '#/components/parameters/QueueName'
+
+        - $ref: '#/components/parameters/JobId'
+
+      responses:
+
+        "202":
+
+          description: Retry accepted
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/JobAcceptedResponse'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Analytics & Feature Flags
+  ################################################################################
+
+  /admin/analytics/{dashboard}:
+
+    get:
+
+      tags:
+        - Analytics
+
+      summary: Get analytics dashboard data
+
+      description: |
+        Internal dashboards: `moderation`, `platform`, `ai`, `releases`.
+        V1 platform/moderation volume metrics are sourced from Analytics `DailyMetric`
+        (internal schema). `ai` / `releases` are deferred. Optional `embedUrl` may
+        reference an external embed when configured later.
+
+      operationId: adminGetAnalyticsDashboard
+
+      parameters:
+
+        - $ref: '#/components/parameters/AnalyticsDashboard'
+
+        - name: from
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+        - name: to
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+      responses:
+
+        "200":
+
+          description: Dashboard payload
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AnalyticsDashboard'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  /admin/feature-flags:
+
+    get:
+
+      tags:
+        - Feature Flags
+
+      summary: List feature flags
+
+      description: Admin only.
+
+      operationId: adminListFeatureFlags
+
+      responses:
+
+        "200":
+
+          description: Feature flags
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/AdminFeatureFlag'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+  /admin/feature-flags/{flagKey}:
+
+    patch:
+
+      tags:
+        - Feature Flags
+
+      summary: Update a feature flag
+
+      description: Admin only. Production toggles require four-eyes approval.
+
+      operationId: adminUpdateFeatureFlag
+
+      parameters:
+
+        - $ref: '#/components/parameters/FlagKey'
+
+      requestBody:
+
+        required: true
+
+        content:
+
+          application/json:
+
+            schema:
+
+              $ref: '#/components/schemas/UpdateFeatureFlagRequest'
+
+      responses:
+
+        "200":
+
+          description: Updated flag
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AdminFeatureFlag'
+
+        "400":
+
+          $ref: './common/responses.yaml#/components/responses/ValidationError'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "404":
+
+          $ref: './common/responses.yaml#/components/responses/NotFound'
+
+  ################################################################################
+  # Audit
+  ################################################################################
+
+  /admin/audit/export:
+
+    get:
+
+      tags:
+        - Audit
+
+      summary: Export audit log
+
+      description: Admin only. Rate limited CSV/JSON export.
+
+      operationId: adminExportAuditLog
+
+      parameters:
+
+        - name: format
+
+          in: query
+
+          schema:
+
+            type: string
+
+            enum:
+              - json
+              - csv
+
+            default: json
+
+        - name: from
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+        - name: to
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+      responses:
+
+        "200":
+
+          description: Export file
+
+          content:
+
+            application/json:
+
+              schema:
+
+                type: array
+
+                items:
+
+                  $ref: '#/components/schemas/AuditLogEntry'
+
+            text/csv:
+
+              schema:
+
+                type: string
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+        "429":
+
+          $ref: './common/responses.yaml#/components/responses/RateLimited'
+
+  /admin/audit:
+
+    get:
+
+      tags:
+        - Audit
+
+      summary: List audit log entries
+
+      description: Append-only audit log with filters. Moderators see own actions; Admins see all.
+
+      operationId: adminListAuditLog
+
+      parameters:
+
+        - $ref: './common/parameters.yaml#/components/parameters/Page'
+
+        - $ref: './common/parameters.yaml#/components/parameters/PageSize'
+
+        - name: actorId
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: uuid
+
+        - name: action
+
+          in: query
+
+          schema:
+
+            type: string
+
+        - name: resourceType
+
+          in: query
+
+          schema:
+
+            type: string
+
+        - name: from
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+        - name: to
+
+          in: query
+
+          schema:
+
+            type: string
+
+            format: date-time
+
+      responses:
+
+        "200":
+
+          description: Audit entries
+
+          content:
+
+            application/json:
+
+              schema:
+
+                $ref: '#/components/schemas/AuditLogPage'
+
+        "401":
+
+          $ref: './common/responses.yaml#/components/responses/Unauthorized'
+
+        "403":
+
+          $ref: './common/responses.yaml#/components/responses/Forbidden'
+
+components:
+
+  securitySchemes:
+
+    BearerAuth:
+
+      $ref: './common/security.yaml#/components/securitySchemes/BearerAuth'
+
+  parameters:
+
+    ModerationItemId:
+
+      name: itemId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    CmsContentType:
+
+      name: contentType
+
+      in: path
+
+      required: true
+
+      schema:
+
+        $ref: '#/components/schemas/CmsContentType'
+
+    CmsContentId:
+
+      name: contentId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    ReportId:
+
+      name: reportId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    PostId:
+
+      name: postId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        format: uuid
+
+    QueueName:
+
+      name: queueName
+
+      in: path
+
+      required: true
+
+      schema:
+
+        $ref: '#/components/schemas/JobQueueName'
+
+    JobId:
+
+      name: jobId
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+    AnalyticsDashboard:
+
+      name: dashboard
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        enum:
+          - moderation
+          - platform
+          - ai
+          - releases
+
+    FlagKey:
+
+      name: flagKey
+
+      in: path
+
+      required: true
+
+      schema:
+
+        type: string
+
+        minLength: 1
+
+        maxLength: 128
+
+  schemas:
+
+    AdminRole:
+
+      type: string
+
+      enum:
+        - User
+        - Moderator
+        - Admin
+
+    ModerationEntityType:
+
+      type: string
+
+      enum:
+        - REVIEW
+        - POST
+        - COMMENT
+        - PROFILE
+        - MESSAGE
+        - COLLECTION
+        - TIERLIST
+
+    ModerationPriority:
+
+      type: string
+
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+        - CRITICAL
+
+    ModerationQueueStatus:
+
+      type: string
+
+      enum:
+        - PENDING
+        - IN_REVIEW
+        - ESCALATED
+        - RESOLVED
+
+    ModerationResolveAction:
+
+      type: string
+
+      enum:
+        - APPROVE
+        - REJECT
+        - EDIT_APPROVE
+        - WARN
+        - SUSPEND
+        - BAN
+
+    CmsContentType:
+
+      type: string
+
+      enum:
+        - announcements
+        - editorial-collections
+        - discover-config
+        - legal-pages
+        - help-articles
+
+    CmsContentStatus:
+
+      type: string
+
+      enum:
+        - DRAFT
+        - IN_REVIEW
+        - SCHEDULED
+        - PUBLISHED
+        - ARCHIVED
+
+    ReportStatus:
+
+      type: string
+
+      enum:
+        - OPEN
+        - IN_REVIEW
+        - RESOLVED
+        - DISMISSED
+
+    JobQueueName:
+
+      type: string
+
+      enum:
+        - notifications
+        - search
+        - ai
+        - moderation
+        - email
+        - analytics
+
+    OffsetPage:
+
+      type: object
+
+      required:
+        - items
+        - pagination
+
+      properties:
+
+        items:
+
+          type: array
+
+        pagination:
+
+          $ref: './common/schemas/pagination-metadata.yaml#/components/schemas/PaginationMetadata'
+
+    ModerationQueueItem:
+
+      type: object
+
+      required:
+        - id
+        - entityType
+        - entityId
+        - priority
+        - status
+        - createdAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        entityType:
+
+          $ref: '#/components/schemas/ModerationEntityType'
+
+        entityId:
+
+          type: string
+
+          format: uuid
+
+        priority:
+
+          $ref: '#/components/schemas/ModerationPriority'
+
+        status:
+
+          $ref: '#/components/schemas/ModerationQueueStatus'
+
+        aiScore:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          maximum: 1
+
+          nullable: true
+
+        reporterCount:
+
+          type: integer
+
+          minimum: 0
+
+        author:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        contentSnapshot:
+
+          type: string
+
+          description: Redacted content preview
+
+        slaDueAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        assignedTo:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+          nullable: true
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        resolvedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+    ModerationQueuePage:
+
+      allOf:
+
+        - $ref: '#/components/schemas/OffsetPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/ModerationQueueItem'
+
+    ModerationResolveRequest:
+
+      type: object
+
+      required:
+        - action
+        - reasonCode
+
+      properties:
+
+        action:
+
+          $ref: '#/components/schemas/ModerationResolveAction'
+
+        reasonCode:
+
+          type: string
+
+        internalNote:
+
+          type: string
+
+          maxLength: 2000
+
+        editedContent:
+
+          type: string
+
+          description: Required when action is EDIT_APPROVE
+
+        suspensionDays:
+
+          type: integer
+
+          minimum: 1
+
+          description: Required when action is SUSPEND
+
+    ModerationBatchScanRequest:
+
+      type: object
+
+      properties:
+
+        entityType:
+
+          $ref: '#/components/schemas/ModerationEntityType'
+
+        from:
+
+          type: string
+
+          format: date-time
+
+        limit:
+
+          type: integer
+
+          minimum: 1
+
+          maximum: 10000
+
+          default: 1000
+
+    ModerationStats:
+
+      type: object
+
+      required:
+        - pendingCount
+        - resolvedToday
+        - slaComplianceRate
+
+      properties:
+
+        pendingCount:
+
+          type: integer
+
+          minimum: 0
+
+        resolvedToday:
+
+          type: integer
+
+          minimum: 0
+
+        slaComplianceRate:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          maximum: 1
+
+        byEntityType:
+
+          type: object
+
+          additionalProperties:
+
+            type: integer
+
+            minimum: 0
+
+        byPriority:
+
+          type: object
+
+          additionalProperties:
+
+            type: integer
+
+            minimum: 0
+
+    CmsContent:
+
+      type: object
+
+      required:
+        - id
+        - contentType
+        - title
+        - status
+        - createdAt
+        - updatedAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        contentType:
+
+          $ref: '#/components/schemas/CmsContentType'
+
+        title:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        body:
+
+          type: string
+
+        status:
+
+          $ref: '#/components/schemas/CmsContentStatus'
+
+        scheduledAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        publishedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        audit:
+
+          $ref: './common/schemas/audit-metadata.yaml#/components/schemas/AuditMetadata'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        updatedAt:
+
+          type: string
+
+          format: date-time
+
+    CmsContentPage:
+
+      allOf:
+
+        - $ref: '#/components/schemas/OffsetPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/CmsContent'
+
+    CreateCmsContentRequest:
+
+      type: object
+
+      required:
+        - title
+        - body
+
+      properties:
+
+        title:
+
+          type: string
+
+          minLength: 1
+
+          maxLength: 256
+
+        slug:
+
+          type: string
+
+        body:
+
+          type: string
+
+    UpdateCmsContentRequest:
+
+      type: object
+
+      properties:
+
+        title:
+
+          type: string
+
+        slug:
+
+          type: string
+
+        body:
+
+          type: string
+
+        status:
+
+          $ref: '#/components/schemas/CmsContentStatus'
+
+    PublishCmsContentRequest:
+
+      type: object
+
+      properties:
+
+        scheduledAt:
+
+          type: string
+
+          format: date-time
+
+          description: Omit for immediate publish
+
+    AdminUserDetail:
+
+      type: object
+
+      required:
+        - id
+        - username
+        - roles
+        - createdAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        username:
+
+          type: string
+
+        email:
+
+          type: string
+
+          format: email
+
+        displayName:
+
+          type: string
+
+          nullable: true
+
+        roles:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/AdminRole'
+
+        isSuspended:
+
+          type: boolean
+
+        isBanned:
+
+          type: boolean
+
+        strikeCount:
+
+          type: integer
+
+          minimum: 0
+
+        premiumGrantedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        lastActiveAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+    AdminUserPage:
+
+      allOf:
+
+        - $ref: '#/components/schemas/OffsetPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/AdminUserDetail'
+
+    AdminUpdateUserRequest:
+
+      type: object
+
+      properties:
+
+        isSuspended:
+
+          type: boolean
+
+        suspensionDays:
+
+          type: integer
+
+          minimum: 1
+
+        isBanned:
+
+          type: boolean
+
+        internalNote:
+
+          type: string
+
+          maxLength: 2000
+
+    AdminUpdateUserRolesRequest:
+
+      type: object
+
+      required:
+        - roles
+
+      properties:
+
+        roles:
+
+          type: array
+
+          items:
+
+            $ref: '#/components/schemas/AdminRole'
+
+          minItems: 1
+
+    AdminReport:
+
+      type: object
+
+      required:
+        - id
+        - entityType
+        - entityId
+        - status
+        - createdAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        entityType:
+
+          $ref: '#/components/schemas/ModerationEntityType'
+
+        entityId:
+
+          type: string
+
+          format: uuid
+
+        reporter:
+
+          $ref: './common/schemas/user-summary.yaml#/components/schemas/UserSummary'
+
+        reasonCode:
+
+          type: string
+
+        description:
+
+          type: string
+
+          nullable: true
+
+        status:
+
+          $ref: '#/components/schemas/ReportStatus'
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+        resolvedAt:
+
+          type: string
+
+          format: date-time
+
+          nullable: true
+
+    AdminReportPage:
+
+      allOf:
+
+        - $ref: '#/components/schemas/OffsetPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/AdminReport'
+
+    AdminUpdateReportRequest:
+
+      type: object
+
+      required:
+        - status
+
+      properties:
+
+        status:
+
+          $ref: '#/components/schemas/ReportStatus'
+
+        resolutionNote:
+
+          type: string
+
+          maxLength: 2000
+
+    JobQueueHealth:
+
+      type: object
+
+      required:
+        - name
+        - depth
+        - failedCount
+        - isPaused
+
+      properties:
+
+        name:
+
+          $ref: '#/components/schemas/JobQueueName'
+
+        depth:
+
+          type: integer
+
+          minimum: 0
+
+        processingRate:
+
+          type: number
+
+          format: float
+
+          minimum: 0
+
+          description: Jobs per minute
+
+        failedCount:
+
+          type: integer
+
+          minimum: 0
+
+        isPaused:
+
+          type: boolean
+
+    JobAcceptedResponse:
+
+      type: object
+
+      required:
+        - jobId
+        - acceptedAt
+
+      properties:
+
+        jobId:
+
+          type: string
+
+        acceptedAt:
+
+          type: string
+
+          format: date-time
+
+    AnalyticsDashboard:
+
+      type: object
+
+      required:
+        - dashboard
+        - generatedAt
+
+      properties:
+
+        dashboard:
+
+          type: string
+
+        generatedAt:
+
+          type: string
+
+          format: date-time
+
+        metrics:
+
+          type: object
+
+          additionalProperties: true
+
+        embedUrl:
+
+          type: string
+
+          format: uri
+
+          nullable: true
+
+          description: Grafana or PostHog embed URL when applicable
+
+    AdminFeatureFlag:
+
+      type: object
+
+      required:
+        - key
+        - description
+        - enabled
+        - environments
+
+      properties:
+
+        key:
+
+          type: string
+
+        description:
+
+          type: string
+
+        enabled:
+
+          type: boolean
+
+        environments:
+
+          type: array
+
+          items:
+
+            type: string
+
+            enum:
+              - development
+              - staging
+              - production
+
+        rolloutPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        minClientVersion:
+
+          type: string
+
+          nullable: true
+
+    UpdateFeatureFlagRequest:
+
+      type: object
+
+      properties:
+
+        enabled:
+
+          type: boolean
+
+        environments:
+
+          type: array
+
+          items:
+
+            type: string
+
+            enum:
+              - development
+              - staging
+              - production
+
+        rolloutPercentage:
+
+          type: integer
+
+          minimum: 0
+
+          maximum: 100
+
+        minClientVersion:
+
+          type: string
+
+    AuditLogEntry:
+
+      type: object
+
+      required:
+        - id
+        - actorId
+        - actorRole
+        - action
+        - resourceType
+        - resourceId
+        - createdAt
+
+      properties:
+
+        id:
+
+          type: string
+
+          format: uuid
+
+        actorId:
+
+          type: string
+
+          format: uuid
+
+        actorRole:
+
+          type: string
+
+        action:
+
+          type: string
+
+          description: e.g. moderation.resolve, cms.publish
+
+        resourceType:
+
+          type: string
+
+        resourceId:
+
+          type: string
+
+        metadata:
+
+          type: object
+
+          additionalProperties: true
+
+        ipAddressHash:
+
+          type: string
+
+          description: Hashed client IP
+
+        createdAt:
+
+          type: string
+
+          format: date-time
+
+    AuditLogPage:
+
+      allOf:
+
+        - $ref: '#/components/schemas/OffsetPage'
+
+        - type: object
+
+          properties:
+
+            items:
+
+              type: array
+
+              items:
+
+                $ref: '#/components/schemas/AuditLogEntry'

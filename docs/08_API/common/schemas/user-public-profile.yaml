@@ -1,0 +1,34 @@
+components:
+  schemas:
+    UserPublicProfile:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        banner:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          maxLength: 500
+        verified:
+          type: boolean
+        developer:
+          type: boolean
+        studio:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time

@@ -1,0 +1,101 @@
+components:
+
+  responses:
+
+    BadRequest:
+
+      description: Bad Request
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    Unauthorized:
+
+      description: Unauthorized
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    Forbidden:
+
+      description: Forbidden
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    NotFound:
+
+      description: Resource not found
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    Conflict:
+
+      description: Conflict
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    ValidationError:
+
+      description: Validation Error
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
+
+    RateLimited:
+
+      description: Too Many Requests
+
+      headers:
+
+        X-RateLimit-Limit:
+
+          $ref: './headers.yaml#/components/headers/X-RateLimit-Limit'
+
+        X-RateLimit-Remaining:
+
+          $ref: './headers.yaml#/components/headers/X-RateLimit-Remaining'
+
+        Retry-After:
+
+          $ref: './headers.yaml#/components/headers/Retry-After'
+
+      content:
+
+        application/problem+json:
+
+          schema:
+
+            $ref: './schemas/problem-details.yaml#/components/schemas/ProblemDetails'
