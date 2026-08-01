@@ -21,7 +21,9 @@ export function CommunityHeader({ community, onBack, onError }: CommunityHeaderP
   return (
     <View style={{ backgroundColor: theme.color('color.background.primary') }}>
       <View
-        accessibilityLabel="Banner placeholder"
+        // Decoration: the community name below carries the identity.
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
         style={{
           height: theme.space('space.24'),
           backgroundColor: theme.color('color.surface.secondary'),

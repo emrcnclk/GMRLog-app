@@ -78,6 +78,104 @@ export function resolveNotificationsView(input: {
   };
 }
 
+/**
+ * Day buckets for the notification list.
+ *
+ * `Earlier` is deliberately open-ended rather than being split into months: the
+ * attention desk is for what is still actionable, and precise archaeology past a
+ * week is not what anyone opens this screen for.
+ */
+export type NotificationBucket = 'today' | 'yesterday' | 'this-week' | 'earlier';
+
+export const NOTIFICATION_BUCKET_ORDER: readonly NotificationBucket[] = [
+  'today',
+  'yesterday',
+  'this-week',
+  'earlier',
+];
+
+export const NOTIFICATION_BUCKET_LABELS: Record<NotificationBucket, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  'this-week': 'This week',
+  earlier: 'Earlier',
+};
+
+export interface NotificationSection {
+  bucket: NotificationBucket;
+  title: string;
+  data: NotificationResponse[];
+}
+
+/** Local midnight for the day `ms` falls in — buckets are calendar days, not 24h windows. */
+function startOfLocalDay(ms: number): number {
+  const date = new Date(ms);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+/**
+ * Which day bucket a timestamp belongs to.
+ *
+ * Boundaries are calendar days in the device's own timezone, not rolling
+ * 24-hour windows: something from 11pm last night is "Yesterday" at 1am, which
+ * is how people actually talk about it. An unparseable date sorts to `earlier`
+ * rather than throwing — a malformed row should not take the screen down.
+ */
+export function bucketForTimestamp(iso: string, nowMs = Date.now()): NotificationBucket {
+  const created = Date.parse(iso);
+  if (Number.isNaN(created)) {
+    return 'earlier';
+  }
+
+  const todayStart = startOfLocalDay(nowMs);
+  if (created >= todayStart) {
+    return 'today';
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  if (created >= todayStart - dayMs) {
+    return 'yesterday';
+  }
+  // "This week" reaches back seven days from today's start, so it never
+  // overlaps the two named days above.
+  if (created >= todayStart - 7 * dayMs) {
+    return 'this-week';
+  }
+  return 'earlier';
+}
+
+/**
+ * Group notifications into day sections, preserving backend order within each.
+ *
+ * Empty buckets are dropped: a "Yesterday" header with nothing under it reads
+ * as a rendering fault rather than as calm.
+ */
+export function groupNotificationsByDay(
+  items: readonly NotificationResponse[],
+  nowMs = Date.now(),
+): NotificationSection[] {
+  const buckets = new Map<NotificationBucket, NotificationResponse[]>();
+
+  for (const item of items) {
+    const bucket = bucketForTimestamp(item.createdAt, nowMs);
+    const existing = buckets.get(bucket);
+    if (existing === undefined) {
+      buckets.set(bucket, [item]);
+    } else {
+      existing.push(item);
+    }
+  }
+
+  return NOTIFICATION_BUCKET_ORDER.flatMap((bucket) => {
+    const data = buckets.get(bucket);
+    if (data === undefined || data.length === 0) {
+      return [];
+    }
+    return [{ bucket, title: NOTIFICATION_BUCKET_LABELS[bucket], data }];
+  });
+}
+
 export function isNotificationUnread(notification: NotificationResponse): boolean {
   return notification.readAt === null;
 }

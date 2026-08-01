@@ -13,6 +13,7 @@ import { memo } from 'react';
 import { View } from 'react-native';
 
 import { CachedImage } from '../../../../src/assets/cached-image';
+import { GmrImage } from '../../../../src/assets/gmr-image';
 import {
   formatCommunityRating,
   formatCompanies,
@@ -84,18 +85,17 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
             ...theme.elevation('shadow.lg'),
           }}
         >
-          <AspectBox ratio="cover" radius="radius.none">
-            {game?.coverUrl != null ? (
-              <CachedImage
-                source={{ uri: game.coverUrl }}
-                priority="high"
-                contentFit="cover"
-                accessibilityIgnoresInvertColors
-                accessibilityLabel={`${game.title} cover art`}
-                style={{ width: '100%', height: '100%' }}
-              />
-            ) : null}
-          </AspectBox>
+          {/* D3.26 responsive projection: BlurHash holds the space, then the
+              WebP variant crossfades in. `coverImage` is null until the media
+              pipeline has processed the asset, in which case GmrImage renders
+              its own placeholder surface rather than a broken frame. */}
+          <GmrImage
+            image={game?.coverImage ?? null}
+            width={COVER_WIDTH}
+            height={Math.round(COVER_WIDTH / ASPECT.cover)}
+            priority="high"
+            accessibilityLabel={game === null ? undefined : `${game.title} cover art`}
+          />
         </View>
 
         <View

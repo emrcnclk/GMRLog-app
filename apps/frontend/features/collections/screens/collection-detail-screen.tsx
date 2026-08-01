@@ -1,4 +1,4 @@
-import { Button, Screen, Text, useTheme } from '@gmrlog/ui';
+import { Button, Chip, Screen, Text, useTheme } from '@gmrlog/ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
@@ -12,6 +12,11 @@ import { CollectionErrorState } from '../components/collection-error-state';
 import { CollectionHeader } from '../components/collection-header';
 import { CollectionDetailSkeleton } from '../components/collection-skeleton';
 import { isCollectionOwner } from '../hooks/collection-model';
+import {
+  COLLECTION_ENTRY_SORT_LABELS,
+  sortCollectionEntries,
+  type CollectionEntrySort,
+} from '../hooks/collection-view-model';
 import { useCollection, useDeleteCollection } from '../hooks/use-collections';
 
 export function CollectionDetailScreen() {
@@ -24,6 +29,7 @@ export function CollectionDetailScreen() {
   const detail = useCollection(collectionId);
   const deleteMutation = useDeleteCollection();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [entrySort, setEntrySort] = useState<CollectionEntrySort>('curated');
   const [banner, setBanner] = useState<{ title: string; description: string } | null>(null);
 
   const onBack = useCallback(() => {
@@ -56,11 +62,14 @@ export function CollectionDetailScreen() {
 
   const collection = detail.collection;
   const owner = isCollectionOwner(collection, userId);
+  // `curated` is the author's own ordering and stays the default — re-sorting a
+  // collection by default would overwrite the statement it makes.
+  const entries = sortCollectionEntries(collection.entries, entrySort);
 
   return (
     <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
       <FlatList
-        data={collection.entries}
+        data={entries}
         keyExtractor={(item) => `${item.gameId}-${String(item.position)}`}
         windowSize={9}
         maxToRenderPerBatch={12}
@@ -69,6 +78,30 @@ export function CollectionDetailScreen() {
         ListHeaderComponent={
           <View style={{ gap: theme.space('space.4') }}>
             <CollectionHeader collection={collection} onBack={onBack} />
+            {collection.entries.length > 1 ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: theme.space('space.2'),
+                  paddingHorizontal: theme.space('space.4'),
+                }}
+              >
+                {(['curated', 'alphabetical'] as const).map((option) => (
+                  <Chip
+                    key={option}
+                    selected={entrySort === option}
+                    accessibilityLabel={`Sort games by ${COLLECTION_ENTRY_SORT_LABELS[option]}`}
+                    accessibilityState={{ selected: entrySort === option }}
+                    onPress={() => {
+                      setEntrySort(option);
+                    }}
+                    style={{ minHeight: theme.space('space.10'), justifyContent: 'center' }}
+                  >
+                    {COLLECTION_ENTRY_SORT_LABELS[option]}
+                  </Chip>
+                ))}
+              </View>
+            ) : null}
             {banner ? (
               <View style={{ paddingHorizontal: theme.space('space.4') }}>
                 <Text role="body" color="color.text.secondary">

@@ -10,9 +10,9 @@ export {
   DiscoverCollectionsScreen,
 } from './discover-list-screens';
 export { GameCard } from './components/game-card';
+export { GamePosterCard, POSTER_WIDTH } from './components/game-poster-card';
 export { CommunityCard } from './components/community-card';
 export { EventCard } from './components/event-card';
-export { DiscoverModuleCard } from './components/discover-module-card';
 export { SimilarGamesSection } from './components/similar-games-section';
 export { SimilarUsersSection } from './components/similar-users-section';
 export { EmptyDiscover } from './components/empty-discover';
@@ -36,6 +36,22 @@ export {
   useSimilarGames,
   useSimilarUsers,
 } from './hooks/use-discover';
+export { useDiscoverRails } from './hooks/use-discover-rails';
+export {
+  buildDiscoverRails,
+  selectHighestRated,
+  selectUpcoming,
+  selectRecentlyReleased,
+  selectIndie,
+  selectContinuePlaying,
+  selectFriendsPlaying,
+  isProjectedRail,
+  DISCOVER_RAIL_ORDER,
+  DISCOVER_RAIL_TITLES,
+  DISCOVER_PROJECTED_RAILS,
+  type DiscoverRailId,
+  type DiscoverRailModel,
+} from './hooks/discover-sections-model';
 export {
   resolveDiscoverListView,
   resolveDiscoverHubView,

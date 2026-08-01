@@ -84,6 +84,50 @@ export function buildGameHubTabs({
   });
 }
 
+/**
+ * Tabs whose body is one self-contained block — a prose column, a grid, a set
+ * of rails — rather than a list of rows. They render whole and carry their own
+ * empty copy, so the hub's list-level empty state must not also fire for them.
+ */
+export const GAME_HUB_BLOCK_TABS: readonly GameHubTabId[] = [
+  'overview',
+  'screenshots',
+  'videos',
+  'recommendations',
+];
+
+export function isGameHubBlockTab(tab: GameHubTabId): boolean {
+  return GAME_HUB_BLOCK_TABS.includes(tab);
+}
+
+/**
+ * Empty-state copy for a list-bearing tab.
+ *
+ * An empty tab is an invitation, not a dead end: reviews and collections name
+ * the action that fills them. Block tabs are absent from this map on purpose —
+ * asking for their copy is a caller bug, so they fall to the activity wording
+ * rather than silently rendering an empty string.
+ */
+export function gameHubEmptyCopy(
+  tab: GameHubTabId,
+  gameTitle: string,
+): { icon: string; description: string } {
+  switch (tab) {
+    case 'reviews':
+      return { icon: 'star', description: `Be the first to write about ${gameTitle}.` };
+    case 'collections':
+      return {
+        icon: 'folder',
+        description: `${gameTitle} has not been added to a public collection yet.`,
+      };
+    default:
+      return {
+        icon: 'activity',
+        description: `Logs, reviews, and posts about ${gameTitle} will appear here.`,
+      };
+  }
+}
+
 /** Release year alone — the full date is noise in a hero. */
 export function formatReleaseYear(releaseDate: string | null): string | null {
   if (releaseDate === null || releaseDate.length < 4) {

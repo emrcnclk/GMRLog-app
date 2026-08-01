@@ -73,6 +73,8 @@ export const queryKeys = {
     list: () => ['reviews', 'list'] as const,
     detail: (id: string) => ['reviews', 'detail', id] as const,
     byGame: (gameId: string) => ['reviews', 'game', gameId] as const,
+    /** D3.28 — flat comment thread for a review (`GET /reviews/:id/comments`). */
+    comments: (reviewId: string) => ['reviews', 'comments', reviewId] as const,
   },
   posts: {
     all: ['posts'] as const,
@@ -95,6 +97,15 @@ export const queryKeys = {
   },
   profile: {
     hero: (userId: string) => ['profile', 'hero', userId] as const,
+  },
+  /** D3.28 — public profile reads (`GET /users/:id/*`). */
+  users: {
+    all: ['users'] as const,
+    publicProfile: (userId: string) => ['users', 'public', userId] as const,
+    statistics: (userId: string) => ['users', 'statistics', userId] as const,
+    achievements: (userId: string) => ['users', 'achievements', userId] as const,
+    archetypes: (userId: string) => ['users', 'archetypes', userId] as const,
+    relationship: (userId: string) => ['users', 'relationship', userId] as const,
   },
   bookmarks: {
     all: ['bookmarks'] as const,

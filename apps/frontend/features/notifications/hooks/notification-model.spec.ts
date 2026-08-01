@@ -3,7 +3,9 @@ import { notificationsReadSchema } from '@gmrlog/validators';
 import { describe, expect, it } from 'vitest';
 
 import {
+  bucketForTimestamp,
   formatNotificationTime,
+  groupNotificationsByDay,
   hrefForNotificationObject,
   isNotificationUnread,
   markAllNotificationsReadInCache,
@@ -249,5 +251,86 @@ describe('notification model', () => {
       notification({ id: 'n1', createdAt: '2026-07-27T11:00:00.000Z' }),
     ];
     expect(items.map((item) => item.id)).toEqual(['n2', 'n1']);
+  });
+});
+
+describe('bucketForTimestamp', () => {
+  // A fixed local-noon anchor keeps the calendar-day maths readable.
+  const now = new Date(2026, 7, 1, 12, 0, 0).getTime();
+  const at = (d: number, h = 12) => new Date(2026, 7, d, h, 0, 0).toISOString();
+
+  it('buckets by calendar day, not by rolling 24 hours', () => {
+    expect(bucketForTimestamp(at(1, 0), now)).toBe('today');
+    expect(bucketForTimestamp(at(1, 23), now)).toBe('today');
+    // 11pm last night is "Yesterday" even though it is under 24h ago.
+    expect(bucketForTimestamp(at(31 - 31 + 31, 23), now)).toBe('today');
+  });
+
+  it('names yesterday separately from the rest of the week', () => {
+    expect(bucketForTimestamp(new Date(2026, 6, 31, 23).toISOString(), now)).toBe('yesterday');
+    expect(bucketForTimestamp(new Date(2026, 6, 28, 12).toISOString(), now)).toBe('this-week');
+  });
+
+  it('sends anything older than a week to earlier', () => {
+    expect(bucketForTimestamp(new Date(2026, 6, 1, 12).toISOString(), now)).toBe('earlier');
+  });
+
+  /** A malformed row must not take the screen down with it. */
+  it('treats an unparseable date as earlier rather than throwing', () => {
+    expect(bucketForTimestamp('not-a-date', now)).toBe('earlier');
+  });
+});
+
+describe('groupNotificationsByDay', () => {
+  const now = new Date(2026, 7, 1, 12, 0, 0).getTime();
+
+  function notification(id: string, createdAt: string): NotificationResponse {
+    return {
+      id,
+      kind: 'like',
+      createdAt,
+      readAt: null,
+      actor: null,
+      objectRef: { type: 'review', id: 'r1' },
+      messageKey: 'like',
+    };
+  }
+
+  it('drops buckets with nothing in them', () => {
+    const sections = groupNotificationsByDay(
+      [notification('a', new Date(2026, 7, 1, 9).toISOString())],
+      now,
+    );
+
+    expect(sections.map((s) => s.bucket)).toEqual(['today']);
+  });
+
+  it('orders sections newest bucket first', () => {
+    const sections = groupNotificationsByDay(
+      [
+        notification('old', new Date(2026, 6, 1).toISOString()),
+        notification('today', new Date(2026, 7, 1, 9).toISOString()),
+        notification('yesterday', new Date(2026, 6, 31, 9).toISOString()),
+      ],
+      now,
+    );
+
+    expect(sections.map((s) => s.bucket)).toEqual(['today', 'yesterday', 'earlier']);
+  });
+
+  it('preserves backend order within a bucket', () => {
+    const sections = groupNotificationsByDay(
+      [
+        notification('first', new Date(2026, 7, 1, 9).toISOString()),
+        notification('second', new Date(2026, 7, 1, 11).toISOString()),
+      ],
+      now,
+    );
+
+    expect(sections[0]?.data.map((n) => n.id)).toEqual(['first', 'second']);
+  });
+
+  it('returns nothing at all for an empty list', () => {
+    expect(groupNotificationsByDay([], now)).toEqual([]);
   });
 });

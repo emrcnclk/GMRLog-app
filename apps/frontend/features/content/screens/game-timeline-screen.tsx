@@ -2,7 +2,7 @@ import type { ActivityItemResponse, FeedItemResponse } from '@gmrlog/types';
 import { Screen, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
 import { useConnectivityStore } from '../../../src/state/stores';
 import { ActivityCard } from '../../home/components/activity-card';
@@ -114,7 +114,7 @@ export function GameTimelineScreen({ gameId }: GameTimelineScreenProps) {
             ListFooterComponent={
               timeline.isFetchingNextPage ? (
                 <View style={{ padding: theme.space('space.4'), alignItems: 'center' }}>
-                  <ActivityIndicator color={theme.color('color.interactive.primary')} />
+                  <ContentListSkeleton rows={2} />
                 </View>
               ) : null
             }

@@ -1,6 +1,5 @@
 import { Screen, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
-import { Calendar } from 'lucide-react-native';
 import { useCallback, type ReactNode } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 
@@ -115,19 +114,6 @@ function EmptyEventsChrome({ children }: { children: ReactNode }) {
         gap: theme.space('space.4'),
       }}
     >
-      <View
-        accessibilityLabel="Empty events illustration"
-        style={{
-          width: theme.space('space.16'),
-          height: theme.space('space.16'),
-          borderRadius: theme.radius('radius.full'),
-          backgroundColor: theme.color('color.surface.secondary'),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Calendar size={36} color={theme.color('color.text.secondary')} strokeWidth={1.5} />
-      </View>
       {children}
     </View>
   );

@@ -4,17 +4,16 @@ import type {
   EventResponse,
   GameCardResponse,
 } from '@gmrlog/types';
-import { useTheme } from '@gmrlog/ui';
+import { EntityList, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
 
 import { CollectionCard } from '../../collections/components/collection-card';
+import { CommunityCard } from '../../communities/components/community-card';
+import { EventCard } from '../../events/components/event-card';
 
-import { CommunityCard } from './community-card';
-import { DiscoverCardSkeleton } from './discover-skeleton';
-import { EventCard } from './event-card';
-import { GameCard } from './game-card';
+import { DiscoverCardSkeleton, DiscoverGridSkeleton } from './discover-skeleton';
+import { GamePosterCard, POSTER_WIDTH } from './game-poster-card';
 
 interface DiscoverListChromeProps {
   refreshing: boolean;
@@ -23,6 +22,23 @@ interface DiscoverListChromeProps {
   isFetchingNextPage: boolean;
 }
 
+/**
+ * Columns for the game grid.
+ *
+ * Two across a phone keeps the cover large enough to sell the game, which is
+ * the whole point of Discover; three would return us to the thumbnail row this
+ * sprint replaced.
+ */
+const GAME_GRID_COLUMNS = 2;
+
+/**
+ * Full-catalog game browse — a poster grid, not a list of rows.
+ *
+ * These four lists used to be near-identical `FlatList` wrappers differing only
+ * in item type and card. They render through `EntityList` now, so scroll
+ * physics, refresh tint, pagination threshold, footer treatment, and list
+ * semantics are defined once in the design system.
+ */
 export function GameCardList({
   items,
   refreshing,
@@ -31,43 +47,42 @@ export function GameCardList({
   isFetchingNextPage,
 }: DiscoverListChromeProps & { items: GameCardResponse[] }) {
   const theme = useTheme();
-  const renderItem = useCallback(
-    ({ item }: { item: GameCardResponse }) => <GameCard game={item} />,
-    [],
+  const router = useRouter();
+
+  const openGame = useCallback(
+    (gameId: string) => {
+      router.push(`/(app)/game/${gameId}`);
+    },
+    [router],
   );
-  const keyExtractor = useCallback((item: GameCardResponse) => item.id, []);
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            void onRefresh();
-          }}
-          tintColor={theme.color('color.interactive.primary')}
-          colors={[theme.color('color.interactive.primary')]}
+    <EntityList
+      items={items}
+      keyExtractor={(item) => item.id}
+      renderItem={(item, index) => (
+        <GamePosterCard
+          game={item}
+          onPress={openGame}
+          width={POSTER_WIDTH}
+          // Roughly the first three rows are on screen at mount.
+          priority={index < GAME_GRID_COLUMNS * 3 ? 'normal' : 'low'}
         />
-      }
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={{ paddingVertical: theme.space('space.3') }}>
-            <DiscoverCardSkeleton />
-          </View>
-        ) : (
-          <View style={{ height: theme.space('space.6') }} />
-        )
-      }
-      accessibilityRole="list"
-      removeClippedSubviews
-      windowSize={9}
-      maxToRenderPerBatch={12}
-      initialNumToRender={10}
+      )}
+      numColumns={GAME_GRID_COLUMNS}
+      refreshing={refreshing}
+      onRefresh={() => {
+        void onRefresh();
+      }}
+      onEndReached={onEndReached}
+      isFetchingNextPage={isFetchingNextPage}
+      footerSkeleton={<DiscoverGridSkeleton rows={1} />}
+      contentContainerStyle={{
+        paddingTop: theme.space('space.4'),
+        gap: theme.space('space.5'),
+        paddingBottom: theme.space('space.8'),
+      }}
+      accessibilityLabel="Games"
     />
   );
 }
@@ -79,53 +94,28 @@ export function CommunityCardList({
   onEndReached,
   isFetchingNextPage,
 }: DiscoverListChromeProps & { items: CommunityResponse[] }) {
-  const theme = useTheme();
   const router = useRouter();
+
   const openCommunity = useCallback(
     (id: string) => {
       router.push(`/(app)/community/${id}`);
     },
     [router],
   );
-  const renderItem = useCallback(
-    ({ item }: { item: CommunityResponse }) => (
-      <CommunityCard community={item} onPress={openCommunity} />
-    ),
-    [openCommunity],
-  );
-  const keyExtractor = useCallback((item: CommunityResponse) => item.id, []);
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
+    <EntityList
+      items={items}
+      keyExtractor={(item) => item.id}
+      renderItem={(item) => <CommunityCard community={item} onPress={openCommunity} />}
+      refreshing={refreshing}
+      onRefresh={() => {
+        void onRefresh();
+      }}
       onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            void onRefresh();
-          }}
-          tintColor={theme.color('color.interactive.primary')}
-          colors={[theme.color('color.interactive.primary')]}
-        />
-      }
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={{ paddingVertical: theme.space('space.3') }}>
-            <DiscoverCardSkeleton />
-          </View>
-        ) : (
-          <View style={{ height: theme.space('space.6') }} />
-        )
-      }
-      accessibilityRole="list"
-      removeClippedSubviews
-      windowSize={9}
-      maxToRenderPerBatch={12}
-      initialNumToRender={10}
+      isFetchingNextPage={isFetchingNextPage}
+      footerSkeleton={<DiscoverCardSkeleton />}
+      accessibilityLabel="Communities"
     />
   );
 }
@@ -137,51 +127,28 @@ export function EventCardList({
   onEndReached,
   isFetchingNextPage,
 }: DiscoverListChromeProps & { items: EventResponse[] }) {
-  const theme = useTheme();
   const router = useRouter();
+
   const openEvent = useCallback(
     (id: string) => {
       router.push(`/(app)/event/${id}`);
     },
     [router],
   );
-  const renderItem = useCallback(
-    ({ item }: { item: EventResponse }) => <EventCard event={item} onPress={openEvent} />,
-    [openEvent],
-  );
-  const keyExtractor = useCallback((item: EventResponse) => item.id, []);
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
+    <EntityList
+      items={items}
+      keyExtractor={(item) => item.id}
+      renderItem={(item) => <EventCard event={item} onPress={openEvent} />}
+      refreshing={refreshing}
+      onRefresh={() => {
+        void onRefresh();
+      }}
       onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            void onRefresh();
-          }}
-          tintColor={theme.color('color.interactive.primary')}
-          colors={[theme.color('color.interactive.primary')]}
-        />
-      }
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={{ paddingVertical: theme.space('space.3') }}>
-            <DiscoverCardSkeleton />
-          </View>
-        ) : (
-          <View style={{ height: theme.space('space.6') }} />
-        )
-      }
-      accessibilityRole="list"
-      removeClippedSubviews
-      windowSize={9}
-      maxToRenderPerBatch={12}
-      initialNumToRender={10}
+      isFetchingNextPage={isFetchingNextPage}
+      footerSkeleton={<DiscoverCardSkeleton />}
+      accessibilityLabel="Events"
     />
   );
 }
@@ -193,53 +160,28 @@ export function CollectionCardList({
   onEndReached,
   isFetchingNextPage,
 }: DiscoverListChromeProps & { items: CollectionResponse[] }) {
-  const theme = useTheme();
   const router = useRouter();
+
   const openCollection = useCallback(
     (id: string) => {
       router.push(`/(app)/collection/${id}`);
     },
     [router],
   );
-  const renderItem = useCallback(
-    ({ item }: { item: CollectionResponse }) => (
-      <CollectionCard collection={item} onPress={openCollection} />
-    ),
-    [openCollection],
-  );
-  const keyExtractor = useCallback((item: CollectionResponse) => item.id, []);
 
   return (
-    <FlatList
-      data={items}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
+    <EntityList
+      items={items}
+      keyExtractor={(item) => item.id}
+      renderItem={(item) => <CollectionCard collection={item} onPress={openCollection} />}
+      refreshing={refreshing}
+      onRefresh={() => {
+        void onRefresh();
+      }}
       onEndReached={onEndReached}
-      onEndReachedThreshold={0.4}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            void onRefresh();
-          }}
-          tintColor={theme.color('color.interactive.primary')}
-          colors={[theme.color('color.interactive.primary')]}
-        />
-      }
-      ListFooterComponent={
-        isFetchingNextPage ? (
-          <View style={{ paddingVertical: theme.space('space.3') }}>
-            <DiscoverCardSkeleton />
-          </View>
-        ) : (
-          <View style={{ height: theme.space('space.6') }} />
-        )
-      }
-      accessibilityRole="list"
-      removeClippedSubviews
-      windowSize={9}
-      maxToRenderPerBatch={12}
-      initialNumToRender={10}
+      isFetchingNextPage={isFetchingNextPage}
+      footerSkeleton={<DiscoverCardSkeleton />}
+      accessibilityLabel="Collections"
     />
   );
 }

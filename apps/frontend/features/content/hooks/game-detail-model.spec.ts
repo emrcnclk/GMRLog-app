@@ -2,6 +2,8 @@ import type { GameHubResponse, GameMediaResponse, GameResponse } from '@gmrlog/t
 import { describe, expect, it } from 'vitest';
 
 import {
+  GAME_HUB_BLOCK_TABS,
+  GAME_HUB_TAB_ORDER,
   bucketGameMedia,
   buildGameHubTabs,
   formatAttribution,
@@ -9,6 +11,8 @@ import {
   formatCompanies,
   formatCriticScore,
   formatReleaseYear,
+  gameHubEmptyCopy,
+  isGameHubBlockTab,
   isGameHubTabId,
   resolveHeroArtwork,
 } from './game-detail-model';
@@ -211,5 +215,51 @@ describe('bucketGameMedia', () => {
   it('treats artwork as a screenshot for display purposes', () => {
     const buckets = bucketGameMedia([media('x', 'artwork', 'art.jpg')]);
     expect(buckets.screenshots).toHaveLength(1);
+  });
+});
+
+describe('game hub tab classification', () => {
+  it('classifies every tab as either a block or a list, never both or neither', () => {
+    const listTabs = GAME_HUB_TAB_ORDER.filter((tab) => !isGameHubBlockTab(tab));
+
+    expect(GAME_HUB_BLOCK_TABS).toEqual(['overview', 'screenshots', 'videos', 'recommendations']);
+    expect(listTabs).toEqual(['reviews', 'activity', 'collections']);
+    expect(GAME_HUB_BLOCK_TABS.length + listTabs.length).toBe(GAME_HUB_TAB_ORDER.length);
+  });
+
+  /**
+   * A block tab renders its own empty copy inside its component. If the hub also
+   * fired the list-level empty state for one, the screen would show two "nothing
+   * here" messages at once.
+   */
+  it('keeps every block tab out of the list-level empty state', () => {
+    for (const tab of GAME_HUB_BLOCK_TABS) {
+      expect(isGameHubBlockTab(tab)).toBe(true);
+    }
+  });
+});
+
+describe('gameHubEmptyCopy', () => {
+  it('names the action that fills the tab rather than restating its emptiness', () => {
+    expect(gameHubEmptyCopy('reviews', 'Hollow Knight')).toEqual({
+      icon: 'star',
+      description: 'Be the first to write about Hollow Knight.',
+    });
+    expect(gameHubEmptyCopy('collections', 'Hollow Knight').description).toContain(
+      'has not been added to a public collection',
+    );
+  });
+
+  it('gives every list tab a distinct icon so the states do not read alike', () => {
+    const icons = GAME_HUB_TAB_ORDER.filter((tab) => !isGameHubBlockTab(tab)).map(
+      (tab) => gameHubEmptyCopy(tab, 'Game').icon,
+    );
+    expect(new Set(icons).size).toBe(icons.length);
+  });
+
+  it('always carries the game title into the copy', () => {
+    for (const tab of GAME_HUB_TAB_ORDER) {
+      expect(gameHubEmptyCopy(tab, 'Celeste').description).toContain('Celeste');
+    }
   });
 });

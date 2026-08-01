@@ -16,7 +16,7 @@ export function SearchSectionHeader({ title }: SearchSectionHeaderProps) {
         paddingBottom: theme.space('space.2'),
       }}
     >
-      <Text role="title" color="color.text.primary">
+      <Text role="title" color="color.text.primary" accessibilityRole="header">
         {title}
       </Text>
     </View>

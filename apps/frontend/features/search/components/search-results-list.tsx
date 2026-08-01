@@ -68,6 +68,10 @@ export function SearchResultsList({
         )
       }
       accessibilityRole="list"
+      accessibilityLabel="Search results"
+      // A tap must land on the row, not be swallowed dismissing the keyboard.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       removeClippedSubviews
       windowSize={9}
       maxToRenderPerBatch={12}

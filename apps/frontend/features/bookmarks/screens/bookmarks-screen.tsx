@@ -1,7 +1,7 @@
 import { Screen, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 
 import { mapAuthError } from '../../../src/auth/map-auth-error';
 import { ScreenHeader } from '../../../src/navigation/screen-header';
@@ -92,7 +92,7 @@ export function BookmarksScreen() {
           ListFooterComponent={
             list.isFetchingNextPage ? (
               <View style={{ padding: theme.space('space.4'), alignItems: 'center' }}>
-                <ActivityIndicator color={theme.color('color.interactive.primary')} />
+                <ContentListSkeleton rows={2} />
               </View>
             ) : null
           }

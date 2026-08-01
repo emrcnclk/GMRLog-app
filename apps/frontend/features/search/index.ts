@@ -6,7 +6,6 @@ export { RecentSearchChip, RecentSearches } from './components/recent-search-chi
 export { SearchSkeleton, SearchResultSkeleton } from './components/search-skeleton';
 export { EmptySearch } from './components/empty-search';
 export { SearchErrorState } from './components/search-error-state';
-export { DetailPlaceholderScreen } from './components/detail-placeholder-screen';
 export { useRecentSearches, useSearchResults } from './hooks/use-search';
 export {
   useDebouncedValue,
@@ -24,3 +23,21 @@ export {
   saveRecentSearches,
   RECENT_SEARCHES_MAX,
 } from './storage/recent-searches';
+export { TrendingSearches } from './components/trending-searches';
+export { SearchSuggestions } from './components/search-suggestions';
+export { useTrendingSearches } from './hooks/use-trending-searches';
+export {
+  buildSearchFacetTabs,
+  buildSearchSuggestions,
+  buildTrendingSearchTerms,
+  countByFacet,
+  facetForHitType,
+  hitsForFacet,
+  resolveActiveFacet,
+  shouldRememberQuery,
+  SEARCH_FACET_ORDER,
+  SEARCH_FACET_LABELS,
+  type SearchFacetId,
+  type SearchQuerySource,
+  type SearchSuggestionGroup,
+} from './hooks/search-facets-model';

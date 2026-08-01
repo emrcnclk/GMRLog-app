@@ -24,3 +24,5 @@ export { useLibrary } from './hooks/use-library';
 export { useReviews } from './hooks/use-reviews';
 export { useCollections } from './hooks/use-collections';
 export { useTierLists } from './hooks/use-tier-lists';
+export { PublicProfileScreen } from './screens/public-profile-screen';
+export { usePublicProfile, useSendFriendRequest } from './hooks/use-public-profile';

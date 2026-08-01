@@ -1,42 +1,45 @@
-import { EmptyState, useTheme } from '@gmrlog/ui';
-import { Search } from 'lucide-react-native';
-import { View } from 'react-native';
+import { Button, EmptyState } from '@gmrlog/ui';
+import { useRouter } from 'expo-router';
 
 export interface EmptySearchProps {
   query?: string;
 }
 
+/**
+ * Two different absences, told apart.
+ *
+ * "I have not searched yet" and "I searched and found nothing" are not the same
+ * state, and answering both with one message teaches nothing. The no-results
+ * case names the failed term and offers a way onward instead of leaving the
+ * reader at a dead end.
+ */
 export function EmptySearch({ query }: EmptySearchProps) {
-  const theme = useTheme();
-  const title = query ? 'No results' : 'Nothing here yet';
-  const description = query
-    ? `Nothing matched “${query}”. Try another term.`
-    : 'Search games, people, and culture across GMRLOG.';
+  const router = useRouter();
+  const hasQuery = query !== undefined && query.length > 0;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: theme.space('space.6'),
-      }}
-    >
-      <View
-        accessibilityLabel="Search illustration placeholder"
-        style={{
-          width: theme.space('space.16'),
-          height: theme.space('space.16'),
-          borderRadius: theme.radius('radius.full'),
-          backgroundColor: theme.color('color.surface.secondary'),
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: theme.space('space.4'),
-        }}
-      >
-        <Search size={36} color={theme.color('color.text.secondary')} strokeWidth={1.5} />
-      </View>
-      <EmptyState title={title} description={description} />
-    </View>
+    <EmptyState
+      icon={hasQuery ? 'search-x' : 'search'}
+      title={hasQuery ? 'No results' : 'Search GMRLOG'}
+      description={
+        hasQuery
+          ? `Nothing matched “${query}”. Check the spelling, or try a shorter term.`
+          : 'Find games, players, reviews, collections, and communities — all from one field.'
+      }
+      fill
+      action={
+        hasQuery ? (
+          <Button
+            variant="secondary"
+            accessibilityLabel="Browse Discover instead"
+            onPress={() => {
+              router.push('/(app)/(tabs)/discover');
+            }}
+          >
+            Browse Discover
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

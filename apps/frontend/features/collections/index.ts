@@ -20,3 +20,18 @@ export {
   useDeleteCollection,
   useReplaceEntries,
 } from './hooks/use-collections';
+export { CollectionToolbar } from './components/collection-toolbar';
+export {
+  collectionMosaicCovers,
+  collectionStats,
+  resolveCollectionCover,
+  sortCollectionEntries,
+  sortCollections,
+  COLLECTION_SORT_ORDER,
+  COLLECTION_SORT_LABELS,
+  COLLECTION_ENTRY_SORT_LABELS,
+  type CollectionEntrySort,
+  type CollectionLayout,
+  type CollectionSort,
+  type CollectionStats,
+} from './hooks/collection-view-model';
