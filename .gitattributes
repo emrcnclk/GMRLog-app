@@ -1,0 +1,22 @@
+# Binary assets must never have end-of-line conversion applied.
+#
+# `core.autocrlf` is true in this repo, so without these rules Git falls back to
+# content sniffing to decide what is binary. That heuristic is right almost
+# always, but "almost" is not a good bet for a font: a single LF rewritten as
+# CRLF inside a glyph table corrupts the file, and the damage shows up as a
+# failed load on someone else's checkout rather than here.
+
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+
+*.pdf  binary
+*.zip  binary
