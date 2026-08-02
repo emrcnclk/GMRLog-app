@@ -32,6 +32,11 @@ export function Text({
           lineHeight: type.lineHeight,
           fontWeight: type.fontWeight,
           letterSpacing: type.letterSpacing,
+          // Spread conditionally: passing `fontFamily: undefined` overrides a
+          // family set by an earlier style in the array, rather than deferring
+          // to it.
+          ...(type.fontFamily === undefined ? null : { fontFamily: type.fontFamily }),
+          ...(type.textTransform === undefined ? null : { textTransform: type.textTransform }),
         },
         style,
       ]}

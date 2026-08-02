@@ -97,9 +97,35 @@ export type SemanticRadiusToken =
 export type SemanticElevationToken =
   'shadow.none' | 'shadow.sm' | 'shadow.md' | 'shadow.lg' | 'shadow.xl';
 
-/** Semantic type roles (S4 Text atom · F4.3). */
+/**
+ * Semantic type roles — the ten-step ramp (S4 Text atom · F4.3 ·
+ * THEME_MIGRATION.md §4b).
+ *
+ * `meta` and `metaSm` are the only monospace roles. They differ by tracking, not
+ * just size: `metaSm` is a section kicker standing alone at .14em, `meta` is
+ * inline metadata inside a row, where .14em stops reading as words.
+ */
 export type SemanticTypeRole =
-  'display' | 'heading' | 'title' | 'body' | 'label' | 'caption' | 'meta';
+  | 'display'
+  | 'title1'
+  | 'title2'
+  | 'title3'
+  | 'headline'
+  | 'body'
+  | 'bodySm'
+  | 'label'
+  | 'meta'
+  | 'metaSm'
+  /**
+   * Deprecated aliases onto the ramp above (`heading`→`title2`, `title`→
+   * `headline`, `caption`→`bodySm`). They exist so the 122 call sites across 91
+   * files keep rendering while Phase 3 recomposes each screen and swaps its own
+   * role names. Delete all three when Phase 3b lands; task 8.4 checks that this
+   * union is back to ten members.
+   */
+  | 'heading'
+  | 'title'
+  | 'caption';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -121,11 +147,49 @@ export interface ElevationStyle {
 
 export type SemanticElevationScale = Record<SemanticElevationToken, ElevationStyle>;
 
+/**
+ * Registered font family names — these are the names `Font.loadAsync` maps the
+ * `.ttf` files to in `apps/frontend/lib/fonts/load-fonts.ts`, so the two must
+ * agree exactly.
+ *
+ * Both families ship as static files, one per weight. Variable fonts are
+ * deliberately avoided: React Native's `fontWeight` does not drive a variable
+ * axis on Android, so a variable file renders a single weight everywhere.
+ */
+export const FONT_FAMILY = {
+  /** Geist — SIL OFL. Weight 300. */
+  sansLight: 'Geist-Light',
+  /** Geist — SIL OFL. Weight 400. */
+  sansRegular: 'Geist-Regular',
+  /** Geist — SIL OFL. Weight 500. */
+  sansMedium: 'Geist-Medium',
+  /**
+   * IBM Plex Mono — SIL OFL. Weight 400, the only weight the mono roles use.
+   * Chosen for full Latin Extended-A: GMRLog is a Turkish product, so `ğ ı ş İ`
+   * must be real glyphs rather than substitutions from a fallback family — in a
+   * monospace face a substituted glyph is obvious, since every advance is equal.
+   */
+  mono: 'IBMPlexMono-Regular',
+} as const;
+
 export interface TypographyStyle {
   fontSize: number;
   lineHeight: number;
-  fontWeight: '400' | '500' | '600' | '700';
+  /**
+   * 300–500 only — hierarchy comes from size, colour and space, never from
+   * shouting. `200` is headroom for display sizes and is currently unused.
+   */
+  fontWeight: '200' | '300' | '400' | '500';
+  /** Pixels. React Native has no `em`, so doc values are converted at authoring time. */
   letterSpacing: number;
+  /**
+   * Set on every role rather than left to `fontWeight`. On Android a custom
+   * family only resolves the weight baked into the named file, so the family and
+   * the weight have to be chosen together.
+   */
+  fontFamily?: string;
+  /** Mono roles only. */
+  textTransform?: 'uppercase';
 }
 
 export type SemanticTypographyScale = Record<SemanticTypeRole, TypographyStyle>;

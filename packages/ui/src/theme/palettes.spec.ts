@@ -24,8 +24,51 @@ describe('createThemeTokens', () => {
     expect(light.radius['radius.md']).toBe(8);
     expect(light.radius['radius.full']).toBe(9999);
     expect(light.elevation['shadow.md'].elevation).toBe(3);
-    expect(light.typography.body.fontSize).toBe(16);
-    expect(light.typography.title.fontWeight).toBe('600');
+    expect(light.typography.body.fontSize).toBe(15);
+    expect(light.typography.headline.fontWeight).toBe('500');
+  });
+
+  /**
+   * The ramp is the whole point of the typography migration: hierarchy comes
+   * from size, colour and space, never from weight. Nothing above 500 may
+   * reappear, and every role must carry a family so Android resolves a weight.
+   */
+  it('keeps every type role within the 300-500 weight band', () => {
+    const { typography } = createThemeTokens('dark');
+
+    for (const style of Object.values(typography)) {
+      expect(Number(style.fontWeight)).toBeLessThanOrEqual(500);
+      expect(Number(style.fontWeight)).toBeGreaterThanOrEqual(200);
+      expect(style.fontFamily).toBeDefined();
+    }
+  });
+
+  /** Only the two metadata roles are monospace, and both are uppercase. */
+  it('sets the mono family and uppercase on exactly the meta roles', () => {
+    const { typography } = createThemeTokens('dark');
+
+    const mono = Object.entries(typography)
+      .filter(([, style]) => style.fontFamily === 'IBMPlexMono-Regular')
+      .map(([role]) => role)
+      .sort();
+
+    expect(mono).toEqual(['meta', 'metaSm']);
+    expect(typography.meta.textTransform).toBe('uppercase');
+    expect(typography.metaSm.textTransform).toBe('uppercase');
+    expect(typography.body.textTransform).toBeUndefined();
+  });
+
+  /**
+   * The three deprecated aliases must stay identical to their ramp targets, so
+   * a screen still on the old name renders exactly what the new name gives.
+   * Delete this test with the aliases when Phase 3b lands.
+   */
+  it('keeps the deprecated role aliases pinned to their ramp targets', () => {
+    const { typography } = createThemeTokens('dark');
+
+    expect(typography.heading).toEqual(typography.title2);
+    expect(typography.title).toEqual(typography.headline);
+    expect(typography.caption).toEqual(typography.bodySm);
   });
 
   /**

@@ -1,3 +1,4 @@
+import { FONT_FAMILY } from './tokens';
 import type {
   AccentKey,
   ElevationStyle,
@@ -9,6 +10,7 @@ import type {
   SemanticSpaceScale,
   SemanticTypographyScale,
   ThemeTokens,
+  TypographyStyle,
 } from './tokens';
 
 /**
@@ -228,15 +230,110 @@ export const elevationScale: SemanticElevationScale = {
   'shadow.xl': createElevation(8, 0.2, 16, 12),
 };
 
-/** Typography roles — shared across schemes (F4.3 · reading before decoration). */
+/**
+ * Typography roles — shared across schemes (F4.3 · reading before decoration ·
+ * THEME_MIGRATION.md §4b).
+ *
+ * Ten steps, not the ~19 distinct sizes the redesign docs name. Those came from
+ * a prototype authored freehand with inline styles, where the gap between 13.5
+ * and 14 is drift rather than intent; the mapping table in §4b rounds each doc
+ * value onto a step here. If a screen cannot be built on this ramp, raise it —
+ * do not inline a size.
+ *
+ * `letterSpacing` is px. The doc's em values are converted against the size:
+ * `metaSm` .14em × 9 = 1.26, `meta` .05em × 11 = 0.55, `title1` −0.03em × 32 ≈ −1.
+ */
+const display: TypographyStyle = {
+  fontSize: 40,
+  lineHeight: 44,
+  fontWeight: '300',
+  letterSpacing: -1.5,
+  fontFamily: FONT_FAMILY.sansLight,
+};
+const title1: TypographyStyle = {
+  fontSize: 32,
+  lineHeight: 38,
+  fontWeight: '300',
+  letterSpacing: -1,
+  fontFamily: FONT_FAMILY.sansLight,
+};
+const title2: TypographyStyle = {
+  fontSize: 25,
+  lineHeight: 30,
+  fontWeight: '300',
+  letterSpacing: -0.5,
+  fontFamily: FONT_FAMILY.sansLight,
+};
+const title3: TypographyStyle = {
+  fontSize: 21,
+  lineHeight: 26,
+  fontWeight: '400',
+  letterSpacing: 0,
+  fontFamily: FONT_FAMILY.sansRegular,
+};
+const headline: TypographyStyle = {
+  fontSize: 17,
+  lineHeight: 22,
+  fontWeight: '500',
+  letterSpacing: 0,
+  fontFamily: FONT_FAMILY.sansMedium,
+};
+const body: TypographyStyle = {
+  fontSize: 15,
+  lineHeight: 24,
+  fontWeight: '400',
+  letterSpacing: 0,
+  fontFamily: FONT_FAMILY.sansRegular,
+};
+const bodySm: TypographyStyle = {
+  fontSize: 13,
+  lineHeight: 20,
+  fontWeight: '400',
+  letterSpacing: 0,
+  fontFamily: FONT_FAMILY.sansRegular,
+};
+const label: TypographyStyle = {
+  fontSize: 12,
+  lineHeight: 16,
+  fontWeight: '500',
+  letterSpacing: 0.1,
+  fontFamily: FONT_FAMILY.sansMedium,
+};
+const meta: TypographyStyle = {
+  fontSize: 11,
+  lineHeight: 14,
+  fontWeight: '400',
+  letterSpacing: 0.55,
+  fontFamily: FONT_FAMILY.mono,
+  textTransform: 'uppercase',
+};
+const metaSm: TypographyStyle = {
+  fontSize: 9,
+  lineHeight: 12,
+  fontWeight: '400',
+  letterSpacing: 1.26,
+  fontFamily: FONT_FAMILY.mono,
+  textTransform: 'uppercase',
+};
+
 export const typographyScale: SemanticTypographyScale = {
-  display: { fontSize: 32, lineHeight: 40, fontWeight: '700', letterSpacing: -0.5 },
-  heading: { fontSize: 24, lineHeight: 32, fontWeight: '600', letterSpacing: -0.3 },
-  title: { fontSize: 18, lineHeight: 24, fontWeight: '600', letterSpacing: 0 },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400', letterSpacing: 0 },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1 },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.2 },
-  meta: { fontSize: 12, lineHeight: 16, fontWeight: '400', letterSpacing: 0.15 },
+  display,
+  title1,
+  title2,
+  title3,
+  headline,
+  body,
+  bodySm,
+  label,
+  meta,
+  metaSm,
+
+  // Deprecated aliases — see the note on `SemanticTypeRole`. They reference the
+  // ramp entries directly so an alias can never drift from its target. Delete
+  // all three when Phase 3b lands.
+  heading: title2,
+  title: headline,
+  caption: bodySm,
 };
 
 export function createThemeTokens(
