@@ -9,6 +9,7 @@ import type {
   SemanticElevationToken,
   SemanticRadiusScale,
   SemanticRadiusToken,
+  SemanticSpaceToken,
   SemanticSpaceScale,
   SemanticTypographyScale,
   ThemeTokens,
@@ -180,10 +181,17 @@ export const RARITY_LABELS: Record<RarityTier, string> = {
   legendary: 'Legendary',
 };
 
-/** The shape channel of a rarity tier: corner sharpness plus ambient glow. */
+/**
+ * The shape channels of a rarity tier.
+ *
+ * `radius` and `elevation` are the plate channels; `notch` is the fallback for
+ * a slot too small to hold a radius ramp — the length of the leading rule on a
+ * `RarityBadge`.
+ */
 export interface RarityGeometry {
   radius: SemanticRadiusToken;
   elevation: SemanticElevationToken;
+  notch: SemanticSpaceToken;
 }
 
 /**
@@ -192,21 +200,27 @@ export interface RarityGeometry {
  * and monochrome: legendary is a square plate that glows, common is a circle
  * with a hairline and no lift.
  *
- * The middle steps only separate fully on a surface tall enough to clear the
- * radius — React Native clamps `borderRadius` to half the box, so on a ~24px
- * `RarityBadge` both `radius.2xl` and `radius.full` render as the same pill.
- * That is why this lives in the theme rather than inside the badge: the rarity
- * plate table (task 3.1) draws the same ramp at plate size, where all five read.
+ * **The radius channel needs a plate of at least 32px.** React Native clamps
+ * `borderRadius` to half the box, so below that the top of the ramp collapses:
+ * at 32 the half is 16 and `sm`/`md`/`lg`/`xl` all resolve, with only `full`
+ * clamping — which is what common is meant to be anyway. `2xl` is 18 and would
+ * clamp too, so the ramp skips it. Plates are 30–38px in
+ * the prototype; anything smaller must carry the tier on `notch` and
+ * `elevation` instead, which is three steps rather than five and is why the two
+ * fallback channels are here beside the primary one.
  */
 const RARITY_GEOMETRY: Record<RarityTier, RarityGeometry> = {
-  common: { radius: 'radius.full', elevation: 'shadow.none' },
-  uncommon: { radius: 'radius.2xl', elevation: 'shadow.none' },
-  rare: { radius: 'radius.lg', elevation: 'shadow.none' },
-  epic: { radius: 'radius.md', elevation: 'shadow.sm' },
-  legendary: { radius: 'radius.sm', elevation: 'shadow.md' },
+  common: { radius: 'radius.full', elevation: 'shadow.none', notch: 'space.2' },
+  uncommon: { radius: 'radius.xl', elevation: 'shadow.none', notch: 'space.3' },
+  rare: { radius: 'radius.lg', elevation: 'shadow.none', notch: 'space.4' },
+  epic: { radius: 'radius.md', elevation: 'shadow.sm', notch: 'space.4' },
+  legendary: { radius: 'radius.sm', elevation: 'shadow.md', notch: 'space.4' },
 };
 
-/** Resolve the radius and elevation tokens that encode a rarity tier's rank. */
+/** The smallest plate on which the rarity radius ramp resolves (px). */
+export const RARITY_PLATE_MIN = 32;
+
+/** Resolve the shape tokens that encode a rarity tier's rank. */
 export function rarityGeometry(tier: RarityTier): RarityGeometry {
   return RARITY_GEOMETRY[tier];
 }

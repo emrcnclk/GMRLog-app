@@ -2,11 +2,13 @@ import type { AchievementResponse } from '@gmrlog/types';
 import {
   EmptyState,
   ProgressBar,
+  RARITY_PLATE_MIN,
   Rail,
   RarityBadge,
   Skeleton,
   Text,
   rarityColorToken,
+  rarityGeometry,
   useTheme,
 } from '@gmrlog/ui';
 import { Lock, Trophy } from 'lucide-react-native';
@@ -98,6 +100,7 @@ export function AchievementBadge({ achievement }: { achievement: AchievementResp
   const awarded = achievement.progress.state === 'awarded';
   const rarity = achievementRarity(achievement);
   const accent = theme.color(rarityColorToken(rarity));
+  const plate = rarityGeometry(rarity);
   const unlockedAt = formatAwardedAt(achievement.awardedAt);
 
   // Awarded badges get a one-shot entrance so a fresh unlock is felt, not just
@@ -147,11 +150,15 @@ export function AchievementBadge({ achievement }: { achievement: AchievementResp
         ],
       }}
     >
+      {/* The rarity plate. Square and glowing at legendary, a circle with a
+          hairline at common — sized at RARITY_PLATE_MIN so the radius ramp
+          resolves rather than clamping to a pill. A locked achievement has no
+          rank to show, so it stays a neutral circle. */}
       <View
         style={{
-          width: theme.space('space.10'),
-          height: theme.space('space.10'),
-          borderRadius: theme.radius('radius.full'),
+          width: RARITY_PLATE_MIN,
+          height: RARITY_PLATE_MIN,
+          borderRadius: theme.radius(awarded ? plate.radius : 'radius.full'),
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: awarded
@@ -159,6 +166,9 @@ export function AchievementBadge({ achievement }: { achievement: AchievementResp
             : theme.color('color.background.secondary'),
           borderWidth: 1,
           borderColor: awarded ? accent : theme.color('color.border.default'),
+          ...(awarded ? theme.elevation(plate.elevation) : null),
+          shadowColor: accent,
+          shadowOffset: { width: 0, height: 0 },
         }}
       >
         {awarded ? (

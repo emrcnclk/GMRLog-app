@@ -30,6 +30,13 @@ export interface RarityBadgeProps {
  * Rarity marker for achievements and archetypes. Outlined rather than filled so a
  * wall of badges stays readable, and always carries the tier word — colour alone
  * is never the only channel, and neither is shape.
+ *
+ * This is the small slot: a text pill is ~24px tall, well under the 32px the
+ * radius ramp needs, so the badge stays a pill and carries the tier on the two
+ * channels that still read at this size — the length of the leading notch and
+ * the ambient glow. Three visual steps rather than the plate's five. The plate
+ * ramp itself is `rarityGeometry(tier).radius`, drawn at `RARITY_PLATE_MIN` or
+ * larger.
  */
 export function RarityBadge({ tier, label, style }: RarityBadgeProps) {
   const theme = useTheme();
@@ -44,10 +51,10 @@ export function RarityBadge({ tier, label, style }: RarityBadgeProps) {
           alignSelf: 'flex-start',
           flexDirection: 'row',
           alignItems: 'center',
-          gap: theme.space('space.1'),
+          gap: theme.space('space.2'),
           paddingHorizontal: theme.space('space.2'),
           paddingVertical: theme.space('space.1'),
-          borderRadius: theme.radius(geometry.radius),
+          borderRadius: theme.radius('radius.full'),
           borderWidth: 1,
           borderColor: color,
           // The elevation token supplies the spread; the glow is ambient, so it
@@ -61,8 +68,9 @@ export function RarityBadge({ tier, label, style }: RarityBadgeProps) {
     >
       <View
         style={{
-          width: 6,
-          height: 6,
+          // Hairline width, as everywhere else; the tier is in the length.
+          width: 2,
+          height: theme.space(geometry.notch),
           borderRadius: theme.radius('radius.full'),
           backgroundColor: color,
         }}

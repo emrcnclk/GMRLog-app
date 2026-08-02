@@ -21,6 +21,7 @@ export {
   ACCENT_KEYS,
   ACCENT_LABELS,
   RARITY_LABELS,
+  RARITY_PLATE_MIN,
   RARITY_TIERS,
   createThemeTokens,
   elevationScale,

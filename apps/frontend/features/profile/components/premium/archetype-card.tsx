@@ -1,5 +1,14 @@
 import type { PlayerArchetypeResponse } from '@gmrlog/types';
-import { Card, RarityBadge, Rail, Text, rarityColorToken, useTheme } from '@gmrlog/ui';
+import {
+  RARITY_PLATE_MIN,
+  Card,
+  RarityBadge,
+  Rail,
+  Text,
+  rarityColorToken,
+  rarityGeometry,
+  useTheme,
+} from '@gmrlog/ui';
 import {
   BookOpen,
   CircleCheckBig,
@@ -98,6 +107,7 @@ export function ArchetypeCard({ archetype, slot, expanded }: ArchetypeCardProps)
   const { profile, rarity } = archetype;
   const Icon = ICONS[profile.icon] ?? Trophy;
   const accent = theme.color(rarityColorToken(rarity));
+  const plate = rarityGeometry(rarity);
 
   return (
     <Card
@@ -106,19 +116,24 @@ export function ArchetypeCard({ archetype, slot, expanded }: ArchetypeCardProps)
       style={{ gap: theme.space('space.3'), borderColor: accent }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space('space.3') }}>
+        {/* The rarity plate — see AchievementBadge. Held at RARITY_PLATE_MIN so
+            the radius ramp resolves; a 48px disc read as decoration. */}
         <View
           style={{
-            width: theme.space('space.12'),
-            height: theme.space('space.12'),
-            borderRadius: theme.radius('radius.full'),
+            width: RARITY_PLATE_MIN,
+            height: RARITY_PLATE_MIN,
+            borderRadius: theme.radius(plate.radius),
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: theme.color('color.surface.secondary'),
             borderWidth: 1,
             borderColor: accent,
+            ...theme.elevation(plate.elevation),
+            shadowColor: accent,
+            shadowOffset: { width: 0, height: 0 },
           }}
         >
-          <Icon size={22} color={accent} />
+          <Icon size={18} color={accent} />
         </View>
 
         <View style={{ flex: 1, gap: theme.space('space.1') }}>
