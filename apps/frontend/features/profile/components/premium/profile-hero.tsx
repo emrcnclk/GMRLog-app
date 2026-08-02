@@ -93,7 +93,6 @@ function ProfilePremiumHeroComponent({
               borderRadius: theme.radius('radius.full'),
               borderWidth: 3,
               borderColor: theme.color('color.background.primary'),
-              ...theme.elevation('shadow.lg'),
             }}
           >
             <Avatar

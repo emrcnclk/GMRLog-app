@@ -195,14 +195,20 @@ export const spaceScale: SemanticSpaceScale = {
   'space.24': 96,
 };
 
-/** Radius scale — shared across schemes (DESIGN_TOKENS.md). */
+/**
+ * Radius scale — shared across schemes (DESIGN_TOKENS.md · THEME_MIGRATION.md §5).
+ *
+ * `sm` stays 4 because rarity plates are deliberately square-ish: squareness
+ * reads as rank. `full` stays 9999 rather than the doc's 999 — no visual
+ * difference at any real size, and 9999 is what every existing pill resolves to.
+ */
 export const radiusScale: SemanticRadiusScale = {
   'radius.none': 0,
   'radius.sm': 4,
   'radius.md': 8,
-  'radius.lg': 12,
-  'radius.xl': 16,
-  'radius.2xl': 24,
+  'radius.lg': 11,
+  'radius.xl': 14,
+  'radius.2xl': 18,
   'radius.full': 9999,
 };
 

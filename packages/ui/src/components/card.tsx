@@ -10,10 +10,13 @@ export interface CardProps extends Omit<ViewProps, 'style'> {
 
 /**
  * Content container surface — place, not decoration (F4.5 · F4.7).
+ *
+ * No drop shadow (THEME_MIGRATION.md §5): depth comes from surface lightness
+ * and the hairline, not from a cast shadow. Shadows are reserved for dialogs,
+ * sheets and tinted accent glows.
  */
 export function Card({ children, style, ...rest }: CardProps) {
   const theme = useTheme();
-  const shadow = theme.elevation('shadow.sm');
 
   return (
     <View
@@ -25,7 +28,6 @@ export function Card({ children, style, ...rest }: CardProps) {
           borderWidth: 1,
           borderColor: theme.color('color.border.default'),
           padding: theme.space('space.4'),
-          ...shadow,
         },
         style,
       ]}

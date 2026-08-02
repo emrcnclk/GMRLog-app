@@ -21,7 +21,13 @@ describe('createThemeTokens', () => {
     expect(light.elevation).toEqual(dark.elevation);
     expect(light.typography).toEqual(dark.typography);
 
+    // THEME_MIGRATION.md §5: the card band is 11–14, plates stay square-ish at
+    // `sm`, and `full` stays 9999 rather than the doc's 999.
+    expect(light.radius['radius.sm']).toBe(4);
     expect(light.radius['radius.md']).toBe(8);
+    expect(light.radius['radius.lg']).toBe(11);
+    expect(light.radius['radius.xl']).toBe(14);
+    expect(light.radius['radius.2xl']).toBe(18);
     expect(light.radius['radius.full']).toBe(9999);
     expect(light.elevation['shadow.md'].elevation).toBe(3);
     expect(light.typography.body.fontSize).toBe(15);

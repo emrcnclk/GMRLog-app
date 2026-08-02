@@ -82,7 +82,6 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
             overflow: 'hidden',
             borderWidth: 1,
             borderColor: theme.color('color.border.default'),
-            ...theme.elevation('shadow.lg'),
           }}
         >
           {/* D3.26 responsive projection: BlurHash holds the space, then the
