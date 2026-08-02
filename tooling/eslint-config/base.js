@@ -17,6 +17,13 @@ const baseConfig = tseslint.config(
       '**/eslint.config.js',
       '**/*.spec.ts',
       '**/*.spec.tsx',
+      /**
+       * The design handoff is reference material, not source. `support.js` is
+       * the HTML prototype's runtime — its own README says nothing in there
+       * ships — and it belongs to no tsconfig project, so the type-aware rules
+       * cannot parse it at all.
+       */
+      'packages/design_handoff_dna_match_and_community/**',
     ],
   },
   eslint.configs.recommended,

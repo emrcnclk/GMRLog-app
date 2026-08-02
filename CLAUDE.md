@@ -1,0 +1,74 @@
+# CLAUDE.md
+
+Project instructions for GMRLog. Read automatically at the start of every session — the rules below apply to all work in this repo without being restated.
+
+## What this project is
+
+GMRLog is a gaming identity product, not a game tracker. A player's profile answers one question: _what kind of gamer are you?_ Everything — the DNA match, archetypes, the platinum case, rarity — serves that. Features that only add numbers to a dashboard do not belong.
+
+## Design authority
+
+`packages/design_handoff_dna_match_and_community/` is the design source of truth:
+
+| Doc                     | Governs                                                             |
+| ----------------------- | ------------------------------------------------------------------- |
+| `THEME_MIGRATION.md`    | Colour, typography, radius, accent, rarity values                   |
+| `SCREEN_REDESIGNS.md`   | Composition for the twelve core screens                             |
+| `SCREEN_REDESIGNS_2.md` | Composition for the remaining twelve                                |
+| `OAUTH.md`              | Sign-in and sign-up with Google, Steam, Discord                     |
+| `BACKEND_CHANGES.md`    | Similarity engine, DNA endpoints, community leaderboard             |
+| `README.md`             | DNA match and community feature spec                                |
+| `TASKS.md`              | The ordered task list — the current state of the work               |
+| `GMRLOG.dc.html`        | The visual prototype. **A reference, never a source to copy from.** |
+
+When code and these docs disagree, the docs win — unless the code reveals the doc was written against something that has since moved, in which case say so before changing anything.
+
+## Design law
+
+**Tokens only.** Every colour, space, radius and type value resolves through `useTheme()` from `@gmrlog/ui`. A raw hex, a hardcoded pixel font size, or a literal `rgba()` in feature code is a bug. If a value has no token, the token is missing — raise it, do not inline it.
+
+**The accent is a line, never a flood.** `color.accent.*` appears as borders, rings, glows, rules and text. It never fills a block behind content. The one exception is a primary CTA, and even there an outlined treatment is preferred. Test: switch to the `neutral` accent — if a screen stops making sense in monochrome, the accent was carrying meaning it should not.
+
+**Rarity is geometry, not colour.** Legendary is a square plate with an ambient glow; common is a circle with a hairline. The colour ramp only brightens. This is why the system survives monochrome.
+
+**Hairlines are whispers.** `color.border.default` is barely visible on purpose. Structure comes from space, not from drawn lines. If a layout feels loose after the palette change, add space or change surface — never darken the border.
+
+**Weight 300–500 only.** Hierarchy comes from size, colour and space. Large numbers are light; nothing is bold to shout.
+
+**Metadata is monospace.** Counts, timestamps, ranks, platforms, section kickers, the match token — all `role="meta"`, uppercase, tracked out. Sentences stay in `body`; names stay in `label` or `title`.
+
+**One codebase, two platforms.** `apps/frontend` renders native and web from the same source through React Native Web. Never fork a web-only implementation. Tap targets ≥44px on both.
+
+## Engineering rules
+
+- **Compose from `@gmrlog/ui`.** Check the package before writing any new component. `Rail`, `StatTile`, `RarityBadge`, `DistributionBars`, `SegmentedTabs`, `Chip`, `Card`, `Avatar`, `EmptyState`, `Skeleton`, `ListItem`, `NavHeader` cover most needs. A new primitive needs a reason you can state.
+- **Never delete a state.** Loading, empty, error and offline states already exist on every screen. Restyle them; do not drop them in a recomposition.
+- **Scores are server-side.** The client never computes a match percentage, a rank or a points total. Two devices must never disagree.
+- **Types flow through `packages/types`,** validation through `packages/validators`, API access through `packages/api-sdk`. No ad-hoc fetch in a feature folder.
+- **Additive DTO changes.** New response fields are optional so existing consumers keep working.
+- **One screen, one commit.** Even when several screens share a session.
+
+## Working rhythm
+
+`TASKS.md` holds the ordered checklist. At the start of a session, read it, take the next unchecked task, and do only that task. When it is done and committed, tick the box and stop.
+
+Do not skip ahead, do not batch several tasks into one diff, and do not start a task whose dependency is still unchecked.
+
+If a task turns out to be wrong or already done, say so and tick it with a note rather than inventing work.
+
+## Commands
+
+```bash
+pnpm turbo run typecheck lint test        # before every commit
+pnpm --filter frontend exec expo start    # native
+pnpm --filter frontend exec expo start --web
+pnpm --filter @gmrlog/database exec prisma migrate dev --name <name>
+```
+
+## What not to do
+
+- Do not copy anything out of `GMRLOG.dc.html`. It is HTML with inline styles; every value in it has a token equivalent. Read it to understand intent, then write React Native.
+- Do not add a colour, font family, spacing value or radius that is not in the theme.
+- Do not create a new screen when a doc says extend an existing one.
+- Do not use emoji in the product UI.
+- Do not add analytics, tooltips, onboarding hints or empty-state illustrations that were not asked for.
