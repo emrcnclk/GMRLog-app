@@ -75,26 +75,38 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
           marginTop: -(COVER_WIDTH / ASPECT.cover) / 2.6,
         }}
       >
+        {/* The cover overlaps the hero, so it needs to sit above the artwork
+            rather than in it. Depth comes from a mat of the elevated background
+            around the frame — surface lightness, the way §5 asks for it — not
+            from the shadow.lg this used to cast. */}
         <View
           style={{
-            width: COVER_WIDTH,
-            borderRadius: theme.radius('radius.lg'),
-            overflow: 'hidden',
-            borderWidth: 1,
-            borderColor: theme.color('color.border.default'),
+            padding: theme.space('space.1'),
+            borderRadius: theme.radius('radius.xl'),
+            backgroundColor: theme.color('color.background.elevated'),
           }}
         >
-          {/* D3.26 responsive projection: BlurHash holds the space, then the
-              WebP variant crossfades in. `coverImage` is null until the media
-              pipeline has processed the asset, in which case GmrImage renders
-              its own placeholder surface rather than a broken frame. */}
-          <GmrImage
-            image={game?.coverImage ?? null}
-            width={COVER_WIDTH}
-            height={Math.round(COVER_WIDTH / ASPECT.cover)}
-            priority="high"
-            accessibilityLabel={game === null ? undefined : `${game.title} cover art`}
-          />
+          <View
+            style={{
+              width: COVER_WIDTH,
+              borderRadius: theme.radius('radius.lg'),
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: theme.color('color.border.default'),
+            }}
+          >
+            {/* D3.26 responsive projection: BlurHash holds the space, then the
+                WebP variant crossfades in. `coverImage` is null until the media
+                pipeline has processed the asset, in which case GmrImage renders
+                its own placeholder surface rather than a broken frame. */}
+            <GmrImage
+              image={game?.coverImage ?? null}
+              width={COVER_WIDTH}
+              height={Math.round(COVER_WIDTH / ASPECT.cover)}
+              priority="high"
+              accessibilityLabel={game === null ? undefined : `${game.title} cover art`}
+            />
+          </View>
         </View>
 
         <View

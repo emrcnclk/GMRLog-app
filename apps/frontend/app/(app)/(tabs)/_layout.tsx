@@ -16,6 +16,7 @@ export default function TabsLayout() {
   const active = theme.color('color.interactive.primary');
   const inactive = theme.color('color.text.tertiary');
   const minTabHeight = theme.space('space.12');
+  const labelType = theme.typography('label');
 
   return (
     <Tabs
@@ -31,9 +32,14 @@ export default function TabsLayout() {
           paddingBottom: Math.max(insets.bottom, theme.space('space.2')),
           paddingTop: theme.space('space.2'),
         },
+        // A tab label is a name, not metadata, so it takes `label` whole
+        // rather than borrowing one field off `caption`. Weight 500 is the
+        // ceiling the type scale allows (THEME_MIGRATION.md §4).
         tabBarLabelStyle: {
-          fontSize: theme.typography('caption').fontSize,
-          fontWeight: '600',
+          fontSize: labelType.fontSize,
+          fontWeight: labelType.fontWeight,
+          letterSpacing: labelType.letterSpacing,
+          fontFamily: labelType.fontFamily,
         },
         tabBarItemStyle: {
           minHeight: minTabHeight,
