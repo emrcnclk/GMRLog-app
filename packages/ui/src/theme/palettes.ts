@@ -6,7 +6,9 @@ import type {
   ResolvedColorScheme,
   SemanticColorPalette,
   SemanticElevationScale,
+  SemanticElevationToken,
   SemanticRadiusScale,
+  SemanticRadiusToken,
   SemanticSpaceScale,
   SemanticTypographyScale,
   ThemeTokens,
@@ -177,6 +179,37 @@ export const RARITY_LABELS: Record<RarityTier, string> = {
   epic: 'Epic',
   legendary: 'Legendary',
 };
+
+/** The shape channel of a rarity tier: corner sharpness plus ambient glow. */
+export interface RarityGeometry {
+  radius: SemanticRadiusToken;
+  elevation: SemanticElevationToken;
+}
+
+/**
+ * Rarity is geometry, not colour (THEME_MIGRATION.md §5). Corners sharpen and an
+ * ambient glow arrives as the tier climbs, so rank survives the `neutral` accent
+ * and monochrome: legendary is a square plate that glows, common is a circle
+ * with a hairline and no lift.
+ *
+ * The middle steps only separate fully on a surface tall enough to clear the
+ * radius — React Native clamps `borderRadius` to half the box, so on a ~24px
+ * `RarityBadge` both `radius.2xl` and `radius.full` render as the same pill.
+ * That is why this lives in the theme rather than inside the badge: the rarity
+ * plate table (task 3.1) draws the same ramp at plate size, where all five read.
+ */
+const RARITY_GEOMETRY: Record<RarityTier, RarityGeometry> = {
+  common: { radius: 'radius.full', elevation: 'shadow.none' },
+  uncommon: { radius: 'radius.2xl', elevation: 'shadow.none' },
+  rare: { radius: 'radius.lg', elevation: 'shadow.none' },
+  epic: { radius: 'radius.md', elevation: 'shadow.sm' },
+  legendary: { radius: 'radius.sm', elevation: 'shadow.md' },
+};
+
+/** Resolve the radius and elevation tokens that encode a rarity tier's rank. */
+export function rarityGeometry(tier: RarityTier): RarityGeometry {
+  return RARITY_GEOMETRY[tier];
+}
 
 /** 8pt grid — DESIGN_TOKENS.md space.* keys. */
 export const spaceScale: SemanticSpaceScale = {

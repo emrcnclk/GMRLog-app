@@ -25,8 +25,10 @@ export {
   createThemeTokens,
   elevationScale,
   radiusScale,
+  rarityGeometry,
   spaceScale,
   typographyScale,
+  type RarityGeometry,
 } from './theme/palettes';
 export {
   ThemeProvider,
