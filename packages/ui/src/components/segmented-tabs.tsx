@@ -18,7 +18,13 @@ export interface SegmentedTabsProps<T extends string> {
   items: readonly SegmentedTabItem<T>[];
   activeId: T;
   onChange: (id: T) => void;
-  /** `underline` reads as page navigation; `pill` reads as a filter. */
+  /**
+   * `underline` reads as page navigation; `pill` reads as a filter.
+   *
+   * Both mark the selected tab with an accent **line** — a rule under the label
+   * for `underline`, the chip's own ring for `pill`. Neither fills a block
+   * behind content.
+   */
   variant?: 'underline' | 'pill';
   /** Describes the tab set for assistive tech (e.g. "Game hub sections"). */
   accessibilityLabel?: string;
@@ -112,12 +118,13 @@ export function SegmentedTabs<T extends string>({
                       justifyContent: 'center',
                       borderRadius: theme.radius('radius.full'),
                       borderWidth: 1,
+                      // The ring is the accent line. A selected chip is never
+                      // filled — an accent block behind content is the one thing
+                      // the accent may not do.
                       borderColor: selected
                         ? theme.color('color.accent.default')
                         : theme.color('color.border.default'),
-                      backgroundColor: selected
-                        ? theme.color('color.accent.default')
-                        : 'transparent',
+                      backgroundColor: 'transparent',
                     }
                   : {
                       minHeight: MIN_TOUCH_TARGET,
@@ -137,7 +144,7 @@ export function SegmentedTabs<T extends string>({
                   role="label"
                   color={
                     isPill && selected
-                      ? 'color.accent.onAccent'
+                      ? 'color.accent.default'
                       : selected
                         ? 'color.text.primary'
                         : 'color.text.secondary'
@@ -146,10 +153,7 @@ export function SegmentedTabs<T extends string>({
                   {item.label}
                 </Text>
                 {item.count !== undefined ? (
-                  <Text
-                    role="meta"
-                    color={isPill && selected ? 'color.accent.onAccent' : 'color.text.tertiary'}
-                  >
+                  <Text role="meta" color="color.text.tertiary">
                     {formatCount(item.count)}
                   </Text>
                 ) : null}
