@@ -30,4 +30,8 @@ export { flushOfflineMutationQueue, replayOfflineMutation } from './mutation-rep
 export { OfflineBanner } from './offline-banner';
 export { OfflineRecoveryBridge } from './offline-recovery-bridge';
 export { bindQueryOnlineManager } from './bind-online-manager';
-export { runOrEnqueueOffline, runOrEnqueueOfflineResult } from './run-or-enqueue';
+export {
+  runOrEnqueueOffline,
+  runOrEnqueueOfflineResult,
+  type OfflineMutationBranch,
+} from './run-or-enqueue';

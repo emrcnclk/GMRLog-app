@@ -16,6 +16,7 @@ export function useSettings() {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const setPreference = useThemeStore((s) => s.setPreference);
+  const pendingPreference = useThemeStore((s) => s.pendingPreference);
 
   const query = useQuery({
     queryKey: queryKeys.settings,
@@ -26,10 +27,14 @@ export function useSettings() {
   });
 
   useEffect(() => {
-    if (query.data?.appearance.theme) {
+    // A pending offline write hasn't reached the server yet, so any fetch
+    // landing while it's outstanding is reading the value that write is about
+    // to replace. Syncing from it here would revert the optimism the offline
+    // queue exists to preserve.
+    if (query.data?.appearance.theme && pendingPreference === null) {
       setPreference(query.data.appearance.theme);
     }
-  }, [query.data?.appearance.theme, setPreference]);
+  }, [query.data?.appearance.theme, pendingPreference, setPreference]);
 
   const view = resolveSettingsView({
     isPending: query.isPending,
@@ -54,6 +59,7 @@ export function usePatchAppearance() {
   const api = useApiClient();
   const queryClient = useQueryClient();
   const setPreference = useThemeStore((s) => s.setPreference);
+  const setPendingPreference = useThemeStore((s) => s.setPendingPreference);
 
   return useMutation({
     meta: durableMeta('settings.appearance'),
@@ -95,17 +101,33 @@ export function usePatchAppearance() {
       }
       return { previous };
     },
-    onError: (_error, _body, context) => {
+    onError: (_error, body, context) => {
+      if (body.theme !== undefined && body.theme !== null) {
+        setPendingPreference(null);
+      }
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.settings, context.previous);
         setPreference(context.previous.appearance.theme);
       }
     },
-    onSuccess: (settings) => {
+    onSuccess: ({ value: settings, branch }, body) => {
       queryClient.setQueryData(queryKeys.settings, settings);
       setPreference(settings.appearance.theme);
+      // Only an online round-trip confirms the write. An enqueued one is
+      // still pending until the reconnect flush lands, so the theme store
+      // stays marked — the resync effect in useSettings reads this and won't
+      // clobber the optimistic value with the still-stale server response.
+      if (body.theme !== undefined && body.theme !== null) {
+        setPendingPreference(branch === 'offline' ? body.theme : null);
+      }
     },
-    onSettled: () => {
+    onSettled: (result) => {
+      // Invalidating after an offline result refetches the server's
+      // still-stale value and immediately undoes the optimistic write the
+      // queue exists to preserve. Only reconcile after a real round-trip.
+      if (result?.branch === 'offline') {
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
     },
   });
@@ -150,10 +172,16 @@ export function usePatchAccessibility() {
         queryClient.setQueryData(queryKeys.settings, context.previous);
       }
     },
-    onSuccess: (settings) => {
+    onSuccess: ({ value: settings }) => {
       queryClient.setQueryData(queryKeys.settings, settings);
     },
-    onSettled: () => {
+    onSettled: (result) => {
+      // See usePatchAppearance: an offline result hasn't reached the server,
+      // so invalidating would refetch the still-stale value and undo the
+      // optimistic write.
+      if (result?.branch === 'offline') {
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
     },
   });

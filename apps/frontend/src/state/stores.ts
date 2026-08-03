@@ -3,16 +3,29 @@ import { create } from 'zustand';
 
 /**
  * Global theme preference store — mirrors UserSettings.appearance.theme vocabulary.
+ *
+ * `pendingPreference` marks an optimistic write that took the offline-queue
+ * branch and has not yet round-tripped the server. While it is set, the
+ * settings resync effect must not overwrite `preference` from a fetch — that
+ * fetch is reading the still-stale value the queued mutation hasn't reached
+ * yet. Cleared once the mutation resolves online (either the original attempt
+ * or the reconnect flush).
  */
 export interface ThemeStoreState {
   preference: ThemePreferenceValue;
+  pendingPreference: ThemePreferenceValue | null;
   setPreference: (preference: ThemePreferenceValue) => void;
+  setPendingPreference: (preference: ThemePreferenceValue | null) => void;
 }
 
 export const useThemeStore = create<ThemeStoreState>((set) => ({
   preference: 'system',
+  pendingPreference: null,
   setPreference: (preference) => {
     set({ preference });
+  },
+  setPendingPreference: (pendingPreference) => {
+    set({ pendingPreference });
   },
 }));
 
