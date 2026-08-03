@@ -7,6 +7,8 @@ import {
 } from '../../features/profile/hooks/use-profile-customization';
 import { useThemeStore } from '../state/stores';
 
+import { NavigationThemeBridge } from './navigation-theme';
+
 export interface AppThemeProviderProps {
   children: ReactNode;
 }
@@ -18,6 +20,9 @@ export interface AppThemeProviderProps {
  * D3.27 also feeds the player's accent choice in. The accent remaps
  * `color.accent.*` only — scheme neutrals are untouched, so choosing an accent
  * can never degrade contrast elsewhere in the app.
+ *
+ * `NavigationThemeBridge` sits inside, so React Navigation's own theme resolves
+ * to the same tokens instead of its light `DefaultTheme` (task 1.5).
  */
 export function AppThemeProvider({ children }: AppThemeProviderProps) {
   const preference = useThemeStore((s) => s.preference);
@@ -41,7 +46,7 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
         patch({ accent: next });
       }}
     >
-      {children}
+      <NavigationThemeBridge>{children}</NavigationThemeBridge>
     </ThemeProvider>
   );
 }
