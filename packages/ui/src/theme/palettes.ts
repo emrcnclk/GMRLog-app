@@ -225,6 +225,28 @@ export function rarityGeometry(tier: RarityTier): RarityGeometry {
   return RARITY_GEOMETRY[tier];
 }
 
+/**
+ * Pulls the `R,G,B` channel out of a `color.scrim.*` token value.
+ *
+ * The scrim tokens are full `rgba(r,g,b,a)` strings with their own baked-in
+ * alpha, for consumers that paint a flat, fixed-strength background
+ * (`HeroBackButton`). `GradientScrim` needs the bare triple instead — it
+ * recomputes its own per-band alpha ramp from an `intensity` prop, so the
+ * token's alpha would only fight that ramp rather than feed it.
+ */
+export function scrimRgbTriple(token: string): string {
+  const match = /rgba?\(([^)]+)\)/.exec(token);
+  const channels = match?.[1];
+  if (channels === undefined) {
+    return '0,0,0';
+  }
+  return channels
+    .split(',')
+    .slice(0, 3)
+    .map((channel) => channel.trim())
+    .join(',');
+}
+
 /** 8pt grid — DESIGN_TOKENS.md space.* keys. */
 export const spaceScale: SemanticSpaceScale = {
   'space.0': 0,

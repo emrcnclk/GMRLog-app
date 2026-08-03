@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { View, type ViewStyle } from 'react-native';
 
+import { scrimRgbTriple } from '../theme/palettes';
+import { useTheme } from '../theme/theme-provider';
+
 export type ScrimDirection = 'to-top' | 'to-bottom' | 'to-start' | 'to-end';
 
 export interface GradientScrimProps {
@@ -8,7 +11,11 @@ export interface GradientScrimProps {
   direction?: ScrimDirection;
   /** Peak alpha at the strong edge (0–1). */
   intensity?: number;
-  /** Base colour as an `R,G,B` triple. Defaults to near-black. */
+  /**
+   * Base colour as an `R,G,B` triple. Defaults to `color.scrim.strong`'s own
+   * RGB channel — its baked-in alpha is discarded, since `intensity` supplies
+   * this component's own per-band ramp instead.
+   */
   rgb?: string;
   /** Number of interpolation bands. More bands = smoother, slightly more views. */
   bands?: number;
@@ -32,10 +39,13 @@ const AXIS: Record<ScrimDirection, 'vertical' | 'horizontal'> = {
 export function GradientScrim({
   direction = 'to-top',
   intensity = 0.85,
-  rgb = '0,0,0',
+  rgb,
   bands = 12,
   style,
 }: GradientScrimProps) {
+  const theme = useTheme();
+  const resolvedRgb = rgb ?? scrimRgbTriple(theme.color('color.scrim.strong'));
+
   const segments = useMemo(() => {
     const count = Math.max(2, Math.min(24, Math.round(bands)));
     const peak = Math.max(0, Math.min(1, intensity));
@@ -51,11 +61,11 @@ export function GradientScrim({
       return {
         key: `scrim-${String(index)}`,
         flex: 1,
-        backgroundColor: `rgba(${rgb},${alpha.toFixed(3)})`,
+        backgroundColor: `rgba(${resolvedRgb},${alpha.toFixed(3)})`,
         vertical,
       };
     });
-  }, [bands, direction, intensity, rgb]);
+  }, [bands, direction, intensity, resolvedRgb]);
 
   const vertical = AXIS[direction] === 'vertical';
 
