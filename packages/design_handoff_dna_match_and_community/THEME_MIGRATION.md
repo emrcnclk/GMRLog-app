@@ -24,7 +24,7 @@ const darkColors: SemanticColorPalette = {
 
   'color.text.primary': '#F3F5FE',
   'color.text.secondary': '#B2B6CA',
-  'color.text.tertiary': '#75798C',
+  'color.text.tertiary': '#888CA2',
   'color.text.disabled': '#595D6C',
   'color.text.inverse': '#161826',
 
@@ -80,7 +80,7 @@ const lightColors: SemanticColorPalette = {
 
   'color.text.primary': '#16182A',
   'color.text.secondary': '#4A4E63',
-  'color.text.tertiary': '#75798C',
+  'color.text.tertiary': '#66697A',
   'color.text.disabled': '#A5A8B8',
   'color.text.inverse': '#FBFBFD',
 
@@ -114,6 +114,10 @@ const lightColors: SemanticColorPalette = {
 ```
 
 `color.scrim.foreground` stays light in both schemes — that invariant is already documented in `tokens.ts` and must not change.
+
+**What "inversion" means here, precisely.** The light palette mirrors the dark one in _lightness_ with the hue held constant, and re-picks the semantic families per scheme. It is not a channel-wise RGB inversion, and must never become one: inverting `status.success` `#6EE7A8` gives a dark red, and inverting `rarity.epic` `#D2CEFD` gives olive. Neutral ramps flip; status, accent and rarity are chosen for each scheme against that scheme's background. Both palettes above already satisfy this.
+
+**`color.text.tertiary` re-valued 2026-08-03** — dark `#75798C → #888CA2`, light `#75798C → #66697A`, hue preserved (~229–231° in both). The old value was **the same hex in both schemes**, the one slot where the mirror was broken: a single mid-grey cannot be the third step of a ramp descending from `#F3F5FE` and of one descending from `#16182A` at the same time. On its own background the old value scored 4.08:1 in dark and 4.17:1 in light — under WCAG AA for body text, on the token that carries timestamps, counts and every `role="meta"` line. The new pair scores **5.30:1 dark** and **5.25:1 light**. Dark `color.rarity.common` keeps `#75798C`; it shared the value by coincidence, not by rule.
 
 ## 3. Accent — `plasma` is the prototype's violet
 
