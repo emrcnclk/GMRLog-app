@@ -3,26 +3,47 @@ import { View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '../theme/theme-provider';
 
-import { Text } from './text';
+import { SectionKicker } from './section-kicker';
 
 export interface SectionProps {
+  /** The section's name. Rendered as a kicker, not as a heading. */
   title?: string;
+  /** Right-aligned counter beside the kicker. Pre-formatted. */
+  counter?: string;
+  /** Right-aligned text link beside the kicker, e.g. "All 412 →". */
+  actionLabel?: string;
+  onPressAction?: () => void;
   children: ReactNode;
   style?: ViewStyle | ViewStyle[];
 }
 
 /**
- * Group with optional heading — one purpose per section (F4.4 · S4 Section).
+ * Group with one purpose (F4.4 · S4 Section), opened by a `SectionKicker`.
+ *
+ * The title used to render at `heading` — a 25px light line that read as a page
+ * title sitting inside a page. The redesign removes that treatment everywhere:
+ * a section announces itself with a tracked-out monospace label and lets space
+ * do the separating.
  */
-export function Section({ title, children, style }: SectionProps) {
+export function Section({
+  title,
+  counter,
+  actionLabel,
+  onPressAction,
+  children,
+  style,
+}: SectionProps) {
   const theme = useTheme();
 
   return (
     <View style={[{ gap: theme.space('space.3') }, style]}>
-      {title ? (
-        <Text role="heading" color="color.text.primary">
-          {title}
-        </Text>
+      {title !== undefined ? (
+        <SectionKicker
+          title={title}
+          counter={counter}
+          actionLabel={actionLabel}
+          onPressAction={onPressAction}
+        />
       ) : null}
       {children}
     </View>
