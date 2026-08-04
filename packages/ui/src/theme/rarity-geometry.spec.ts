@@ -61,6 +61,34 @@ describe('rarity geometry', () => {
     expect(notches[notches.length - 1]).toBeGreaterThan(notches[0]);
   });
 
+  it('pins the container ramp SCREEN_REDESIGNS.md §8 names', () => {
+    expect(RARITY_TIERS.map((tier) => rarityGeometry(tier).cornerNotch)).toEqual([
+      null,
+      8,
+      12,
+      16,
+      22,
+    ]);
+    // "22px both edges" is legendary's alone — the corner is the top of the ramp.
+    expect(RARITY_TIERS.map((tier) => rarityGeometry(tier).cornerNotchVertical)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it('reaches for the accent only at the top two tiers', () => {
+    expect(RARITY_TIERS.map((tier) => rarityGeometry(tier).border)).toEqual([
+      'color.border.default',
+      'color.border.default',
+      'color.border.default',
+      'color.accent.muted',
+      'color.accent.default',
+    ]);
+  });
+
   it('separates every tier on notch and glow alone — the small-slot fallback', () => {
     const fallback = RARITY_TIERS.map((tier) => {
       const { notch, elevation } = rarityGeometry(tier);

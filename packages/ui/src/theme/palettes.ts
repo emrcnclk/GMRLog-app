@@ -5,6 +5,7 @@ import type {
   RarityTier,
   ResolvedColorScheme,
   SemanticColorPalette,
+  SemanticColorToken,
   SemanticElevationScale,
   SemanticElevationToken,
   SemanticRadiusScale,
@@ -187,11 +188,29 @@ export const RARITY_LABELS: Record<RarityTier, string> = {
  * `radius` and `elevation` are the plate channels; `notch` is the fallback for
  * a slot too small to hold a radius ramp — the length of the leading rule on a
  * `RarityBadge`.
+ *
+ * `cornerNotch`, `cornerNotchVertical` and `border` are the *container* channels
+ * added by 3.1 (`SCREEN_REDESIGNS.md` §8): the row that holds the plate carries
+ * the tier too, through the length of its `CornerNotch` and the weight of its
+ * outline. Together with `elevation` that is four channels of rank, none of them
+ * colour — which is what keeps the ramp legible on the `neutral` accent.
  */
 export interface RarityGeometry {
   radius: SemanticRadiusToken;
   elevation: SemanticElevationToken;
   notch: SemanticSpaceToken;
+  /**
+   * `CornerNotch` arm length in px for the container, or `null` at common —
+   * the mark is an emphasis, so the base tier does not get one.
+   *
+   * Raw px rather than a space token because it is the length of a decorative
+   * rule, not a gap: `CornerNotch` already types its own `length` in px, and
+   * §8's ramp (22 · 16 · 12 · 8) is not on the 8pt grid.
+   */
+  cornerNotch: number | null;
+  /** Draws the vertical arm as well — §8's "22px both edges", legendary only. */
+  cornerNotchVertical: boolean;
+  border: SemanticColorToken;
 }
 
 /**
@@ -208,13 +227,55 @@ export interface RarityGeometry {
  * the prototype; anything smaller must carry the tier on `notch` and
  * `elevation` instead, which is three steps rather than five and is why the two
  * fallback channels are here beside the primary one.
+ *
+ * **One deviation from `SCREEN_REDESIGNS.md` §8's table**, kept from 1.4: §8
+ * gives epic and legendary the same `radius.sm` and shifts the rest down a step
+ * (uncommon `lg`, rare `md`). That spends five tiers on four shapes, so the top
+ * two stop being distinguishable by geometry — the exact failure the rule exists
+ * to prevent. The ramp below keeps five distinct radii and is already pinned by
+ * `rarity-geometry.spec.ts`; the glow and border columns follow §8 exactly.
  */
 const RARITY_GEOMETRY: Record<RarityTier, RarityGeometry> = {
-  common: { radius: 'radius.full', elevation: 'shadow.none', notch: 'space.2' },
-  uncommon: { radius: 'radius.xl', elevation: 'shadow.none', notch: 'space.3' },
-  rare: { radius: 'radius.lg', elevation: 'shadow.none', notch: 'space.4' },
-  epic: { radius: 'radius.md', elevation: 'shadow.sm', notch: 'space.4' },
-  legendary: { radius: 'radius.sm', elevation: 'shadow.md', notch: 'space.4' },
+  common: {
+    radius: 'radius.full',
+    elevation: 'shadow.none',
+    notch: 'space.2',
+    cornerNotch: null,
+    cornerNotchVertical: false,
+    border: 'color.border.default',
+  },
+  uncommon: {
+    radius: 'radius.xl',
+    elevation: 'shadow.none',
+    notch: 'space.3',
+    cornerNotch: 8,
+    cornerNotchVertical: false,
+    border: 'color.border.default',
+  },
+  rare: {
+    radius: 'radius.lg',
+    elevation: 'shadow.none',
+    notch: 'space.4',
+    cornerNotch: 12,
+    cornerNotchVertical: false,
+    border: 'color.border.default',
+  },
+  epic: {
+    radius: 'radius.md',
+    elevation: 'shadow.sm',
+    notch: 'space.4',
+    cornerNotch: 16,
+    cornerNotchVertical: false,
+    border: 'color.accent.muted',
+  },
+  legendary: {
+    radius: 'radius.sm',
+    elevation: 'shadow.md',
+    notch: 'space.4',
+    cornerNotch: 22,
+    cornerNotchVertical: true,
+    border: 'color.accent.default',
+  },
 };
 
 /** The smallest plate on which the rarity radius ramp resolves (px). */
