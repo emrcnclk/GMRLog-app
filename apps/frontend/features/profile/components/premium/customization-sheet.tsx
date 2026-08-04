@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   Divider,
+  Section,
   Text,
   createThemeTokens,
   useTheme,
@@ -168,30 +169,6 @@ function CustomizationSheetComponent({
         </Button>
       </ScrollView>
     </BottomSheet>
-  );
-}
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  const theme = useTheme();
-
-  return (
-    <View style={{ gap: theme.space('space.2') }}>
-      <Text role="title">{title}</Text>
-      {description !== undefined ? (
-        <Text role="meta" color="color.text.tertiary">
-          {description}
-        </Text>
-      ) : null}
-      {children}
-    </View>
   );
 }
 

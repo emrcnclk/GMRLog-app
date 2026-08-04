@@ -4,6 +4,7 @@ import { View, type ViewStyle } from 'react-native';
 import { useTheme } from '../theme/theme-provider';
 
 import { SectionKicker } from './section-kicker';
+import { Text } from './text';
 
 export interface SectionProps {
   /** The section's name. Rendered as a kicker, not as a heading. */
@@ -13,6 +14,8 @@ export interface SectionProps {
   /** Right-aligned text link beside the kicker, e.g. "All 412 →". */
   actionLabel?: string;
   onPressAction?: () => void;
+  /** Optional line under the kicker, for a section that needs one sentence of context. */
+  description?: string;
   children: ReactNode;
   style?: ViewStyle | ViewStyle[];
 }
@@ -30,6 +33,7 @@ export function Section({
   counter,
   actionLabel,
   onPressAction,
+  description,
   children,
   style,
 }: SectionProps) {
@@ -38,12 +42,19 @@ export function Section({
   return (
     <View style={[{ gap: theme.space('space.3') }, style]}>
       {title !== undefined ? (
-        <SectionKicker
-          title={title}
-          counter={counter}
-          actionLabel={actionLabel}
-          onPressAction={onPressAction}
-        />
+        <View style={{ gap: theme.space('space.1') }}>
+          <SectionKicker
+            title={title}
+            counter={counter}
+            actionLabel={actionLabel}
+            onPressAction={onPressAction}
+          />
+          {description !== undefined ? (
+            <Text role="meta" color="color.text.tertiary">
+              {description}
+            </Text>
+          ) : null}
+        </View>
       ) : null}
       {children}
     </View>
