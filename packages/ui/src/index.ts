@@ -64,6 +64,7 @@ export { Screen, type ScreenEdge, type ScreenProps } from './components/screen';
 export { Container, type ContainerProps } from './components/container';
 export { Section, type SectionProps } from './components/section';
 export { SectionKicker, type SectionKickerProps } from './components/section-kicker';
+export { ScreenTitle, SCREEN_GUTTER, type ScreenTitleProps } from './components/screen-title';
 export { ListItem, type ListItemProps } from './components/list-item';
 export { Icon, type IconProps } from './components/icon';
 export { BottomSheet, type BottomSheetProps } from './components/bottom-sheet';
