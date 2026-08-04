@@ -39,7 +39,13 @@ Rules: no skipping ahead, no batching several tasks into one diff, no starting a
 
 ## Phase 2 — Shared composition patterns
 
-- [ ] **2.1 Patterns into `@gmrlog/ui`.** `SCREEN_REDESIGNS.md` § "Shared patterns": screen title block, metric strip, section kicker, bleeding rail, corner notch. Extend `Rail` and `StatTile` rather than adding components beside them.
+- [x] **2.1 Patterns into `@gmrlog/ui`.** `SCREEN_REDESIGNS.md` § "Shared patterns": screen title block, metric strip, section kicker, bleeding rail, corner notch. Extend `Rail` and `StatTile` rather than adding components beside them. — **Done 2026-08-03**, one commit per pattern: `18d2502` kicker, `0a39551` title block, `48a98e6` metric strip, `617d89a` rail, `3f2d5b1` notch, plus `4c6078f` adopting the strip.
+  - **Three new primitives, two extensions.** New: `SectionKicker`, `ScreenTitle`, `MetricStrip`, `CornerNotch`. Extended in place, as the task directs: `Rail` (kicker header, bleeds by default) and `StatTile` (reshaped into a strip cell). `Section` also moves onto the kicker — it had **zero** consumers, the only `Section` in the app being a local one inside `customization-sheet.tsx`, so nothing changed shape.
+  - **`SCREEN_GUTTER` (`space.5`, 20px) is exported from `screen-title.tsx`.** The redesign's gutter is 20 where the app sat at 16, and the title block, the rail and the strip all have to agree on it — a rail bleeding against 20 under a title at 16 reads as a misalignment, not a bleed. `Rail` moved to it; screens follow in Phase 3.
+  - **`MetricStrip` is layout-neutral on purpose.** The spec places it at `margin 0 20px`, but it lands inside already-padded containers as often as not, and a built-in margin would silently double the inset. Callers position it.
+  - **One spec deviation, recorded on `StatTile`.** The figure is `title3` (21px/400) against the spec's "19–21px weight 300". The ten-step ramp has no 300-weight role at that size and the design law forbids inlining one. Raise it as a missing token if it ever reads heavy.
+  - **Two `StatTile` call sites left alone.** `profile-stats-grid.tsx` (six tiles) and `gaming-insights.tsx` are wrapping **grids**, not strips; `MetricStrip` is a single row by definition, so they need recomposing rather than rewrapping. **Owned by 3.9.** Both still render correctly as tiles meanwhile.
+  - **Screen-level adoption of `ScreenTitle` and `CornerNotch` is Phase 3's**, not this task's — putting them on Achievements and Settings now would recompose those screens ahead of 3.1 and 3.2.
 
 ## Phase 3 — Screen recomposition
 
