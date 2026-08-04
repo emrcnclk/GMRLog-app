@@ -95,6 +95,7 @@ export {
 } from './components/gradient-scrim';
 export { ProgressBar, type ProgressBarProps } from './components/progress-bar';
 export { StatTile, type StatTileProps } from './components/stat-tile';
+export { MetricStrip, type MetricStripProps } from './components/metric-strip';
 export { RarityBadge, rarityColorToken, type RarityBadgeProps } from './components/rarity-badge';
 export {
   SegmentedTabs,

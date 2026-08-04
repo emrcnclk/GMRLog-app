@@ -23,6 +23,16 @@ export interface StatTileProps {
 /**
  * One number and what it means. The atom behind every statistics grid — profile,
  * game hub, collections — so those grids never re-invent their own tile.
+ *
+ * Reshaped for the redesign (SCREEN_REDESIGNS.md §"Shared patterns"): the tile
+ * is no longer a filled card. It carries no surface, no radius and no padding of
+ * its own — `MetricStrip` supplies the bounding hairlines and the dividers
+ * between tiles, and the tile is just a figure over a tracked-out label.
+ *
+ * The figure is `title3` (21px/400) against the spec's "19–21px weight 300".
+ * There is no 300-weight role at that size in the ten-step ramp, and the design
+ * law forbids inlining a size to invent one. `title3` is the ramp's answer;
+ * raise it as a missing token if the extra weight ever reads as heavy.
  */
 export function StatTile({
   value,
@@ -37,15 +47,15 @@ export function StatTile({
   const reduceMotion = useReduceMotion();
 
   const body = (
-    <View style={{ gap: theme.space('space.1') }}>
-      <Text role="heading" color={valueColor} numberOfLines={1} adjustsFontSizeToFit>
+    <View style={{ gap: theme.space('space.2'), alignItems: 'center' }}>
+      <Text role="title3" color={valueColor} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
-      <Text role="caption" color="color.text.secondary" numberOfLines={1}>
+      <Text role="metaSm" color="color.text.tertiary" numberOfLines={1}>
         {label}
       </Text>
       {caption !== undefined ? (
-        <Text role="meta" color="color.text.tertiary" numberOfLines={1}>
+        <Text role="metaSm" color="color.text.tertiary" numberOfLines={1}>
           {caption}
         </Text>
       ) : null}
@@ -54,11 +64,8 @@ export function StatTile({
 
   const frame: ViewStyle = {
     flex: 1,
-    minWidth: theme.space('space.20'),
     paddingVertical: theme.space('space.3'),
-    paddingHorizontal: theme.space('space.3'),
-    borderRadius: theme.radius('radius.lg'),
-    backgroundColor: theme.color('color.surface.secondary'),
+    paddingHorizontal: theme.space('space.2'),
     justifyContent: 'center',
   };
 
