@@ -1,20 +1,19 @@
-import { Screen, useTheme } from '@gmrlog/ui';
+import { Screen, ScreenTitle, useTheme } from '@gmrlog/ui';
 import { memo, type ReactNode } from 'react';
 import { ScrollView } from 'react-native';
 
-import { ScreenHeader } from '../../../src/navigation/screen-header';
-
 export interface SettingsScreenChromeProps {
   title: string;
+  /** Visible back-link text — name the destination (`ScreenTitle` convention). */
+  backLabel: string;
   onBack: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  refreshing?: boolean;
-  onRefresh?: () => void;
 }
 
 function SettingsScreenChromeComponent({
   title,
+  backLabel,
   onBack,
   children,
   footer,
@@ -22,8 +21,7 @@ function SettingsScreenChromeComponent({
   const theme = useTheme();
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <ScreenHeader title={title} titleRole="title" onBack={onBack} />
+    <Screen edges={['top']}>
       <ScrollView
         contentContainerStyle={{
           paddingBottom: theme.space('space.10'),
@@ -31,6 +29,7 @@ function SettingsScreenChromeComponent({
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <ScreenTitle title={title} backLabel={backLabel} onPressBack={onBack} />
         {children}
         {footer}
       </ScrollView>

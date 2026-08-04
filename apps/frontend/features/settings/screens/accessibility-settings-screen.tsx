@@ -33,7 +33,7 @@ export function AccessibilitySettingsScreen() {
 
   if (settings.status === 'loading') {
     return (
-      <SettingsScreenChrome title="Accessibility" onBack={onBack}>
+      <SettingsScreenChrome title="Accessibility" backLabel="← General" onBack={onBack}>
         <SettingsSkeleton />
       </SettingsScreenChrome>
     );
@@ -42,7 +42,7 @@ export function AccessibilitySettingsScreen() {
   if (settings.status === 'error') {
     const mapped = mapSettingsError(settings.error, isOnline);
     return (
-      <SettingsScreenChrome title="Accessibility" onBack={onBack}>
+      <SettingsScreenChrome title="Accessibility" backLabel="← General" onBack={onBack}>
         <SettingsErrorState
           title={mapped.title}
           description={mapped.description}
@@ -58,7 +58,7 @@ export function AccessibilitySettingsScreen() {
   const current = settings.settings;
   if (!current) {
     return (
-      <SettingsScreenChrome title="Accessibility" onBack={onBack}>
+      <SettingsScreenChrome title="Accessibility" backLabel="← General" onBack={onBack}>
         <SettingsErrorState
           title="Settings unavailable"
           description="Could not load accessibility settings."
@@ -71,7 +71,7 @@ export function AccessibilitySettingsScreen() {
   }
 
   return (
-    <SettingsScreenChrome title="Accessibility" onBack={onBack}>
+    <SettingsScreenChrome title="Accessibility" backLabel="← General" onBack={onBack}>
       {banner ? (
         <View style={{ paddingHorizontal: theme.space('space.4') }}>
           <ErrorBanner title={banner.title} description={banner.description} />

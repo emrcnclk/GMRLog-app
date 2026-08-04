@@ -21,7 +21,7 @@ export function GeneralSettingsScreen() {
   }, [router]);
 
   return (
-    <SettingsScreenChrome title="General" onBack={onBack}>
+    <SettingsScreenChrome title="General" backLabel="← Settings" onBack={onBack}>
       <SettingsSectionHeader title="Sections" />
       {GENERAL_SUBNAV.map((item) => (
         <SettingsNavRow

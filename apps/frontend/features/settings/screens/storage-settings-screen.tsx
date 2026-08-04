@@ -16,7 +16,7 @@ export function StorageSettingsScreen() {
   }, [router]);
 
   return (
-    <SettingsScreenChrome title="Storage" onBack={onBack}>
+    <SettingsScreenChrome title="Storage" backLabel="← Settings" onBack={onBack}>
       <SettingsSectionHeader title="Local caches" />
       <StorageInfoCard info={info} />
       <SettingsSectionHeader title="Actions" description="Confirm before clearing." />

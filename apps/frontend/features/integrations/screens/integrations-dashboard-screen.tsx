@@ -30,7 +30,7 @@ export function IntegrationsDashboardScreen() {
   const displayName = steamProfile.data?.displayName ?? steam?.displayName ?? null;
 
   return (
-    <SettingsScreenChrome title="Integrations" onBack={onBack}>
+    <SettingsScreenChrome title="Integrations" backLabel="← Settings" onBack={onBack}>
       {dashboard.status === 'loading' ? <SettingsSkeleton /> : null}
 
       {dashboard.status === 'error' ? (

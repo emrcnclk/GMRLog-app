@@ -19,6 +19,7 @@ export function AboutSettingsScreen() {
   return (
     <SettingsScreenChrome
       title="About"
+      backLabel="← Settings"
       onBack={onBack}
       footer={<VersionFooter version={diagnostics.appVersion} build={diagnostics.buildNumber} />}
     >

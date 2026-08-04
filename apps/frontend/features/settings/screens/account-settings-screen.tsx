@@ -28,7 +28,7 @@ export function AccountSettingsScreen() {
   }, [router]);
 
   return (
-    <SettingsScreenChrome title="Account" onBack={onBack}>
+    <SettingsScreenChrome title="Account" backLabel="← Settings" onBack={onBack}>
       <SettingsSectionHeader title="Profile" />
       <ProfileShortcutRow
         handle={user?.handle ?? 'you'}

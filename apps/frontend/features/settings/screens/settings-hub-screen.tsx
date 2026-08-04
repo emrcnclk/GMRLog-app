@@ -19,6 +19,7 @@ export function SettingsHubScreen() {
   return (
     <SettingsScreenChrome
       title="Settings"
+      backLabel="← Profile"
       onBack={onBack}
       footer={<VersionFooter version={diagnostics.appVersion} build={diagnostics.buildNumber} />}
     >

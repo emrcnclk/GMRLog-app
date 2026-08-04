@@ -16,7 +16,7 @@ export function NotificationsSettingsScreen() {
   }, [router]);
 
   return (
-    <SettingsScreenChrome title="Notifications" onBack={onBack}>
+    <SettingsScreenChrome title="Notifications" backLabel="← Settings" onBack={onBack}>
       <SettingsSectionHeader
         title="Preferences"
         description="Backend has no notification preference PATCH — controls stay disabled."

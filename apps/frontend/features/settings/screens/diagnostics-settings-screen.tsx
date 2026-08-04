@@ -17,7 +17,7 @@ export function DiagnosticsSettingsScreen() {
   }, [router]);
 
   return (
-    <SettingsScreenChrome title="Diagnostics" onBack={onBack}>
+    <SettingsScreenChrome title="Diagnostics" backLabel="← Settings" onBack={onBack}>
       <SettingsSectionHeader title="Application" />
       <DiagnosticsRow label="App version" value={diagnostics.appVersion} />
       <DiagnosticsRow label="Build number" value={diagnostics.buildNumber} />

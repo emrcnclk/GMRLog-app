@@ -37,7 +37,7 @@ export function AppearanceSettingsScreen() {
 
   if (settings.status === 'loading') {
     return (
-      <SettingsScreenChrome title="Appearance" onBack={onBack}>
+      <SettingsScreenChrome title="Appearance" backLabel="← General" onBack={onBack}>
         <SettingsSkeleton />
       </SettingsScreenChrome>
     );
@@ -46,7 +46,7 @@ export function AppearanceSettingsScreen() {
   if (settings.status === 'error') {
     const mapped = mapSettingsError(settings.error, isOnline);
     return (
-      <SettingsScreenChrome title="Appearance" onBack={onBack}>
+      <SettingsScreenChrome title="Appearance" backLabel="← General" onBack={onBack}>
         <SettingsErrorState
           title={mapped.title}
           description={mapped.description}
@@ -62,7 +62,7 @@ export function AppearanceSettingsScreen() {
   const current = settings.settings;
   if (!current) {
     return (
-      <SettingsScreenChrome title="Appearance" onBack={onBack}>
+      <SettingsScreenChrome title="Appearance" backLabel="← General" onBack={onBack}>
         <SettingsErrorState
           title="Settings unavailable"
           description="Could not load appearance settings."
@@ -75,7 +75,7 @@ export function AppearanceSettingsScreen() {
   }
 
   return (
-    <SettingsScreenChrome title="Appearance" onBack={onBack}>
+    <SettingsScreenChrome title="Appearance" backLabel="← General" onBack={onBack}>
       {banner ? (
         <View style={{ paddingHorizontal: theme.space('space.4') }}>
           <ErrorBanner title={banner.title} description={banner.description} />
