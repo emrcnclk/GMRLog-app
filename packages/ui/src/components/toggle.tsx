@@ -1,9 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, type ViewStyle } from 'react-native';
+import { Pressable, View, type ViewStyle } from 'react-native';
 
-import { useReduceMotion } from '../motion/motion-provider';
 import { MIN_TOUCH_TARGET } from '../motion/pressable';
-import { resolveDuration } from '../motion/tokens';
 import { useTheme } from '../theme/theme-provider';
 import {
   TOGGLE_KNOB_INSET,
@@ -29,33 +26,16 @@ export interface ToggleProps {
  * Material track) can't be held to this exact shape on both, and the redesign
  * asks for one shape everywhere. `hitSlop` pads the 23px track back up to the
  * 44px tap-target floor.
+ *
+ * The knob position is a plain computed `left`, not an `Animated.Value` — an
+ * interpolated `transform` driven by `Animated.timing` never advanced past
+ * its start position on this app's React Native Web build (confirmed with
+ * `useNativeDriver` both `true` and `false`; the on/off *colors*, which are
+ * plain re-renders rather than animated, always updated correctly). A snap
+ * is correct on both platforms; a broken slide is correct on neither.
  */
 export function Toggle({ value, onValueChange, disabled, accessibilityLabel, style }: ToggleProps) {
   const theme = useTheme();
-  const reduceMotion = useReduceMotion();
-  const knobPosition = useRef(new Animated.Value(value ? 1 : 0)).current;
-
-  useEffect(() => {
-    const toValue = value ? 1 : 0;
-    if (reduceMotion) {
-      knobPosition.setValue(toValue);
-      return undefined;
-    }
-    const animation = Animated.timing(knobPosition, {
-      toValue,
-      duration: resolveDuration('normal', false),
-      useNativeDriver: true,
-    });
-    animation.start();
-    return () => {
-      animation.stop();
-    };
-  }, [knobPosition, reduceMotion, value]);
-
-  const translateX = knobPosition.interpolate({
-    inputRange: [0, 1],
-    outputRange: [TOGGLE_KNOB_INSET, TOGGLE_KNOB_TRAVEL],
-  });
 
   return (
     <Pressable
@@ -83,7 +63,7 @@ export function Toggle({ value, onValueChange, disabled, accessibilityLabel, sty
         style,
       ]}
     >
-      <Animated.View
+      <View
         style={{
           width: TOGGLE_KNOB_SIZE,
           height: TOGGLE_KNOB_SIZE,
@@ -91,7 +71,7 @@ export function Toggle({ value, onValueChange, disabled, accessibilityLabel, sty
           backgroundColor: value
             ? theme.color('color.accent.onAccent')
             : theme.color('color.background.elevated'),
-          transform: [{ translateX }],
+          transform: [{ translateX: value ? TOGGLE_KNOB_TRAVEL : TOGGLE_KNOB_INSET }],
         }}
       />
     </Pressable>
