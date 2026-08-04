@@ -1,12 +1,75 @@
-import type { ComponentType, ReactNode } from 'react';
+import {
+  Activity,
+  Bell,
+  Check,
+  ChevronLeft,
+  Compass,
+  Folder,
+  LayoutGrid,
+  Library,
+  Link,
+  List,
+  ListOrdered,
+  MessageCircle,
+  MessageSquare,
+  Quote,
+  Search,
+  SearchX,
+  Share2,
+  Star,
+  Trophy,
+  UserPlus,
+  Users,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { View, type ViewStyle } from 'react-native';
 
 import { HIDDEN_FROM_ASSISTIVE_TECH } from '../a11y/decorative';
 import { useTheme } from '../theme/theme-provider';
 import type { SemanticColorToken } from '../theme/tokens';
 
+/**
+ * Every name this app actually renders through `<Icon name="...">`, mapped to
+ * a statically imported lucide component.
+ *
+ * Not a lookup by string-to-PascalCase conversion: that went through a dynamic
+ * `require('lucide-react-native')`, which returns `undefined` on web (no
+ * global `require` inside an ESM bundle) and silently fell back to the
+ * placeholder box on every call site. `SettingsRow` and `profile-screen.tsx`
+ * already sidestep the same bug by taking a component reference directly.
+ * This map keeps the string-name API those two didn't need to touch, without
+ * resurrecting the dynamic lookup. A name missing here is a bug — add it
+ * rather than falling back silently.
+ */
+const ICONS: Record<string, LucideIcon> = {
+  activity: Activity,
+  bell: Bell,
+  check: Check,
+  'chevron-left': ChevronLeft,
+  compass: Compass,
+  folder: Folder,
+  'layout-grid': LayoutGrid,
+  library: Library,
+  link: Link,
+  list: List,
+  'list-ordered': ListOrdered,
+  'message-circle': MessageCircle,
+  'message-square': MessageSquare,
+  quote: Quote,
+  search: Search,
+  'search-x': SearchX,
+  'share-2': Share2,
+  star: Star,
+  trophy: Trophy,
+  'user-plus': UserPlus,
+  users: Users,
+  x: X,
+};
+
 export interface IconProps {
-  /** Lucide icon name in kebab-case or PascalCase (e.g. "search" / "Search"). */
+  /** Lucide icon name, kebab-case (e.g. "search"). Must exist in `ICONS`. */
   name?: string;
   children?: ReactNode;
   size?: number;
@@ -21,43 +84,6 @@ export interface IconProps {
    */
   decorative?: boolean;
   style?: ViewStyle | ViewStyle[];
-}
-
-type LucideIconComponent = ComponentType<{
-  size?: number;
-  color?: string;
-  strokeWidth?: number;
-}>;
-
-function toPascalCase(name: string): string {
-  return name
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-}
-
-function loadLucideIcon(name: string): LucideIconComponent | null {
-  try {
-    const maybeRequire = (
-      globalThis as typeof globalThis & {
-        require?: (moduleId: string) => unknown;
-      }
-    ).require;
-
-    if (typeof maybeRequire !== 'function') {
-      return null;
-    }
-
-    const lucide = maybeRequire('lucide-react-native') as Record<
-      string,
-      LucideIconComponent | undefined
-    >;
-    const key = toPascalCase(name);
-    return lucide[key] ?? null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -84,7 +110,7 @@ export function Icon({
   }
 
   if (name) {
-    const LucideIcon = loadLucideIcon(name);
+    const LucideIcon = ICONS[name];
     if (LucideIcon) {
       return (
         <View
