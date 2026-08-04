@@ -119,6 +119,8 @@ const lightColors: SemanticColorPalette = {
 
 **`color.text.tertiary` re-valued 2026-08-03** — dark `#75798C → #888CA2`, light `#75798C → #66697A`, hue preserved (~229–231° in both). The old value was **the same hex in both schemes**, the one slot where the mirror was broken: a single mid-grey cannot be the third step of a ramp descending from `#F3F5FE` and of one descending from `#16182A` at the same time. On its own background the old value scored 4.08:1 in dark and 4.17:1 in light — under WCAG AA for body text, on the token that carries timestamps, counts and every `role="meta"` line. The new pair scores **5.30:1 dark** and **5.25:1 light**. Dark `color.rarity.common` keeps `#75798C`; it shared the value by coincidence, not by rule.
 
+**The binding case is `surface.secondary`, not `background.primary`.** Every card, row and plate in the app puts meta text on `surface.secondary` rather than straight onto the page, and that is the tighter pairing: the old value scored **3.52:1 dark** (`#75798C` on `#232532`) and **3.92:1 light** (on `#F3F4F8`) — well under AA, and a full half-step worse than the own-background figures above. The new pair clears it at **4.57:1 dark** and **4.94:1 light**. Note how little headroom dark has: 4.57 against a required 4.5. **`surface.secondary` is the surface to test any future tertiary change against** — and it cannot be fixed by adding space or changing surface, because the surface _is_ the constraint. Measured live on the Achievements plate 2026-08-04: `rgb(136,140,162)` on `rgb(35,37,50)` in dark, `rgb(102,105,122)` on `rgb(243,244,248)` in light.
+
 ## 3. Accent — `plasma` is the prototype's violet
 
 The prototype's `#9184d9` is the `plasma` identity.
