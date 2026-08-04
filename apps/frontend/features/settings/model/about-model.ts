@@ -44,3 +44,7 @@ export function aboutVersionLine(version: string, build: string): string {
 export function aboutCopyright(year = new Date().getFullYear()): string {
   return `© ${String(year)} GMRLOG. All rights reserved.`;
 }
+
+export function aboutSignedInLine(handle: string): string {
+  return `Signed in as @${handle}`;
+}

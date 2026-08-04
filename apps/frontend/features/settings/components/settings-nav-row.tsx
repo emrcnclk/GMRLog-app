@@ -1,26 +1,33 @@
-import { ListItem, Text } from '@gmrlog/ui';
+import { useTheme } from '@gmrlog/ui';
+import { ChevronRight } from 'lucide-react-native';
 import { memo } from 'react';
 
+import { SettingsRow, type SettingsRowIcon } from './settings-row';
+
 export interface SettingsNavRowProps {
+  icon?: SettingsRowIcon;
   title: string;
   subtitle?: string;
   onPress: () => void;
   disabled?: boolean;
 }
 
-function SettingsNavRowComponent({ title, subtitle, onPress, disabled }: SettingsNavRowProps) {
+function SettingsNavRowComponent({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  disabled,
+}: SettingsNavRowProps) {
+  const theme = useTheme();
   return (
-    <ListItem
+    <SettingsRow
+      icon={icon}
       title={title}
       subtitle={subtitle}
-      accessibilityLabel={title}
       disabled={disabled}
       onPress={onPress}
-      trailing={
-        <Text role="meta" color="color.text.tertiary">
-          ›
-        </Text>
-      }
+      trailing={<ChevronRight size={14} color={theme.color('color.text.tertiary')} />}
     />
   );
 }

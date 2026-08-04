@@ -1,8 +1,10 @@
-import { Text, useTheme } from '@gmrlog/ui';
+import { Toggle } from '@gmrlog/ui';
 import { memo } from 'react';
-import { Switch, View } from 'react-native';
+
+import { SettingsRow, type SettingsRowIcon } from './settings-row';
 
 export interface SettingsToggleRowProps {
+  icon?: SettingsRowIcon;
   title: string;
   subtitle?: string;
   value: boolean;
@@ -12,6 +14,7 @@ export interface SettingsToggleRowProps {
 }
 
 function SettingsToggleRowComponent({
+  icon,
   title,
   subtitle,
   value,
@@ -19,40 +22,21 @@ function SettingsToggleRowComponent({
   onValueChange,
   accessibilityLabel,
 }: SettingsToggleRowProps) {
-  const theme = useTheme();
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: theme.space('space.3'),
-        paddingHorizontal: theme.space('space.4'),
-        paddingVertical: theme.space('space.3'),
-        borderBottomWidth: 1,
-        borderBottomColor: theme.color('color.border.default'),
-      }}
-    >
-      <View style={{ flex: 1, gap: theme.space('space.1') }}>
-        <Text role="title" color="color.text.primary">
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text role="meta" color="color.text.secondary">
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      <Switch
-        value={value}
-        disabled={disabled}
-        onValueChange={onValueChange}
-        accessibilityLabel={accessibilityLabel}
-        trackColor={{
-          false: theme.color('color.border.default'),
-          true: theme.color('color.interactive.primary'),
-        }}
-      />
-    </View>
+    <SettingsRow
+      icon={icon}
+      title={title}
+      subtitle={subtitle}
+      disabled={disabled}
+      trailing={
+        <Toggle
+          value={value}
+          disabled={disabled}
+          onValueChange={onValueChange}
+          accessibilityLabel={accessibilityLabel}
+        />
+      }
+    />
   );
 }
 

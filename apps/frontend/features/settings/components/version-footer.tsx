@@ -2,14 +2,22 @@ import { Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { View } from 'react-native';
 
-import { aboutCopyright, aboutVersionLine } from '../model/about-model';
+import { aboutCopyright, aboutSignedInLine, aboutVersionLine } from '../model/about-model';
 
 export interface VersionFooterProps {
   version: string;
   build: string;
+  /** Viewer's handle. Omitted line when there is none to show. */
+  handle?: string;
 }
 
-function VersionFooterComponent({ version, build }: VersionFooterProps) {
+/**
+ * The monospace footer (SCREEN_REDESIGNS.md §9): "version, build, signed-in
+ * handle. Small, factual, no styling." One `role="meta"` block — the ramp's
+ * own 11px monospace tertiary — rather than the mixed sans/mono treatment
+ * this footer used before.
+ */
+function VersionFooterComponent({ version, build, handle }: VersionFooterProps) {
   const theme = useTheme();
   return (
     <View
@@ -23,7 +31,12 @@ function VersionFooterComponent({ version, build }: VersionFooterProps) {
       <Text role="meta" color="color.text.tertiary">
         {aboutVersionLine(version, build)}
       </Text>
-      <Text role="caption" color="color.text.tertiary">
+      {handle !== undefined ? (
+        <Text role="meta" color="color.text.tertiary">
+          {aboutSignedInLine(handle)}
+        </Text>
+      ) : null}
+      <Text role="meta" color="color.text.tertiary">
         {aboutCopyright()}
       </Text>
     </View>

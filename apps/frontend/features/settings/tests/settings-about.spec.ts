@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { ABOUT_LINKS, aboutCopyright, aboutVersionLine } from '../model/about-model';
+import {
+  ABOUT_LINKS,
+  aboutCopyright,
+  aboutSignedInLine,
+  aboutVersionLine,
+} from '../model/about-model';
 
 describe('settings about', () => {
   it('lists privacy terms oss contact', () => {
@@ -23,5 +28,9 @@ describe('settings about', () => {
     expect(aboutVersionLine('0.0.0', '12')).toBe('GMRLOG 0.0.0 (12)');
     expect(aboutCopyright(2026)).toContain('2026');
     expect(aboutCopyright(2026)).toContain('GMRLOG');
+  });
+
+  it('formats the signed-in handle line', () => {
+    expect(aboutSignedInLine('measure3_2')).toBe('Signed in as @measure3_2');
   });
 });

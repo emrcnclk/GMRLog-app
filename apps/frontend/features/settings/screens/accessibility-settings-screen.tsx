@@ -1,4 +1,4 @@
-import { ErrorBanner, useTheme } from '@gmrlog/ui';
+import { ErrorBanner, SCREEN_GUTTER, Section, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
@@ -8,8 +8,8 @@ import { HighContrastToggle } from '../components/high-contrast-toggle';
 import { LargerTextToggle } from '../components/larger-text-toggle';
 import { ReduceMotionToggle } from '../components/reduce-motion-toggle';
 import { SettingsErrorState } from '../components/settings-error-state';
+import { SettingsGroupCard } from '../components/settings-group-card';
 import { SettingsScreenChrome } from '../components/settings-screen-chrome';
-import { SettingsSectionHeader } from '../components/settings-section-header';
 import { SettingsSkeleton } from '../components/settings-skeleton';
 import { usePatchAccessibility, useSettings } from '../hooks/use-settings';
 import { mapSettingsError } from '../model/settings-model';
@@ -78,26 +78,40 @@ export function AccessibilitySettingsScreen() {
         </View>
       ) : null}
 
-      <SettingsSectionHeader title="Motion" description="Synced with the server." />
-      <ReduceMotionToggle
-        value={current.accessibility.reduceMotion}
-        disabled={patch.isPending}
-        onChange={(value) => {
-          setBanner(null);
-          patch.mutate(
-            { reduceMotion: value },
-            {
-              onError: (error) => {
-                setBanner(mapSettingsError(error, isOnline));
-              },
-            },
-          );
-        }}
-      />
+      <Section
+        title="Motion"
+        description="Synced with the server."
+        style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}
+      >
+        <SettingsGroupCard>
+          <ReduceMotionToggle
+            value={current.accessibility.reduceMotion}
+            disabled={patch.isPending}
+            onChange={(value) => {
+              setBanner(null);
+              patch.mutate(
+                { reduceMotion: value },
+                {
+                  onError: (error) => {
+                    setBanner(mapSettingsError(error, isOnline));
+                  },
+                },
+              );
+            }}
+          />
+        </SettingsGroupCard>
+      </Section>
 
-      <SettingsSectionHeader title="Display" description="Local preferences only." />
-      <LargerTextToggle value={largerText} onChange={setLargerText} />
-      <HighContrastToggle value={highContrast} onChange={setHighContrast} />
+      <Section
+        title="Display"
+        description="Local preferences only."
+        style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}
+      >
+        <SettingsGroupCard>
+          <LargerTextToggle value={largerText} onChange={setLargerText} />
+          <HighContrastToggle value={highContrast} onChange={setHighContrast} />
+        </SettingsGroupCard>
+      </Section>
     </SettingsScreenChrome>
   );
 }
