@@ -4,6 +4,7 @@ import {
   Badge,
   GradientScrim,
   HeroBackButton,
+  MetricStrip,
   StatTile,
   Text,
   useTheme,
@@ -75,7 +76,7 @@ export function CollectionHeader({ collection, onBack }: CollectionHeaderProps) 
           </Text>
         ) : null}
 
-        <View style={{ flexDirection: 'row', gap: theme.space('space.5'), flexWrap: 'wrap' }}>
+        <MetricStrip accessibilityLabel="Collection totals">
           <StatTile value={String(stats.gameCount)} label="Games" />
           {stats.followerCount > 0 ? (
             <StatTile value={String(stats.followerCount)} label="Followers" />
@@ -83,7 +84,7 @@ export function CollectionHeader({ collection, onBack }: CollectionHeaderProps) 
           {stats.withNotes > 0 ? (
             <StatTile value={String(stats.withNotes)} label="With notes" />
           ) : null}
-        </View>
+        </MetricStrip>
 
         <Text role="meta" color="color.text.tertiary">
           {`Curated by ${collection.owner.displayName}${updated ? ` · Updated ${updated}` : ''}`}
