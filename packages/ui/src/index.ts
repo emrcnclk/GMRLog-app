@@ -48,6 +48,7 @@ export { Badge, type BadgeProps, type BadgeTone } from './components/badge';
 export { Chip, type ChipProps } from './components/chip';
 export { Divider, type DividerOrientation, type DividerProps } from './components/divider';
 export { Card, type CardProps } from './components/card';
+export { Toggle, type ToggleProps } from './components/toggle';
 export { Surface, type SurfaceProps } from './components/surface';
 export { Loading, type LoadingProps, type LoadingSize } from './components/loading';
 export { EmptyState, type EmptyStateProps } from './components/empty-state';
