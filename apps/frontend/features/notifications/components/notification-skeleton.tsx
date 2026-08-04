@@ -1,4 +1,4 @@
-import { Skeleton, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, Skeleton, useTheme } from '@gmrlog/ui';
 import { View } from 'react-native';
 
 export function NotificationSkeleton({ rows = 8 }: { rows?: number }) {
@@ -12,20 +12,15 @@ export function NotificationSkeleton({ rows = 8 }: { rows?: number }) {
           style={{
             flexDirection: 'row',
             gap: theme.space('space.3'),
-            paddingHorizontal: theme.space('space.4'),
+            paddingHorizontal: theme.space(SCREEN_GUTTER),
             paddingVertical: theme.space('space.3'),
           }}
         >
-          <Skeleton
-            shape="circle"
-            width={theme.space('space.10')}
-            height={theme.space('space.10')}
-          />
+          <Skeleton shape="circle" width={theme.space('space.8')} height={theme.space('space.8')} />
           <View style={{ flex: 1, gap: theme.space('space.2') }}>
             <Skeleton shape="line" width="40%" />
             <Skeleton shape="line" width="85%" />
           </View>
-          <Skeleton shape="rect" width={theme.space('space.10')} height={theme.space('space.10')} />
         </View>
       ))}
     </View>

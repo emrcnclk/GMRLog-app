@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, View, type ViewStyle } from 'react-native';
 
 import { MIN_TOUCH_TARGET } from '../motion/pressable';
@@ -25,6 +26,12 @@ export interface ScreenTitleProps {
   /** Back affordance. Pushed screens only — a tab root has nothing to go back to. */
   backLabel?: string;
   onPressBack?: () => void;
+  /**
+   * A control on the title's own baseline — "Mark all read" on Notifications is
+   * the first consumer. Bottom-aligned against the `H1`, not vertically centred,
+   * since a light 32px title and a small text button share no natural centre.
+   */
+  trailing?: ReactNode;
   /** Draws the optional 2px rule under the meta line. Both are required to show it. */
   progressValue?: number;
   progressTarget?: number;
@@ -45,6 +52,7 @@ export function ScreenTitle({
   meta,
   backLabel,
   onPressBack,
+  trailing,
   progressValue,
   progressTarget,
   style,
@@ -79,9 +87,30 @@ export function ScreenTitle({
         </Pressable>
       ) : null}
 
-      <Text role="title1" accessibilityRole="header" numberOfLines={2}>
-        {title}
-      </Text>
+      {trailing === undefined ? (
+        <Text role="title1" accessibilityRole="header" numberOfLines={2}>
+          {title}
+        </Text>
+      ) : (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            gap: theme.space('space.3'),
+          }}
+        >
+          <Text
+            role="title1"
+            accessibilityRole="header"
+            numberOfLines={2}
+            style={{ flexShrink: 1 }}
+          >
+            {title}
+          </Text>
+          {trailing}
+        </View>
+      )}
 
       {meta !== undefined ? (
         <Text role="meta" color="color.text.tertiary">

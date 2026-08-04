@@ -1,4 +1,4 @@
-import { Text, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, SectionKicker, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { View } from 'react-native';
 
@@ -7,7 +7,7 @@ export interface NotificationSectionHeaderProps {
 }
 
 /**
- * Day divider in the notification list.
+ * Day-bucket kicker in the notification list.
  *
  * Opaque background, not transparent: this rides `stickySectionHeadersEnabled`,
  * and a see-through header would let rows scroll visibly underneath it.
@@ -18,15 +18,13 @@ function NotificationSectionHeaderComponent({ title }: NotificationSectionHeader
   return (
     <View
       style={{
-        paddingHorizontal: theme.space('space.4'),
-        paddingTop: theme.space('space.4'),
+        paddingHorizontal: theme.space(SCREEN_GUTTER),
+        paddingTop: theme.space('space.5'),
         paddingBottom: theme.space('space.2'),
         backgroundColor: theme.color('color.background.primary'),
       }}
     >
-      <Text role="label" color="color.text.tertiary" accessibilityRole="header">
-        {title}
-      </Text>
+      <SectionKicker title={title} />
     </View>
   );
 }

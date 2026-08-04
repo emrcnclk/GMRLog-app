@@ -1,5 +1,5 @@
 import type { NotificationResponse } from '@gmrlog/types';
-import { Screen, useTheme } from '@gmrlog/ui';
+import { Screen, ScreenTitle, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
@@ -7,9 +7,9 @@ import { RefreshControl, SectionList, View } from 'react-native';
 import { mapAuthError } from '../../../src/auth/map-auth-error';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { EmptyNotifications } from '../components/empty-notifications';
+import { MarkAllReadButton } from '../components/mark-all-read-button';
 import { NotificationCard } from '../components/notification-card';
 import { NotificationErrorState } from '../components/notification-error-state';
-import { NotificationHeader } from '../components/notification-header';
 import { NotificationSectionHeader } from '../components/notification-section-header';
 import { NotificationSkeleton } from '../components/notification-skeleton';
 import { groupNotificationsByDay, hrefForNotificationObject } from '../hooks/notification-model';
@@ -20,11 +20,17 @@ import {
 } from '../hooks/use-notifications';
 
 /**
- * Notifications — GET /notifications · POST /notifications/read.
+ * Notifications (`SCREEN_REDESIGNS.md` §12) — GET /notifications · POST /notifications/read.
  *
- * D3.28 groups the flat list into Today / Yesterday / This week / Earlier. The
- * optimistic mark-read layer underneath is untouched: both mutations already
- * snapshot, write through, and roll back on failure via the offline queue.
+ * The title is `ScreenTitle`, not `NavHeader`: it belongs to the content and
+ * scrolls away with it, the same rule 3.1 and 3.2 already established. §12's
+ * grouping is "Today / This week / Earlier"; the app groups one bucket finer
+ * (D3.28's "Yesterday", kept — the kicker pattern below is presentation only,
+ * the bucketing itself is data shaping this task doesn't touch).
+ *
+ * The optimistic mark-read layer underneath is untouched: both mutations
+ * already snapshot, write through, and roll back on failure via the offline
+ * queue.
  */
 export function NotificationsScreen() {
   const theme = useTheme();
@@ -80,13 +86,27 @@ export function NotificationsScreen() {
     />
   );
 
+  const canMarkAll = list.status === 'ready' && list.unreadCount > 0;
+
+  const header = (
+    <ScreenTitle
+      title="Notifications"
+      meta={list.unreadCount > 0 ? `${String(list.unreadCount)} unread` : undefined}
+      trailing={
+        canMarkAll ? (
+          <MarkAllReadButton
+            unreadCount={list.unreadCount}
+            loading={markAll.isPending}
+            onPress={onMarkAll}
+          />
+        ) : undefined
+      }
+    />
+  );
+
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <NotificationHeader
-        unreadCount={list.unreadCount}
-        markAllPending={markAll.isPending}
-        onMarkAllRead={list.status === 'ready' ? onMarkAll : undefined}
-      />
+    <Screen edges={['top']} style={{ paddingBottom: 0 }}>
+      {header}
 
       {list.status === 'loading' ? <NotificationSkeleton /> : null}
 

@@ -1,11 +1,10 @@
 import type { NotificationResponse } from '@gmrlog/types';
-import { Avatar, Text, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
 import {
   formatNotificationTime,
-  initialsFromDisplayName,
   isNotificationUnread,
   resolveNotificationMessage,
 } from '../hooks/notification-model';
@@ -36,7 +35,7 @@ function NotificationCardComponent({ notification, onPress }: NotificationCardPr
       style={{
         flexDirection: 'row',
         gap: theme.space('space.3'),
-        paddingHorizontal: theme.space('space.4'),
+        paddingHorizontal: theme.space(SCREEN_GUTTER),
         paddingVertical: theme.space('space.3'),
         minHeight: hit,
         borderBottomWidth: 1,
@@ -46,54 +45,35 @@ function NotificationCardComponent({ notification, onPress }: NotificationCardPr
           : theme.color('color.background.primary'),
       }}
     >
-      <View style={{ position: 'relative' }}>
-        <Avatar
-          size="md"
-          uri={notification.actor?.avatarUrl ?? undefined}
-          initials={initialsFromDisplayName(actorName)}
-          accessibilityLabel={`${actorName} avatar placeholder`}
-        />
-        {unread ? (
-          <View
-            accessibilityLabel="Unread indicator"
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              width: theme.space('space.2'),
-              height: theme.space('space.2'),
-              borderRadius: theme.radius('radius.full'),
-              backgroundColor: theme.color('color.interactive.primary'),
-            }}
-          />
-        ) : null}
-      </View>
-
-      <View style={{ flex: 1, gap: theme.space('space.1'), justifyContent: 'center' }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: theme.space('space.2'),
-          }}
-        >
-          <Text role="label" color="color.text.primary" numberOfLines={1} style={{ flex: 1 }}>
-            {actorName}
-          </Text>
-          <Text role="meta" color="color.text.tertiary">
-            {timeLabel}
-          </Text>
-        </View>
-        <Text role="body" color="color.text.secondary" numberOfLines={3}>
-          {message}
-        </Text>
-      </View>
-
       <NotificationIcon
         objectType={notification.objectRef.type}
         kind={notification.messageKey || notification.kind}
       />
+
+      <View style={{ flex: 1, gap: theme.space('space.1'), justifyContent: 'center' }}>
+        <Text role="body" color="color.text.secondary" numberOfLines={3}>
+          <Text role="body" color="color.text.primary" style={{ fontWeight: '500' }}>
+            {actorName}
+          </Text>
+          {` ${message}`}
+        </Text>
+        <Text role="meta" color="color.text.tertiary">
+          {timeLabel}
+        </Text>
+      </View>
+
+      {unread ? (
+        <View
+          accessibilityLabel="Unread indicator"
+          style={{
+            width: theme.space('space.1'),
+            height: theme.space('space.1'),
+            borderRadius: theme.radius('radius.full'),
+            backgroundColor: theme.color('color.accent.default'),
+            marginTop: theme.space('space.1'),
+          }}
+        />
+      ) : null}
     </Pressable>
   );
 }

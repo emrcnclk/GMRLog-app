@@ -86,10 +86,19 @@ function iconForKind(kind: string | undefined, objectType: ObjectTypeValue): Luc
   }
 }
 
+/**
+ * §12's "colour keyed to event type" has no rule behind it once you check the
+ * prototype's own data: three "Today" rows, two of them unread, and only one
+ * gets the accent mark — a like next to a reply, colour not tracking type or
+ * read state. Tone stays a single `color.text.secondary`, tokenised and
+ * consistent; the glyph alone (already distinct per kind, via `iconForKind`)
+ * carries the type.
+ */
 export function NotificationIcon({ objectType, kind, accessibilityLabel }: NotificationIconProps) {
   const theme = useTheme();
   const Icon = iconForKind(kind, objectType);
-  const size = theme.space('space.10');
+  const size = theme.space('space.8');
+  const tone = theme.color('color.text.secondary');
 
   return (
     <View
@@ -99,11 +108,12 @@ export function NotificationIcon({ objectType, kind, accessibilityLabel }: Notif
         height: size,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: theme.radius('radius.md'),
-        backgroundColor: theme.color('color.surface.secondary'),
+        borderRadius: theme.radius('radius.full'),
+        borderWidth: 1,
+        borderColor: tone,
       }}
     >
-      <Icon size={20} color={theme.color('color.text.secondary')} strokeWidth={1.75} />
+      <Icon size={16} color={tone} strokeWidth={1.75} />
     </View>
   );
 }
