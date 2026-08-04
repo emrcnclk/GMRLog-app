@@ -87,7 +87,15 @@ function ProfileOverviewComponent({
         return <ActivityHeatmapSection history={history} />;
 
       case 'achievements':
-        return <AchievementShowcase achievements={achievements} isPending={isPending} />;
+        return (
+          <AchievementShowcase
+            achievements={achievements}
+            isPending={isPending}
+            onPressAll={() => {
+              onPressRoute('/(app)/achievements');
+            }}
+          />
+        );
 
       case 'currently-playing':
         return (

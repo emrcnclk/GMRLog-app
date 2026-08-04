@@ -1,6 +1,7 @@
 import type { AchievementResponse } from '@gmrlog/types';
 import {
   EmptyState,
+  MIN_TOUCH_TARGET,
   ProgressBar,
   RARITY_PLATE_MIN,
   Rail,
@@ -13,7 +14,7 @@ import {
 } from '@gmrlog/ui';
 import { Lock, Trophy } from 'lucide-react-native';
 import { memo, useEffect, useMemo, useRef } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, Pressable, View } from 'react-native';
 
 import {
   achievementRarity,
@@ -25,6 +26,11 @@ import {
 export interface AchievementShowcaseProps {
   achievements: readonly AchievementResponse[];
   isPending: boolean;
+  /**
+   * Opens the full Achievements screen (3.1). Optional so the widget still
+   * renders standalone; the widget itself is 3.9's to recompose.
+   */
+  onPressAll?: () => void;
 }
 
 /**
@@ -34,7 +40,11 @@ export interface AchievementShowcaseProps {
  * sprint's showcase names), with rarity colour, unlock date and live progress.
  * Locked hidden achievements arrive already redacted from the model.
  */
-function AchievementShowcaseComponent({ achievements, isPending }: AchievementShowcaseProps) {
+function AchievementShowcaseComponent({
+  achievements,
+  isPending,
+  onPressAll,
+}: AchievementShowcaseProps) {
   const theme = useTheme();
   const groups = useMemo(() => buildShowcaseGroups(achievements), [achievements]);
   const totals = useMemo(() => achievementTotals(achievements), [achievements]);
@@ -64,9 +74,23 @@ function AchievementShowcaseComponent({ achievements, isPending }: AchievementSh
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
           <Text role="title">Achievements</Text>
-          <Text role="label" color="color.text.secondary">
-            {`${String(totals.awarded)} / ${String(totals.total)}`}
-          </Text>
+          {onPressAll === undefined ? (
+            <Text role="label" color="color.text.secondary">
+              {`${String(totals.awarded)} / ${String(totals.total)}`}
+            </Text>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`See all ${String(totals.total)} achievements`}
+              onPress={onPressAll}
+              hitSlop={12}
+              style={{ minHeight: MIN_TOUCH_TARGET, justifyContent: 'center' }}
+            >
+              <Text role="metaSm" color="color.accent.default">
+                {`All ${String(totals.total)} →`}
+              </Text>
+            </Pressable>
+          )}
         </View>
         <ProgressBar
           value={totals.awarded}
