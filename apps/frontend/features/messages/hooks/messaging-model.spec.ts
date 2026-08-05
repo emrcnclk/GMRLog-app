@@ -5,6 +5,7 @@ import {
   buildMessageBubbles,
   conversationTitle,
   createOptimisticMessage,
+  filterConversations,
   formatRelativeActivity,
   messagesForInvertedList,
   resolveListView,
@@ -107,5 +108,23 @@ describe('messaging model', () => {
 
   it('formats relative activity', () => {
     expect(formatRelativeActivity(new Date().toISOString())).toBe('Just now');
+  });
+
+  it('filters conversations by peer name or last message, case-insensitively', () => {
+    const withMessage = {
+      ...conversation,
+      id: 'c2',
+      lastMessage: {
+        id: 'm1',
+        senderId: 'you',
+        body: 'Anyone up for co-op tonight?',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    };
+    const all = [conversation, withMessage];
+    expect(filterConversations(all, '', 'me').map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(filterConversations(all, 'YOU', 'me').map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(filterConversations(all, 'co-op', 'me').map((c) => c.id)).toEqual(['c2']);
+    expect(filterConversations(all, 'nothing matches this', 'me')).toEqual([]);
   });
 });

@@ -1,4 +1,8 @@
-import type { FriendRequestResponse, FriendshipResponse } from '@gmrlog/types';
+import type {
+  FriendRequestResponse,
+  FriendshipResponse,
+  OnlineFriendResponse,
+} from '@gmrlog/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
@@ -9,6 +13,7 @@ import {
   createIdempotencyKey,
   filterIncomingRequests,
   resolveFriendsScreenView,
+  sortOnlineFriends,
 } from './friends-model';
 
 export function useFriendsList() {
@@ -21,6 +26,25 @@ export function useFriendsList() {
       return envelope.data;
     },
   });
+}
+
+/** Online/away friends, online first — the presence rail's data source. */
+export function useOnlineFriends() {
+  const api = useApiClient();
+
+  const query = useQuery({
+    queryKey: queryKeys.friends.online(),
+    queryFn: async (): Promise<OnlineFriendResponse[]> => {
+      const envelope = await api.listOnlineFriends();
+      return envelope.data;
+    },
+  });
+
+  return {
+    friends: useMemo(() => sortOnlineFriends(query.data ?? []), [query.data]),
+    isPending: query.isPending,
+    isError: query.isError,
+  };
 }
 
 export function useFriendRequests() {

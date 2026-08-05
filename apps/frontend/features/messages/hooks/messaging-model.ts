@@ -163,6 +163,28 @@ export function buildMessageBubbles(
   });
 }
 
+/**
+ * §11's search field filters the already-loaded inbox — there is no
+ * `GET /conversations?q=` on the backend, and this recomposition is layout
+ * only. Matches peer names first (what someone actually searches an inbox
+ * by), falling back to the last message body.
+ */
+export function filterConversations(
+  conversations: readonly ConversationResponse[],
+  query: string,
+  selfId: string | null | undefined,
+): ConversationResponse[] {
+  const q = query.trim().toLowerCase();
+  if (q.length === 0) {
+    return [...conversations];
+  }
+  return conversations.filter((conversation) => {
+    const title = conversationTitle(conversation, selfId).toLowerCase();
+    const preview = conversation.lastMessage?.body.toLowerCase() ?? '';
+    return title.includes(q) || preview.includes(q);
+  });
+}
+
 /** Newest-first for inverted FlatList (visual bottom = newest). */
 export function messagesForInvertedList(messages: readonly MessageResponse[]): MessageResponse[] {
   return [...messages].reverse();

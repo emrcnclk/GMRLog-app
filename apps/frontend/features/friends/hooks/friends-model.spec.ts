@@ -1,11 +1,24 @@
-import type { FriendRequestResponse, FriendshipResponse } from '@gmrlog/types';
+import type {
+  FriendRequestResponse,
+  FriendshipResponse,
+  OnlineFriendResponse,
+} from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
   filterIncomingRequests,
   formatFriendsSince,
   resolveFriendsScreenView,
+  sortOnlineFriends,
 } from './friends-model';
+
+function onlineFriend(partial: Partial<OnlineFriendResponse> = {}): OnlineFriendResponse {
+  return {
+    user: { id: 'u2', handle: 'friend', displayName: 'Friend', avatarUrl: null },
+    presence: { userId: 'u2', status: 'online', lastSeenAt: '2026-07-29T00:00:00.000Z' },
+    ...partial,
+  };
+}
 
 function friendship(partial: Partial<FriendshipResponse> = {}): FriendshipResponse {
   return {
@@ -118,6 +131,18 @@ describe('friends model', () => {
     const now = Date.parse('2026-07-29T00:00:00.000Z');
     expect(formatFriendsSince('2026-07-29T00:00:00.000Z', now)).toBe('Friends today');
     expect(formatFriendsSince('2026-07-19T00:00:00.000Z', now)).toBe('Friends 10d');
+  });
+
+  it('sorts online friends before away, stable within each', () => {
+    const users = [
+      onlineFriend({
+        user: { id: 'a', handle: 'a', displayName: 'A', avatarUrl: null },
+        presence: { userId: 'a', status: 'away', lastSeenAt: '2026-07-29T00:00:00.000Z' },
+      }),
+      onlineFriend({ user: { id: 'b', handle: 'b', displayName: 'B', avatarUrl: null } }),
+      onlineFriend({ user: { id: 'c', handle: 'c', displayName: 'C', avatarUrl: null } }),
+    ];
+    expect(sortOnlineFriends(users).map((f) => f.user.id)).toEqual(['b', 'c', 'a']);
   });
 
   it('stays ready when only requests exist', () => {

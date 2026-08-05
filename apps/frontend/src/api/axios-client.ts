@@ -33,6 +33,7 @@ import type {
   LibraryStatusValue,
   MessageResponse,
   NotificationResponse,
+  OnlineFriendResponse,
   PlayerArchetypeResponse,
   PostResponse,
   PresenceResponse,
@@ -1002,9 +1003,9 @@ export class AxiosApiClient {
     return this.get<UserRelationshipResponse>(`/users/${userId}/relationship`);
   }
 
-  /** `GET /friends/online` — presence stubs for online friends. */
-  listOnlineFriends(): Promise<ApiEnvelope<PresenceResponse[]>> {
-    return this.get<PresenceResponse[]>('/friends/online');
+  /** `GET /friends/online` — online/away friends, each with their presence. */
+  listOnlineFriends(): Promise<ApiEnvelope<OnlineFriendResponse[]>> {
+    return this.get<OnlineFriendResponse[]>('/friends/online');
   }
 
   /** `GET /presence` — self presence stub. */

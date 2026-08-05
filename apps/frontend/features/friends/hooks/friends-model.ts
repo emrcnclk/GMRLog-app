@@ -1,4 +1,8 @@
-import type { FriendRequestResponse, FriendshipResponse } from '@gmrlog/types';
+import type {
+  FriendRequestResponse,
+  FriendshipResponse,
+  OnlineFriendResponse,
+} from '@gmrlog/types';
 
 export type FriendsListStatus = 'loading' | 'error' | 'empty' | 'ready';
 
@@ -109,4 +113,14 @@ export function initialsFromDisplayName(name: string): string {
 export function createIdempotencyKey(prefix: string): string {
   const rand = Math.random().toString(36).slice(2, 10);
   return `${prefix}_${Date.now().toString(36)}_${rand}`;
+}
+
+/** Online before away — `/friends/online` never returns anything else. */
+export function sortOnlineFriends(
+  friends: readonly OnlineFriendResponse[],
+): OnlineFriendResponse[] {
+  const rank: Record<string, number> = { online: 0, away: 1 };
+  return [...friends].sort(
+    (a, b) => (rank[a.presence.status] ?? 2) - (rank[b.presence.status] ?? 2),
+  );
 }
