@@ -1,7 +1,7 @@
-import { Skeleton, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, Skeleton, useTheme } from '@gmrlog/ui';
 import { View } from 'react-native';
 
-/** Single activity row shimmer. */
+/** Single activity row shimmer — matches `ActivityCard`'s attribution-row shape. */
 export function ActivitySkeleton() {
   const theme = useTheme();
 
@@ -10,16 +10,16 @@ export function ActivitySkeleton() {
       style={{
         flexDirection: 'row',
         gap: theme.space('space.3'),
-        paddingHorizontal: theme.space('space.4'),
-        paddingVertical: theme.space('space.3'),
+        paddingHorizontal: theme.space(SCREEN_GUTTER),
+        paddingVertical: theme.space('space.4'),
       }}
     >
-      <Skeleton shape="circle" width={theme.space('space.10')} height={theme.space('space.10')} />
+      <Skeleton shape="circle" width={theme.space('space.8')} height={theme.space('space.8')} />
       <View style={{ flex: 1, gap: theme.space('space.2') }}>
         <Skeleton shape="line" width="40%" />
         <Skeleton shape="line" width="75%" />
       </View>
-      <Skeleton shape="rect" width={theme.space('space.10')} height={theme.space('space.10')} />
+      <Skeleton shape="circle" width={theme.space('space.8')} height={theme.space('space.8')} />
     </View>
   );
 }
@@ -36,37 +36,19 @@ export function FeedSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
-/** Full Home loading chrome — header bones + feed skeleton. */
+/**
+ * Full Home loading chrome — just the feed skeleton. `HomeHeader` (wordmark,
+ * search/bell, the filter tabs) already renders unconditionally above this in
+ * `HomeScreen` regardless of feed status, so a second, duplicate header-bones
+ * bar here would sit underneath the real, already-interactive one — restyled
+ * away rather than kept, since it was never visible content, only dead weight
+ * the new tab row would have made more obviously mismatched.
+ */
 export function HomeSkeleton() {
   const theme = useTheme();
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.color('color.background.primary') }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: theme.space('space.4'),
-          paddingVertical: theme.space('space.3'),
-          borderBottomWidth: 1,
-          borderBottomColor: theme.color('color.border.default'),
-        }}
-      >
-        <Skeleton shape="line" width={96} height={theme.space('space.5')} />
-        <View style={{ flexDirection: 'row', gap: theme.space('space.3') }}>
-          <Skeleton
-            shape="circle"
-            width={theme.space('space.10')}
-            height={theme.space('space.10')}
-          />
-          <Skeleton
-            shape="circle"
-            width={theme.space('space.10')}
-            height={theme.space('space.10')}
-          />
-        </View>
-      </View>
       <FeedSkeleton />
     </View>
   );

@@ -44,6 +44,7 @@ export { IconButton, type IconButtonProps } from './components/icon-button';
 export { TextField, type TextFieldProps } from './components/text-field';
 export { SearchField, type SearchFieldProps } from './components/search-field';
 export { Avatar, type AvatarProps, type AvatarSize } from './components/avatar';
+export { LogoMark, type LogoMarkProps } from './components/logo-mark';
 export { Badge, type BadgeProps, type BadgeTone } from './components/badge';
 export { Chip, type ChipProps } from './components/chip';
 export { Divider, type DividerOrientation, type DividerProps } from './components/divider';

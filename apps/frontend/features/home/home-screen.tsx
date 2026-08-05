@@ -1,5 +1,6 @@
 import { Screen } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 
 import { useConnectivityStore } from '../../src/state/stores';
 
@@ -9,7 +10,7 @@ import { ErrorState } from './components/error-state';
 import { HomeSkeleton } from './components/feed-skeleton';
 import { HomeHeader } from './components/home-header';
 import { RefreshContainer } from './components/refresh-container';
-import { useActivityFeed } from './hooks/use-activity-feed';
+import { useActivityFeed, type HomeFeedFilter } from './hooks/use-activity-feed';
 
 /**
  * Production Home — D3.24 hybrid feed (`GET /feed`).
@@ -18,11 +19,14 @@ import { useActivityFeed } from './hooks/use-activity-feed';
 export function HomeScreen() {
   const router = useRouter();
   const isOnline = useConnectivityStore((s) => s.isOnline);
-  const feed = useActivityFeed();
+  const [filter, setFilter] = useState<HomeFeedFilter>('for_you');
+  const feed = useActivityFeed(filter);
 
   return (
     <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
       <HomeHeader
+        filter={filter}
+        onChangeFilter={setFilter}
         onPressSearch={() => {
           router.push('/(app)/(tabs)/search');
         }}

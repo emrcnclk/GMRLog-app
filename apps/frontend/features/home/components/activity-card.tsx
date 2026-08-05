@@ -1,5 +1,5 @@
 import type { ActivityItemResponse } from '@gmrlog/types';
-import { Avatar, Text, useTheme } from '@gmrlog/ui';
+import { Avatar, SCREEN_GUTTER, Text, useTheme } from '@gmrlog/ui';
 import {
   Bookmark,
   Calendar,
@@ -65,6 +65,19 @@ function initialsFromName(name: string): string {
   return `${(parts[0] ?? '').slice(0, 1)}${(parts[1] ?? '').slice(0, 1)}`;
 }
 
+/**
+ * Attribution row only (`SCREEN_REDESIGNS.md` §4's "post" shape has three parts:
+ * attribution row, game block, body copy + action row). The feed API's
+ * `FeedItemResponse.projection` is always `null` — no embedded game cover/title/
+ * platform/hours, no body text, no like/comment/share counts exist anywhere in
+ * this response, only `actor`, `kind` and a `{ type, id }` object reference. The
+ * client must not invent them (CLAUDE.md: scores and counts are server-owned).
+ * Built: avatar, name, handle, a verb line derived from the real `kind`, and a
+ * monospace timestamp — everything the feed API actually returns. The kind
+ * glyph keeps §12 Notifications' established "32px outlined circle" treatment
+ * (a real prior redesign decision for the identical `ActivityKindValue` concept)
+ * in place of the game block this row has no data to draw.
+ */
 function ActivityCardComponent({ item }: ActivityCardProps) {
   const theme = useTheme();
   const actorName = item.actor?.displayName ?? 'Someone';
@@ -75,19 +88,19 @@ function ActivityCardComponent({ item }: ActivityCardProps) {
   return (
     <View
       accessibilityRole="summary"
-      accessibilityLabel={`${actorName} ${message}, ${timeLabel}`}
+      accessibilityLabel={`${actorName}${item.actor ? ` @${item.actor.handle}` : ''}, ${message}, ${timeLabel}`}
       style={{
         flexDirection: 'row',
         gap: theme.space('space.3'),
-        paddingHorizontal: theme.space('space.4'),
-        paddingVertical: theme.space('space.3'),
+        paddingHorizontal: theme.space(SCREEN_GUTTER),
+        paddingVertical: theme.space('space.4'),
         borderBottomWidth: 1,
         borderBottomColor: theme.color('color.border.default'),
         backgroundColor: theme.color('color.background.primary'),
       }}
     >
       <Avatar
-        size="md"
+        size="sm"
         uri={item.actor?.avatarUrl ?? undefined}
         initials={initialsFromName(actorName)}
         accessibilityLabel={`${actorName} avatar`}
@@ -102,14 +115,28 @@ function ActivityCardComponent({ item }: ActivityCardProps) {
             gap: theme.space('space.2'),
           }}
         >
-          <Text role="label" color="color.text.primary" numberOfLines={1} style={{ flex: 1 }}>
-            {actorName}
-          </Text>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              gap: theme.space('space.1'),
+            }}
+          >
+            <Text role="label" color="color.text.primary" numberOfLines={1}>
+              {actorName}
+            </Text>
+            {item.actor ? (
+              <Text role="meta" color="color.text.tertiary" numberOfLines={1}>
+                @{item.actor.handle}
+              </Text>
+            ) : null}
+          </View>
           <Text role="meta" color="color.text.tertiary">
             {timeLabel}
           </Text>
         </View>
-        <Text role="body" color="color.text.secondary">
+        <Text role="bodySm" color="color.text.secondary">
           {message}
         </Text>
       </View>
@@ -117,15 +144,16 @@ function ActivityCardComponent({ item }: ActivityCardProps) {
       <View
         accessibilityLabel={`${item.kind} target`}
         style={{
-          width: theme.space('space.10'),
-          height: theme.space('space.10'),
+          width: theme.space('space.8'),
+          height: theme.space('space.8'),
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: theme.radius('radius.md'),
-          backgroundColor: theme.color('color.surface.secondary'),
+          borderRadius: theme.radius('radius.full'),
+          borderWidth: 1,
+          borderColor: theme.color('color.text.secondary'),
         }}
       >
-        <TargetIcon size={20} color={theme.color('color.text.secondary')} strokeWidth={1.75} />
+        <TargetIcon size={16} color={theme.color('color.text.secondary')} strokeWidth={1.75} />
       </View>
     </View>
   );

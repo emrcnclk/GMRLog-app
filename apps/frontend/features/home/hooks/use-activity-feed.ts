@@ -18,6 +18,15 @@ export {
   type HomeFeedViewModel,
 } from './activity-feed-model';
 
+/**
+ * Home's tab row (`SCREEN_REDESIGNS.md` §4) only has a real backend audience
+ * behind two of its labels — the app has one Follow/Friend relationship, not a
+ * separate "friends" audience, so there is no `FeedFilterValue` a third tab
+ * could target. `FeedFilterValue` itself also carries content-type filters
+ * (games/reviews/media/…) that aren't part of this tab row at all.
+ */
+export type HomeFeedFilter = 'for_you' | 'following';
+
 /** Map hybrid FeedItem → ActivityItem shape for shared Home cards. */
 function feedItemToActivity(item: FeedItemResponse): ActivityItemResponse {
   return {
@@ -31,18 +40,10 @@ function feedItemToActivity(item: FeedItemResponse): ActivityItemResponse {
   };
 }
 
-export function useActivityFeed(filter?: string) {
+export function useActivityFeed(filter: HomeFeedFilter = 'for_you') {
   const api = useApiClient();
   const queryClient = useQueryClient();
-  const feedFilter =
-    filter === 'following' ||
-    filter === 'games' ||
-    filter === 'reviews' ||
-    filter === 'media' ||
-    filter === 'communities' ||
-    filter === 'events'
-      ? filter
-      : 'for_you';
+  const feedFilter = filter === 'following' ? 'following' : 'for_you';
 
   const query = useInfiniteQuery({
     queryKey: queryKeys.feed.home(feedFilter),
