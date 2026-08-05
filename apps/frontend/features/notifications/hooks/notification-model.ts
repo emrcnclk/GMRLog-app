@@ -1,9 +1,4 @@
-import type {
-  ApiEnvelope,
-  NotificationObjectRef,
-  NotificationResponse,
-  ObjectTypeValue,
-} from '@gmrlog/types';
+import type { ApiEnvelope, NotificationObjectRef, NotificationResponse } from '@gmrlog/types';
 import type { InfiniteData } from '@tanstack/react-query';
 
 export type NotificationsListStatus = 'loading' | 'error' | 'empty' | 'ready';
@@ -210,33 +205,6 @@ export function resolveNotificationMessage(notification: NotificationResponse): 
   return key.replace(/_/g, ' ');
 }
 
-/** Prefer kind-aware icon when object type alone is too generic (e.g. user). */
-export function resolveNotificationIconType(notification: NotificationResponse): ObjectTypeValue {
-  const key =
-    notification.messageKey.trim().length > 0 ? notification.messageKey : notification.kind;
-  switch (key) {
-    case 'friend_request':
-    case 'friend_accepted':
-      return 'user';
-    case 'achievement_unlocked':
-    case 'achievement_synced':
-      return 'achievement';
-    case 'comment':
-    case 'reply':
-      return 'comment';
-    case 'like':
-      return notification.objectRef.type;
-    case 'library_imported':
-    case 'sync_completed':
-    case 'sync_failed':
-    case 'new_games_found':
-    case 'library_updated':
-      return 'game';
-    default:
-      return notification.objectRef.type;
-  }
-}
-
 export function formatNotificationTime(iso: string, nowMs = Date.now()): string {
   const created = Date.parse(iso);
   if (Number.isNaN(created)) {
@@ -289,35 +257,6 @@ export function hrefForNotificationObject(
     case 'comment':
     case 'achievement':
       return null;
-    default: {
-      const _exhaustive: never = type;
-      return _exhaustive;
-    }
-  }
-}
-
-export function objectTypeIconName(type: ObjectTypeValue): string {
-  switch (type) {
-    case 'game':
-      return 'gamepad-2';
-    case 'review':
-      return 'star';
-    case 'post':
-      return 'message-square';
-    case 'comment':
-      return 'message-circle';
-    case 'collection':
-      return 'folder';
-    case 'tier_list':
-      return 'list-ordered';
-    case 'user':
-      return 'user';
-    case 'community':
-      return 'users';
-    case 'event':
-      return 'calendar';
-    case 'achievement':
-      return 'trophy';
     default: {
       const _exhaustive: never = type;
       return _exhaustive;

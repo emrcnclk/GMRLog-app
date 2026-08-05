@@ -10,7 +10,6 @@ import {
   isNotificationUnread,
   markAllNotificationsReadInCache,
   markNotificationReadInCache,
-  resolveNotificationIconType,
   resolveNotificationMessage,
   resolveNotificationsView,
   type NotificationsInfiniteData,
@@ -156,66 +155,6 @@ describe('notification model', () => {
     expect(hrefForNotificationObject({ type: 'user', id: 'u1' })).toBe('/(app)/user/u1');
     expect(hrefForNotificationObject({ type: 'comment', id: 'cm1' })).toBeNull();
     expect(hrefForNotificationObject({ type: 'achievement', id: 'a1' })).toBeNull();
-  });
-
-  it('resolves kind-aware icon types for social notifications', () => {
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'friend_request',
-          messageKey: 'friend_request',
-          objectRef: { type: 'user', id: 'u2' },
-        }),
-      ),
-    ).toBe('user');
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'achievement_unlocked',
-          messageKey: 'achievement_unlocked',
-          objectRef: { type: 'achievement', id: 'a1' },
-        }),
-      ),
-    ).toBe('achievement');
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'like',
-          messageKey: 'like',
-          objectRef: { type: 'review', id: 'r1' },
-        }),
-      ),
-    ).toBe('review');
-  });
-
-  it('resolves integration notification icons to game or achievement', () => {
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'library_imported',
-          messageKey: 'library_imported',
-          objectRef: { type: 'user', id: 'u1' },
-        }),
-      ),
-    ).toBe('game');
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'sync_failed',
-          messageKey: 'sync_failed',
-          objectRef: { type: 'user', id: 'u1' },
-        }),
-      ),
-    ).toBe('game');
-    expect(
-      resolveNotificationIconType(
-        notification({
-          kind: 'achievement_synced',
-          messageKey: 'achievement_synced',
-          objectRef: { type: 'user', id: 'u1' },
-        }),
-      ),
-    ).toBe('achievement');
   });
 
   it('optimistically marks one and all read with rollback snapshots', () => {
