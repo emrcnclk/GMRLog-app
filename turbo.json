@@ -4,8 +4,12 @@
   "globalDependencies": [".env.example"],
   "globalEnv": ["NODE_ENV", "APP_ENV", "LOG_LEVEL"],
   "tasks": {
+    "generate": {
+      "cache": false,
+      "inputs": ["prisma/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "generate"],
       "outputs": ["dist/**"]
     },
     "dev": {
@@ -13,13 +17,13 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "generate"]
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "generate"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "generate"]
     },
     "format": {
       "cache": false
