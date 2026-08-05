@@ -1,4 +1,4 @@
-import { Chip, Icon, IconButton, useTheme } from '@gmrlog/ui';
+import { Chip, Icon, IconButton, SCREEN_GUTTER, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { ScrollView, View } from 'react-native';
 
@@ -49,7 +49,7 @@ function CollectionToolbarComponent({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
-          paddingHorizontal: theme.space('space.4'),
+          paddingHorizontal: theme.space(SCREEN_GUTTER),
           gap: theme.space('space.2'),
         }}
         style={{ flex: 1 }}
@@ -70,7 +70,7 @@ function CollectionToolbarComponent({
         ))}
       </ScrollView>
 
-      <View style={{ paddingRight: theme.space('space.4') }}>
+      <View style={{ paddingRight: theme.space(SCREEN_GUTTER) }}>
         <IconButton
           accessibilityLabel={nextLayout === 'grid' ? 'Switch to grid view' : 'Switch to list view'}
           accessibilityState={{ checked: layout === 'grid' }}

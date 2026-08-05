@@ -1,15 +1,16 @@
-import { Button, EntityList, Screen, useTheme } from '@gmrlog/ui';
+import { EntityList, IconButton, Screen, ScreenTitle, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
+import { Plus } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 
-import { ScreenHeader } from '../../../src/navigation/screen-header';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { CollectionCard } from '../components/collection-card';
 import { CollectionErrorState } from '../components/collection-error-state';
 import { CollectionSkeleton } from '../components/collection-skeleton';
 import { CollectionToolbar } from '../components/collection-toolbar';
 import { EmptyCollections } from '../components/empty-collections';
+import { TierListsRow } from '../components/tier-lists-row';
 import {
   sortCollections,
   type CollectionLayout,
@@ -44,6 +45,10 @@ export function CollectionsScreen() {
     [router],
   );
 
+  const openTierLists = useCallback(() => {
+    router.push('/(app)/tier-lists');
+  }, [router]);
+
   const sorted = useMemo(() => sortCollections(list.items, sort), [list.items, sort]);
 
   // Derived from the live viewport so a rotated phone or a tablet re-flows
@@ -52,22 +57,34 @@ export function CollectionsScreen() {
   const gap = theme.space('space.3');
   const tileWidth = (width - gutter * 2 - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 
+  const count = list.status === 'ready' ? list.items.length : null;
+
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <ScreenHeader
+    <Screen edges={['top']}>
+      <ScreenTitle
         title="Collections"
-        onBack={() => {
+        backLabel="← Profile"
+        onPressBack={() => {
           router.back();
         }}
+        meta={
+          count === null
+            ? undefined
+            : `${String(count)} ${count === 1 ? 'collection' : 'collections'}`
+        }
         trailing={
-          <Button
-            variant="ghost"
-            size="sm"
+          <IconButton
             accessibilityLabel="Create collection"
+            variant="ghost"
+            size="md"
             onPress={openCreate}
+            style={{
+              borderWidth: 1.5,
+              borderColor: theme.color('color.accent.default'),
+            }}
           >
-            Create
-          </Button>
+            <Plus size={18} color={theme.color('color.accent.default')} strokeWidth={1.75} />
+          </IconButton>
         }
       />
 
@@ -108,6 +125,7 @@ export function CollectionsScreen() {
                 width={layout === 'grid' ? tileWidth : undefined}
               />
             )}
+            header={<TierListsRow onPress={openTierLists} />}
             numColumns={layout === 'grid' ? GRID_COLUMNS : 1}
             refreshing={list.isRefreshing}
             onRefresh={() => {
@@ -115,11 +133,7 @@ export function CollectionsScreen() {
             }}
             contentContainerStyle={
               layout === 'grid'
-                ? {
-                    paddingTop: theme.space('space.4'),
-                    gap,
-                    paddingBottom: theme.space('space.8'),
-                  }
+                ? { gap, paddingBottom: theme.space('space.8') }
                 : { paddingBottom: theme.space('space.8') }
             }
             accessibilityLabel="Your collections"

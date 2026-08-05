@@ -29,6 +29,10 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# Claude Code local state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
 # Logs
 *.log
 npm-debug.log*
