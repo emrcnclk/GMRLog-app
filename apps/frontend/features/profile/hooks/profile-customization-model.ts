@@ -19,6 +19,17 @@ export type ProfileCardStyle = 'elevated' | 'flat' | 'outlined';
 /** Banner treatment behind the profile hero. */
 export type ProfileBannerStyle = 'artwork' | 'gradient' | 'solid';
 
+/**
+ * §6 ships three hero treatments and says to build the card — "the strongest and
+ * the one the whole product is named after" — while keeping the other two
+ * "behind the variant switch". This is that switch.
+ *
+ * `banner` is the pre-redesign `ProfilePremiumHero`, kept rather than deleted;
+ * `monolith` is §6's plain-background alternate. `card` is the default because
+ * it is what §6 asks the screen to be.
+ */
+export type ProfileHeroStyle = 'card' | 'monolith' | 'banner';
+
 /** Console generations a player can fly as identity. */
 export type ConsoleGeneration = 'retro' | 'gen6' | 'gen7' | 'gen8' | 'gen9' | 'pc' | 'handheld';
 
@@ -60,6 +71,12 @@ export const BANNER_STYLE_LABELS: Record<ProfileBannerStyle, string> = {
   solid: 'Solid',
 };
 
+export const HERO_STYLE_LABELS: Record<ProfileHeroStyle, string> = {
+  card: 'Record card',
+  monolith: 'Monolith',
+  banner: 'Banner',
+};
+
 /**
  * Widgets a player can order and pin on their profile overview. The vocabulary
  * is closed: an unknown id in stored state is dropped on load.
@@ -80,9 +97,10 @@ export const PROFILE_WIDGET_LABELS: Record<ProfileWidgetId, string> = {
   archetypes: 'Player archetypes',
   insights: 'Gaming insights',
   heatmap: 'Activity heatmap',
-  achievements: 'Achievements',
+  achievements: 'Rarest unlocks',
   'currently-playing': 'Currently playing',
-  'recently-finished': 'Recently finished',
+  /** §6's trophy shelf — see `CompletedCase` for why it is not "Platinum". */
+  'recently-finished': 'Completed case',
   wishlist: 'Wishlist',
   backlog: 'Backlog',
   collections: 'Collections',
@@ -106,6 +124,7 @@ export const DEFAULT_WIDGET_ORDER: readonly ProfileWidgetId[] = [
 export interface ProfileCustomization {
   accent: AccentKey;
   cardStyle: ProfileCardStyle;
+  heroStyle: ProfileHeroStyle;
   bannerStyle: ProfileBannerStyle;
   favoritePlatform: string | null;
   consoleGeneration: ConsoleGeneration | null;
@@ -120,6 +139,7 @@ export interface ProfileCustomization {
 export const DEFAULT_CUSTOMIZATION: ProfileCustomization = {
   accent: 'neutral',
   cardStyle: 'elevated',
+  heroStyle: 'card',
   bannerStyle: 'artwork',
   favoritePlatform: null,
   consoleGeneration: null,
@@ -258,6 +278,13 @@ export function parseCustomization(raw: string | null): ProfileCustomization {
       ? record.bannerStyle
       : DEFAULT_CUSTOMIZATION.bannerStyle;
 
+  // Absent in blobs written before §6 shipped the card, so an existing player
+  // lands on the new default rather than on a variant they never chose.
+  const heroStyle =
+    record.heroStyle === 'monolith' || record.heroStyle === 'banner' || record.heroStyle === 'card'
+      ? record.heroStyle
+      : DEFAULT_CUSTOMIZATION.heroStyle;
+
   const consoleGeneration =
     typeof record.consoleGeneration === 'string' &&
     record.consoleGeneration in CONSOLE_GENERATION_LABELS
@@ -267,6 +294,7 @@ export function parseCustomization(raw: string | null): ProfileCustomization {
   return {
     accent,
     cardStyle,
+    heroStyle,
     bannerStyle,
     favoritePlatform:
       typeof record.favoritePlatform === 'string' && record.favoritePlatform.length > 0

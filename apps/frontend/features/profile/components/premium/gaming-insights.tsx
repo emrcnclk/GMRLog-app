@@ -1,5 +1,12 @@
 import type { StatisticsHistoryResponse, UserStatisticsResponse } from '@gmrlog/types';
-import { ActivityHeatmap, Chip, StatTile, Text, useTheme } from '@gmrlog/ui';
+import {
+  ActivityHeatmap,
+  Chip,
+  SCREEN_GUTTER,
+  SectionKicker,
+  StatTile,
+  useTheme,
+} from '@gmrlog/ui';
 import { memo, useMemo } from 'react';
 import { View } from 'react-native';
 
@@ -30,37 +37,50 @@ function GamingInsightsComponent({ statistics }: GamingInsightsProps) {
   }
 
   return (
-    <View style={{ gap: theme.space('space.3') }}>
-      <View style={{ paddingHorizontal: theme.space('space.4') }}>
-        <Text role="title">Gaming insights</Text>
-      </View>
-
+    <View style={{ gap: theme.space('space.5') }}>
       {insights.length > 0 ? (
         <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: theme.space('space.2'),
-            paddingHorizontal: theme.space('space.4'),
-          }}
+          style={{ gap: theme.space('space.3'), paddingHorizontal: theme.space(SCREEN_GUTTER) }}
         >
-          {insights.map((insight) => (
-            <StatTile
-              key={insight.key}
-              value={insight.value}
-              label={insight.label}
-              caption={insight.caption}
-              style={{ flexBasis: '47%' }}
-            />
-          ))}
+          <SectionKicker title="Gaming insights" />
+          {/* A wrapping grid, not a strip: it takes the bounding hairlines above
+              and below and **no** vertical dividers. A vertical rule that stops
+              at a wrap point claims a column that does not continue, which is
+              exactly the lie `MetricStrip` (single row by definition) avoids. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              paddingVertical: theme.space('space.1'),
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: theme.color('color.border.default'),
+            }}
+          >
+            {insights.map((insight) => (
+              <StatTile
+                key={insight.key}
+                value={insight.value}
+                label={insight.label}
+                caption={insight.caption}
+                style={{ flexBasis: '50%', flexGrow: 0 }}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
 
       {genres.length > 0 ? (
-        <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.2') }}>
-          <Text role="label" color="color.text.secondary">
-            Favourite genres
-          </Text>
+        <View
+          style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.3') }}
+        >
+          {/* §6 asks for "Genre DNA bars". There are no weights to draw:
+              `statistics.favoriteGenres` is a bare top-three list, and the
+              backend's own `genreCounts` — the numbers a bar needs — is thrown
+              away one line before the DTO is built (`statistics.service.ts`).
+              Deriving a share on the client would be inventing a score, so the
+              real list stands as a list. Backend follow-up in TASKS.md. */}
+          <SectionKicker title="Genre DNA" counter={String(genres.length)} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
             {genres.slice(0, 8).map((genre) => (
               <Chip key={genre} interactive={false}>
@@ -94,23 +114,23 @@ function ActivityHeatmapSectionComponent({ history }: ActivityHeatmapSectionProp
   }
 
   return (
-    <View style={{ gap: theme.space('space.3') }}>
-      <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.1') }}>
-        <Text role="title">Activity</Text>
-        <Text role="meta" color="color.text.tertiary">
-          {mostActiveYear === null
-            ? `${String(total)} logged events`
-            : `${String(total)} logged events · busiest year ${mostActiveYear.year}`}
-        </Text>
-      </View>
+    <View style={{ gap: theme.space('space.3'), paddingHorizontal: theme.space(SCREEN_GUTTER) }}>
+      {/* §6's play history. The kicker carries the window; the counter carries
+          the fact the old two-line heading spelled out beneath it. */}
+      <SectionKicker
+        title="Play activity · 26 weeks"
+        counter={
+          mostActiveYear === null
+            ? `${String(total)} events`
+            : `${String(total)} · ${mostActiveYear.year}`
+        }
+      />
 
-      <View style={{ paddingHorizontal: theme.space('space.4') }}>
-        <ActivityHeatmap
-          days={days}
-          weeks={26}
-          accessibilityLabel={`Activity heatmap: ${String(total)} events over the last 26 weeks`}
-        />
-      </View>
+      <ActivityHeatmap
+        days={days}
+        weeks={26}
+        accessibilityLabel={`Activity heatmap: ${String(total)} events over the last 26 weeks`}
+      />
     </View>
   );
 }

@@ -131,11 +131,29 @@ describe('parseCustomization', () => {
 
   it('rejects unknown enum values rather than storing them', () => {
     const parsed = parseCustomization(
-      JSON.stringify({ cardStyle: 'holographic', bannerStyle: 'nope', consoleGeneration: 'gen99' }),
+      JSON.stringify({
+        cardStyle: 'holographic',
+        heroStyle: 'obelisk',
+        bannerStyle: 'nope',
+        consoleGeneration: 'gen99',
+      }),
     );
     expect(parsed.cardStyle).toBe(DEFAULT_CUSTOMIZATION.cardStyle);
+    expect(parsed.heroStyle).toBe(DEFAULT_CUSTOMIZATION.heroStyle);
     expect(parsed.bannerStyle).toBe(DEFAULT_CUSTOMIZATION.bannerStyle);
     expect(parsed.consoleGeneration).toBeNull();
+  });
+
+  it('lands a pre-§6 blob on the record card rather than a variant never chosen', () => {
+    const parsed = parseCustomization(JSON.stringify({ accent: 'plasma', bannerStyle: 'solid' }));
+    expect(parsed.heroStyle).toBe('card');
+  });
+
+  it('keeps a chosen hero variant', () => {
+    expect(parseCustomization(JSON.stringify({ heroStyle: 'monolith' })).heroStyle).toBe(
+      'monolith',
+    );
+    expect(parseCustomization(JSON.stringify({ heroStyle: 'banner' })).heroStyle).toBe('banner');
   });
 
   it('filters unknown widget ids out of pinned and hidden lists', () => {
@@ -150,6 +168,7 @@ describe('parseCustomization', () => {
     const input = customization({
       accent: 'plasma',
       cardStyle: 'flat',
+      heroStyle: 'banner',
       bannerStyle: 'gradient',
       favoritePlatform: 'PC',
       consoleGeneration: 'gen9',

@@ -1,4 +1,4 @@
-import { Skeleton, Text, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, Skeleton, Text, useTheme } from '@gmrlog/ui';
 import { View } from 'react-native';
 
 export function LibrarySkeleton({ sections = 3 }: { sections?: number }) {
@@ -16,13 +16,13 @@ export function LibrarySkeleton({ sections = 3 }: { sections?: number }) {
             shape="line"
             width="40%"
             height={theme.space('space.5')}
-            style={{ marginHorizontal: theme.space('space.4') }}
+            style={{ marginHorizontal: theme.space(SCREEN_GUTTER) }}
           />
           <View
             style={{
               flexDirection: 'row',
               gap: theme.space('space.3'),
-              paddingHorizontal: theme.space('space.4'),
+              paddingHorizontal: theme.space(SCREEN_GUTTER),
             }}
           >
             {Array.from({ length: 4 }, (_, index) => (
@@ -40,7 +40,7 @@ export function LibrarySkeleton({ sections = 3 }: { sections?: number }) {
       <Text
         role="caption"
         color="color.text.tertiary"
-        style={{ paddingHorizontal: theme.space('space.4') }}
+        style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}
       >
         Loading shelves…
       </Text>

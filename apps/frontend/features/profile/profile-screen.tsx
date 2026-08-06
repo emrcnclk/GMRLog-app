@@ -1,4 +1,4 @@
-import { FadeInView, IconButton, Screen, SegmentedTabs, useTheme } from '@gmrlog/ui';
+import { FadeInView, IconButton, SCREEN_GUTTER, Screen, SegmentedTabs, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { Settings2, Sparkles } from 'lucide-react-native';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -15,7 +15,9 @@ import { EmptyTierLists } from './components/empty-tier-lists';
 import { LibrarySkeleton } from './components/library-skeleton';
 import { CustomizationSheet } from './components/premium/customization-sheet';
 import { GameShelves } from './components/premium/game-shelves';
+import { PlayerRecordCard } from './components/premium/player-record-card';
 import { ProfilePremiumHero } from './components/premium/profile-hero';
+import { ProfileMonolithHero } from './components/premium/profile-monolith-hero';
 import { ProfileOverview } from './components/premium/profile-overview';
 import { ProfileStatsGrid } from './components/premium/profile-stats-grid';
 import { ProfileErrorState } from './components/profile-error-state';
@@ -74,6 +76,11 @@ export function ProfileScreen() {
     router.push('/(app)/friends');
   }, [router]);
 
+  /** §6's "tapping opens the badge case" — the Achievements screen from 3.1. */
+  const openAchievements = useCallback(() => {
+    router.push('/(app)/achievements');
+  }, [router]);
+
   const openGame = useCallback(
     (gameId: string) => {
       router.push(`/(app)/game/${gameId}`);
@@ -117,9 +124,20 @@ export function ProfileScreen() {
   const libraryEntries = data.library.status === 'ready' ? data.library.items : [];
   const collections = data.collections.status === 'ready' ? data.collections.items : [];
 
+  /**
+   * The shell is full-bleed now (`edges={['bottom']}`) so the recomposed content
+   * owns the 20px gutter end to end. A row that does not already carry one gets
+   * it here — not on `contentContainerStyle`, which would also indent the header
+   * block, whose card, strip and tabs each carry their own. `CollectionCard`
+   * brings its own `SCREEN_GUTTER` margin (3.5) and so is left alone.
+   */
+  const listRow = (children: ReactNode) => (
+    <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}>{children}</View>
+  );
+
   if (data.profile.status === 'loading') {
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={['bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
         <View style={{ paddingTop: insets.top }}>
           <ProfileSkeleton />
         </View>
@@ -129,7 +147,7 @@ export function ProfileScreen() {
 
   if (data.profile.status === 'error' || data.profile.status === 'empty' || !data.profile.user) {
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={['bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
         <View style={{ flex: 1, paddingTop: insets.top }}>
           <ProfileRefreshContainer refreshing={data.isRefreshing} onRefresh={data.refresh}>
             <ProfileErrorState
@@ -146,40 +164,74 @@ export function ProfileScreen() {
 
   const user = data.profile.user;
 
-  const header = (
-    <View>
-      <View
-        style={{
-          position: 'absolute',
-          top: insets.top + theme.space('space.2'),
-          right: theme.space('space.3'),
-          zIndex: 2,
-          flexDirection: 'row',
-          gap: theme.space('space.2'),
+  // The banner alternate is artwork, so its controls float over it; the record
+  // card and the monolith have no artwork to float on, and a floating control
+  // would land on the card's own header line.
+  const floatingActions = customization.heroStyle === 'banner';
+
+  const actions = (
+    <View
+      style={{
+        ...(floatingActions
+          ? {
+              position: 'absolute' as const,
+              top: insets.top + theme.space('space.2'),
+              right: theme.space('space.3'),
+              zIndex: 2,
+            }
+          : {
+              paddingTop: insets.top + theme.space('space.2'),
+              paddingRight: theme.space('space.3'),
+              justifyContent: 'flex-end' as const,
+            }),
+        flexDirection: 'row',
+        gap: theme.space('space.2'),
+      }}
+    >
+      <IconButton
+        accessibilityLabel="Customize profile"
+        onPress={() => {
+          setCustomizeOpen(true);
         }}
       >
-        <IconButton
-          accessibilityLabel="Customize profile"
-          onPress={() => {
-            setCustomizeOpen(true);
-          }}
-        >
-          <Sparkles size={18} color={theme.color('color.text.primary')} />
-        </IconButton>
-        <IconButton accessibilityLabel="Open settings" onPress={openSettings}>
-          <Settings2 size={18} color={theme.color('color.text.primary')} />
-        </IconButton>
-      </View>
+        <Sparkles size={18} color={theme.color('color.text.primary')} />
+      </IconButton>
+      <IconButton accessibilityLabel="Open settings" onPress={openSettings}>
+        <Settings2 size={18} color={theme.color('color.text.primary')} />
+      </IconButton>
+    </View>
+  );
 
-      <ProfilePremiumHero
-        user={user}
-        hero={hero.hero}
-        statistics={data.statistics.statistics}
-        bannerStyle={customization.bannerStyle}
-        isPending={data.statistics.isPending}
-      />
+  const header = (
+    <View>
+      {actions}
 
-      <View style={{ height: theme.space('space.4') }} />
+      {/* §6 ships three hero treatments; the record card is the one the doc says
+          to build, and the other two stay reachable behind the variant switch. */}
+      {customization.heroStyle === 'card' ? (
+        <PlayerRecordCard
+          user={user}
+          hero={hero.hero}
+          statistics={data.statistics.statistics}
+          archetypes={data.archetypes.items}
+          achievements={data.achievements.items}
+          isPending={data.statistics.isPending}
+          onPressBadgeCase={openAchievements}
+        />
+      ) : customization.heroStyle === 'monolith' ? (
+        <ProfileMonolithHero user={user} hero={hero.hero} />
+      ) : (
+        <>
+          <ProfilePremiumHero
+            user={user}
+            hero={hero.hero}
+            statistics={data.statistics.statistics}
+            bannerStyle={customization.bannerStyle}
+            isPending={data.statistics.isPending}
+          />
+          <View style={{ height: theme.space('space.4') }} />
+        </>
+      )}
 
       <ProfileStatsGrid
         statistics={data.statistics.statistics}
@@ -193,9 +245,12 @@ export function ProfileScreen() {
 
       <View style={{ height: theme.space('space.4') }} />
 
+      {/* §6 asks for pill tabs here; `SegmentedTabs` already carries that
+          variant, so this is a prop, not a second tab strip. */}
       <SegmentedTabs
         items={tabItems}
         activeId={tab}
+        variant="pill"
         onChange={(next: ProfileTabId) => {
           setTab(next);
         }}
@@ -229,7 +284,7 @@ export function ProfileScreen() {
   );
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Screen edges={['bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
       {tab === 'overview'
         ? scrollableTab(
             <ProfileOverview
@@ -320,7 +375,9 @@ export function ProfileScreen() {
           <FlatList
             data={data.tierLists.items}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <TierListCard tierList={item} onPress={openTierList} />}
+            renderItem={({ item }) =>
+              listRow(<TierListCard tierList={item} onPress={openTierList} />)
+            }
             {...listProps}
           />
         )

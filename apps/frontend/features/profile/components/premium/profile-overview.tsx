@@ -7,7 +7,15 @@ import type {
   StatisticsHistoryResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
-import { AspectBox, EmptyState, Rail, Text, useTheme } from '@gmrlog/ui';
+import {
+  AspectBox,
+  EmptyState,
+  Rail,
+  SCREEN_GUTTER,
+  SectionKicker,
+  Text,
+  useTheme,
+} from '@gmrlog/ui';
 import { memo, useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -26,6 +34,7 @@ import { buildGameShelves } from '../../hooks/profile-insights-model';
 
 import { AchievementShowcase } from './achievement-showcase';
 import { ArchetypeSection } from './archetype-card';
+import { CompletedCase } from './completed-case';
 import { ActivityHeatmapSection, GamingInsights } from './gaming-insights';
 
 export interface ProfileOverviewProps {
@@ -106,14 +115,11 @@ function ProfileOverviewComponent({
           />
         );
 
+      // §6's trophy shelf. The completed shelf was already this widget's
+      // content; the case is what it looks like now — see `CompletedCase` for
+      // why it is not called "Platinum".
       case 'recently-finished':
-        return (
-          <GameRail
-            title="Recently finished"
-            entries={shelf('completed')}
-            onPressGame={onPressGame}
-          />
-        );
+        return <CompletedCase entries={libraryEntries} onPressGame={onPressGame} />;
 
       case 'wishlist':
         return <GameRail title="Wishlist" entries={shelf('wishlist')} onPressGame={onPressGame} />;
@@ -162,10 +168,12 @@ function ProfileOverviewComponent({
           return null;
         }
         return (
-          <View style={{ gap: theme.space('space.2') }}>
-            <View style={{ paddingHorizontal: theme.space('space.4') }}>
-              <Text role="title">Recent activity</Text>
-            </View>
+          <View style={{ gap: theme.space('space.3') }}>
+            <SectionKicker
+              title="Recent activity"
+              counter={String(recentActivity.length)}
+              style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}
+            />
             {recentActivity.slice(0, 8).map((item) => {
               const model = activityToTimelineCard(item);
               const route = timelineObjectRoute(model.objectRef);

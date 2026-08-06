@@ -1,4 +1,4 @@
-import { Skeleton, useTheme } from '@gmrlog/ui';
+import { SCREEN_GUTTER, Skeleton, useTheme } from '@gmrlog/ui';
 import { View } from 'react-native';
 
 export function ProfileSkeleton() {
@@ -9,7 +9,7 @@ export function ProfileSkeleton() {
     <View
       accessibilityLabel="Loading profile"
       style={{
-        padding: theme.space('space.4'),
+        padding: theme.space(SCREEN_GUTTER),
         gap: theme.space('space.4'),
       }}
     >

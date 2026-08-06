@@ -67,10 +67,14 @@ function ProfilePremiumHeroComponent({
             style={{ width: '100%', height: '100%' }}
           />
         ) : null}
+        {/* 1.5 flagged the per-scheme `rgb` literal that used to sit here: it
+            hardcoded '0,0,0' / '255,255,255' and the light value contradicted
+            `tokens.ts`'s own invariant that a scrim is dark in *both* schemes.
+            Dropping the override lets `GradientScrim` resolve `color.scrim.*`
+            itself, which is the token-correct behaviour. Owned by 3.9. */}
         <GradientScrim
           direction="to-top"
           intensity={theme.tokens.scheme === 'dark' ? 0.75 : 0.35}
-          rgb={theme.tokens.scheme === 'dark' ? '0,0,0' : '255,255,255'}
         />
       </View>
 

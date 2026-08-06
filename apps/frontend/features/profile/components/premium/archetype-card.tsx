@@ -1,9 +1,11 @@
 import type { PlayerArchetypeResponse } from '@gmrlog/types';
 import {
   RARITY_PLATE_MIN,
+  SCREEN_GUTTER,
   Card,
   RarityBadge,
   Rail,
+  SectionKicker,
   Text,
   rarityColorToken,
   rarityGeometry,
@@ -70,14 +72,19 @@ function ArchetypeSectionComponent({ archetypes, isPending }: ArchetypeSectionPr
 
   return (
     <View style={{ gap: theme.space('space.3') }}>
-      <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.1') }}>
-        <Text role="title">Player archetype</Text>
-        <Text role="meta" color="color.text.tertiary">
+      {/* The record card above already names the primary archetype; this section
+          is the detail it does not carry — rarity, strengths, weaknesses and
+          every other badge the engine awarded. Kept whole rather than folded
+          into the card: it is a widget the player can reorder or hide, so it
+          cannot assume the card is directly above it. */}
+      <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.1') }}>
+        <SectionKicker title="Player archetype" />
+        <Text role="bodySm" color="color.text.secondary">
           Derived from your library, reviews and social activity.
         </Text>
       </View>
 
-      <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.3') }}>
+      <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.3') }}>
         <ArchetypeCard archetype={pair.primary} slot="Primary" expanded />
         {pair.secondary !== null ? (
           <ArchetypeCard archetype={pair.secondary} slot="Secondary" expanded={false} />

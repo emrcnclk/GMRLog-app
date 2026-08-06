@@ -19,10 +19,12 @@ import {
   BANNER_STYLE_LABELS,
   CARD_STYLE_LABELS,
   CONSOLE_GENERATION_LABELS,
+  HERO_STYLE_LABELS,
   PROFILE_WIDGET_LABELS,
   type ConsoleGeneration,
   type ProfileBannerStyle,
   type ProfileCardStyle,
+  type ProfileHeroStyle,
   type ProfileWidgetId,
 } from '../../hooks/profile-customization-model';
 import { useProfileCustomization } from '../../hooks/use-profile-customization';
@@ -52,6 +54,7 @@ function CustomizationSheetComponent({
     customization,
     setAccent,
     setCardStyle,
+    setHeroStyle,
     setBannerStyle,
     setFavoritePlatform,
     setConsoleGeneration,
@@ -92,14 +95,25 @@ function CustomizationSheetComponent({
           />
         </Section>
 
-        <Section title="Banner">
+        <Section title="Hero" description="The record card, or one of the two alternates.">
           <OptionRow
-            options={Object.keys(BANNER_STYLE_LABELS) as ProfileBannerStyle[]}
-            labels={BANNER_STYLE_LABELS}
-            selected={customization.bannerStyle}
-            onSelect={setBannerStyle}
+            options={Object.keys(HERO_STYLE_LABELS) as ProfileHeroStyle[]}
+            labels={HERO_STYLE_LABELS}
+            selected={customization.heroStyle}
+            onSelect={setHeroStyle}
           />
         </Section>
+
+        {customization.heroStyle === 'banner' ? (
+          <Section title="Banner">
+            <OptionRow
+              options={Object.keys(BANNER_STYLE_LABELS) as ProfileBannerStyle[]}
+              labels={BANNER_STYLE_LABELS}
+              selected={customization.bannerStyle}
+              onSelect={setBannerStyle}
+            />
+          </Section>
+        ) : null}
 
         {platformOptions.length > 0 ? (
           <Section title="Favourite platform">

@@ -96,6 +96,13 @@ export function useProfileCustomization() {
     [patch],
   );
 
+  const setHeroStyle = useCallback(
+    (heroStyle: ProfileCustomization['heroStyle']) => {
+      patch({ heroStyle });
+    },
+    [patch],
+  );
+
   const setBannerStyle = useCallback(
     (bannerStyle: ProfileCustomization['bannerStyle']) => {
       patch({ bannerStyle });
@@ -157,6 +164,7 @@ export function useProfileCustomization() {
     setPendingDrag,
     setAccent,
     setCardStyle,
+    setHeroStyle,
     setBannerStyle,
     setFavoritePlatform,
     setConsoleGeneration,

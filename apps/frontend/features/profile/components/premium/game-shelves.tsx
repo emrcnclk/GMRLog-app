@@ -4,6 +4,7 @@ import {
   Chip,
   EmptyState,
   Rail,
+  SCREEN_GUTTER,
   SegmentedTabs,
   Skeleton,
   Text,
@@ -42,7 +43,7 @@ function GameShelvesComponent({ entries, isPending, onPressGame }: GameShelvesPr
 
   if (isPending && entries.length === 0) {
     return (
-      <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.2') }}>
+      <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.2') }}>
         <Skeleton shape="line" width="35%" />
         <View style={{ flexDirection: 'row', gap: theme.space('space.2') }}>
           {Array.from({ length: 3 }, (_, index) => (
@@ -78,7 +79,7 @@ function GameShelvesComponent({ entries, isPending, onPressGame }: GameShelvesPr
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          paddingHorizontal: theme.space('space.4'),
+          paddingHorizontal: theme.space(SCREEN_GUTTER),
           gap: theme.space('space.2'),
         }}
       >
@@ -169,7 +170,7 @@ function ShelfBody({
 }) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const gutter = theme.space('space.4');
+  const gutter = theme.space(SCREEN_GUTTER);
   const gap = theme.space('space.2');
 
   const { tileWidth } = useMemo(() => {
@@ -265,7 +266,7 @@ function ListRow({
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.space('space.3'),
-        paddingHorizontal: theme.space('space.4'),
+        paddingHorizontal: theme.space(SCREEN_GUTTER),
         paddingVertical: theme.space('space.2'),
         borderBottomWidth: 1,
         borderBottomColor: theme.color('color.border.default'),
