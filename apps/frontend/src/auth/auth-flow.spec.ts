@@ -41,7 +41,7 @@ describe('auth flow', () => {
       user: null,
       accessToken: null,
       authenticated: false,
-      loading: false,
+      bootstrapping: false,
     });
     useAuthStore.getState().bindRuntime({ api, manager, queryClient });
 
@@ -68,7 +68,7 @@ describe('auth flow', () => {
       user: null,
       accessToken: null,
       authenticated: false,
-      loading: false,
+      bootstrapping: false,
     });
     useAuthStore.getState().bindRuntime({ api, manager, queryClient });
 

@@ -48,7 +48,7 @@ describe('useAuthStore', () => {
       user: null,
       accessToken: null,
       authenticated: false,
-      loading: true,
+      bootstrapping: true,
     });
   });
 
@@ -57,7 +57,7 @@ describe('useAuthStore', () => {
     useAuthStore.getState().bindRuntime({ api, manager, queryClient });
     await useAuthStore.getState().bootstrap();
     expect(useAuthStore.getState().authenticated).toBe(false);
-    expect(useAuthStore.getState().loading).toBe(false);
+    expect(useAuthStore.getState().bootstrapping).toBe(false);
     expect(useAuthStore.getState().user).toBeNull();
   });
 
@@ -95,7 +95,7 @@ describe('useAuthStore', () => {
 
     expect(useAuthStore.getState().authenticated).toBe(false);
     expect(manager.getAccessToken()).toBeNull();
-    expect(useAuthStore.getState().loading).toBe(false);
+    expect(useAuthStore.getState().bootstrapping).toBe(false);
   });
 
   it('login stores tokens and UserSelfResponse from /me', async () => {
@@ -152,7 +152,7 @@ describe('useAuthStore', () => {
       user: meUser,
       accessToken: access,
       authenticated: true,
-      loading: false,
+      bootstrapping: false,
     });
 
     const api = createMockApi({
@@ -165,5 +165,93 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().user).toBeNull();
     expect(manager.getAccessToken()).toBeNull();
     expect(queryClient.getQueryData(['me'])).toBeUndefined();
+  });
+
+  /**
+   * 3.13. Every route group swaps its whole `<Stack>` for the "Starting GMRLOG"
+   * screen while `bootstrapping` is true, so a submit that raises it unmounts
+   * the form mid-flight and the `catch` sets its banner on a dead screen. The
+   * flag must not go up at *any* point during a submit — not just at the end —
+   * which is why these subscribe rather than read the final state.
+   */
+  function recordBootstrapping(): () => boolean[] {
+    const seen: boolean[] = [useAuthStore.getState().bootstrapping];
+    const unsubscribe = useAuthStore.subscribe((s) => {
+      seen.push(s.bootstrapping);
+    });
+    return () => {
+      unsubscribe();
+      return seen;
+    };
+  }
+
+  it('a failed login never raises bootstrapping — the form stays mounted', async () => {
+    useAuthStore.setState({ bootstrapping: false });
+    const api = createMockApi({
+      login: vi.fn().mockRejectedValue(new Error('Invalid credentials')),
+    });
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+
+    const stop = recordBootstrapping();
+    await expect(useAuthStore.getState().login('player@example.com', 'wrong')).rejects.toThrow();
+
+    expect(stop()).not.toContain(true);
+    expect(useAuthStore.getState().authenticated).toBe(false);
+  });
+
+  it('a failed register never raises bootstrapping — the form stays mounted', async () => {
+    useAuthStore.setState({ bootstrapping: false });
+    const api = createMockApi({
+      register: vi.fn().mockRejectedValue(new Error('Handle already taken')),
+    });
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+
+    const stop = recordBootstrapping();
+    await expect(
+      useAuthStore.getState().register({
+        email: 'player@example.com',
+        password: 'secure-password-12',
+        displayName: 'Player One',
+        handle: 'playerone',
+      }),
+    ).rejects.toThrow();
+
+    expect(stop()).not.toContain(true);
+    expect(useAuthStore.getState().authenticated).toBe(false);
+  });
+
+  it('a successful login never raises bootstrapping either', async () => {
+    useAuthStore.setState({ bootstrapping: false });
+    const access = makeJwt(600);
+    const api = createMockApi({
+      login: vi.fn().mockResolvedValue({
+        data: { accessToken: access, refreshToken: 'refresh-1' },
+        meta: { requestId: 'l1' },
+      }),
+      me: vi.fn().mockResolvedValue({ data: meUser, meta: { requestId: 'm1' } }),
+    });
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+
+    const stop = recordBootstrapping();
+    await useAuthStore.getState().login('player@example.com', 'password-here');
+
+    expect(stop()).not.toContain(true);
+    expect(useAuthStore.getState().authenticated).toBe(true);
+  });
+
+  it('logout keeps the gate — no screen owns its outcome', async () => {
+    const access = makeJwt(600);
+    await manager.establishSession({ accessToken: access, refreshToken: 'r' });
+    useAuthStore.setState({ authenticated: true, bootstrapping: false });
+    const api = createMockApi({
+      logoutSession: vi.fn().mockResolvedValue({ data: null, meta: { requestId: 'o1' } }),
+    });
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+
+    const stop = recordBootstrapping();
+    await useAuthStore.getState().logout();
+
+    expect(stop()).toContain(true);
+    expect(useAuthStore.getState().bootstrapping).toBe(false);
   });
 });

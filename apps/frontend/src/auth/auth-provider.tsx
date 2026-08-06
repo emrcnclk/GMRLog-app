@@ -24,10 +24,10 @@ export function AuthProvider({ children, storage }: AuthProviderProps) {
     [storage],
   );
   const authenticated = useAuthStore((s) => s.authenticated);
-  const loading = useAuthStore((s) => s.loading);
+  const bootstrapping = useAuthStore((s) => s.bootstrapping);
   const logout = useAuthStore((s) => s.logout);
 
-  const state: SessionState = loading ? 'unknown' : authenticated ? 'authenticated' : 'guest';
+  const state: SessionState = bootstrapping ? 'unknown' : authenticated ? 'authenticated' : 'guest';
 
   useEffect(() => {
     const unsubscribe = manager.subscribe(() => {
@@ -41,13 +41,13 @@ export function AuthProvider({ children, storage }: AuthProviderProps) {
       state,
       manager,
       isAuthenticated: authenticated,
-      isGuest: !loading && !authenticated,
-      isBootstrapping: loading,
+      isGuest: !bootstrapping && !authenticated,
+      isBootstrapping: bootstrapping,
       logout: async () => {
         await logout();
       },
     }),
-    [state, manager, authenticated, loading, logout],
+    [state, manager, authenticated, bootstrapping, logout],
   );
 
   return createElement(AuthContext.Provider, { value }, children);

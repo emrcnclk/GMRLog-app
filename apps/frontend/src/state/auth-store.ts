@@ -18,7 +18,18 @@ export interface AuthStoreState {
   user: UserSelfResponse | null;
   accessToken: string | null;
   authenticated: boolean;
-  loading: boolean;
+  /**
+   * The session itself is being resolved, and no screen owns the outcome — app
+   * start (`bootstrap`) and teardown (`logout`). Every route group gates its
+   * whole `<Stack>` on this, so anything that sets it **unmounts the screen that
+   * called it**.
+   *
+   * It is deliberately *not* set by `login` or `register`: those are form
+   * submissions, the form owns the outcome, and unmounting the form destroys the
+   * error banner it is about to set (3.13). Submit state stays local to the
+   * screen — see `login-screen.tsx` / `register-screen.tsx`.
+   */
+  bootstrapping: boolean;
   bindRuntime: (runtime: AuthRuntime) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (input: SessionRegisterInput) => Promise<void>;
@@ -65,7 +76,7 @@ async function fetchMeAndActivate(
     user: envelope.data,
     accessToken: manager.getAccessToken(),
     authenticated: true,
-    loading: false,
+    bootstrapping: false,
   });
 }
 
@@ -80,7 +91,7 @@ async function clearLocalSession(
     user: null,
     accessToken: null,
     authenticated: false,
-    loading: false,
+    bootstrapping: false,
   });
 }
 
@@ -97,7 +108,7 @@ export async function clearAuthAfterInterceptorFailure(manager: SessionManager):
     user: null,
     accessToken: null,
     authenticated: false,
-    loading: false,
+    bootstrapping: false,
   });
 }
 
@@ -105,15 +116,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   user: null,
   accessToken: null,
   authenticated: false,
-  loading: true,
+  bootstrapping: true,
 
   bindRuntime: (next) => {
     runtime = next;
   },
 
+  // Neither `login` nor `register` touches `bootstrapping`, on either path: the
+  // guest `<Stack>` has to stay mounted for the whole round-trip so the screen
+  // survives to render its own error. The caller's `catch` is what reports a
+  // failure, and it can only reach a screen that is still there.
   login: async (email, password) => {
     const { api, manager, queryClient } = requireRuntime();
-    set({ loading: true });
     try {
       const envelope = await api.login({ email, password });
       const tokens = readTokensFromEnvelope(envelope.data);
@@ -123,14 +137,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await manager.persistTokens(tokens);
       await fetchMeAndActivate(api, manager, queryClient, set);
     } catch (error) {
-      set({ loading: false, authenticated: false, user: null, accessToken: null });
+      set({ authenticated: false, user: null, accessToken: null });
       throw error;
     }
   },
 
   register: async (input) => {
     const { api, manager, queryClient } = requireRuntime();
-    set({ loading: true });
     try {
       const envelope = await api.register(input);
       const tokens = readTokensFromEnvelope(envelope.data);
@@ -140,14 +153,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await manager.persistTokens(tokens);
       await fetchMeAndActivate(api, manager, queryClient, set);
     } catch (error) {
-      set({ loading: false, authenticated: false, user: null, accessToken: null });
+      set({ authenticated: false, user: null, accessToken: null });
       throw error;
     }
   },
 
   logout: async () => {
     const { api, manager, queryClient } = requireRuntime();
-    set({ loading: true });
+    // Teardown *does* take the gate. `queryClient.clear()` under a mounted app
+    // shell would have every active query refetch against a session that is
+    // being revoked; no screen owns the outcome, and `logout` resolves either
+    // way — the local clear is authoritative.
+    set({ bootstrapping: true });
     try {
       await api.logoutSession();
     } catch {
@@ -178,7 +195,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
   bootstrap: async () => {
     const { api, manager, queryClient } = requireRuntime();
-    set({ loading: true, authenticated: false, user: null });
+    set({ bootstrapping: true, authenticated: false, user: null });
 
     const material = await manager.hydrate();
     if (!material) {
@@ -187,7 +204,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         user: null,
         accessToken: null,
         authenticated: false,
-        loading: false,
+        bootstrapping: false,
       });
       return;
     }
