@@ -7,6 +7,7 @@ import {
   AUTH_STEP_BAR_HEIGHT,
   AUTH_STEP_BAR_WIDTH_ACTIVE,
   AUTH_STEP_BAR_WIDTH_INACTIVE,
+  AUTH_TAP_TARGET,
 } from './auth-layout';
 
 /**
@@ -47,5 +48,12 @@ describe('auth shell layout constants', () => {
   it('keeps the bar a 2px rule', () => {
     // The scale's smallest step is 4; a rule weight is not a spacing value.
     expect(AUTH_STEP_BAR_HEIGHT).toBe(2);
+  });
+
+  it('holds §3 tappable bars to CLAUDE.md’s 44px floor', () => {
+    expect(AUTH_TAP_TARGET).toBe(44);
+    // The target is the box, never the rule: if these were ever made equal the
+    // affordance would be a 2px hit area.
+    expect(AUTH_TAP_TARGET).toBeGreaterThan(AUTH_STEP_BAR_HEIGHT);
   });
 });

@@ -1,10 +1,11 @@
 import { useTheme } from '@gmrlog/ui';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import {
   AUTH_STEP_BAR_HEIGHT,
   AUTH_STEP_BAR_WIDTH_ACTIVE,
   AUTH_STEP_BAR_WIDTH_INACTIVE,
+  AUTH_TAP_TARGET,
 } from './auth-layout';
 
 export interface AuthStepIndicatorProps {
@@ -12,6 +13,12 @@ export interface AuthStepIndicatorProps {
   count: number;
   /** Zero-based index of the step being shown. */
   activeIndex: number;
+  /**
+   * Makes the bars tappable — §3's Onboarding. Omitted, the rail renders exactly
+   * the markup §2's Register has always had: three plain `View`s, no pressable,
+   * no tap target. Opt-in because Register must not gain the affordance.
+   */
+  onSelect?: (index: number) => void;
 }
 
 /**
@@ -27,14 +34,20 @@ export interface AuthStepIndicatorProps {
  * feature is not a design-system atom. 3.12 imports this rather than drawing a
  * second one — the drift §2 warns about is not limited to the headline.
  *
- * **Not interactive here, deliberately.** §3 wants Onboarding's bars tappable,
- * where jumping between three panels costs nothing. Register cannot offer that:
- * forward means skipping validation, and backward is already the "Back" button
- * below. A 2px bar is also nowhere near the 44px tap target CLAUDE.md requires,
- * so the affordance needs a real target designed around it. 3.12 owns that,
- * together with the `onSelect` prop it will add.
+ * **Register stays non-interactive, deliberately.** §3 wants Onboarding's bars
+ * tappable, where jumping between three panels costs nothing. Register cannot
+ * offer that: forward means skipping validation, and backward is already the
+ * "Back" button below. So the affordance arrives as an opt-in `onSelect` (3.12)
+ * and Register simply does not pass it.
+ *
+ * **The bar is not the target.** A 2px rule is nowhere near CLAUDE.md's 44px
+ * floor, so when `onSelect` is given each bar is centred inside a `Pressable`
+ * that is `AUTH_TAP_TARGET` tall and at least that wide. The rule keeps its
+ * exact geometry; only the thing you can hit grows. That also means the rail's
+ * own height changes between the two callers, which is why the gap under it
+ * belongs to `AuthShell` and not to either screen.
  */
-export function AuthStepIndicator({ count, activeIndex }: AuthStepIndicatorProps) {
+export function AuthStepIndicator({ count, activeIndex, onSelect }: AuthStepIndicatorProps) {
   const theme = useTheme();
 
   return (
@@ -42,11 +55,20 @@ export function AuthStepIndicator({ count, activeIndex }: AuthStepIndicatorProps
       accessibilityRole="progressbar"
       accessibilityLabel={`Step ${String(activeIndex + 1)} of ${String(count)}`}
       accessibilityValue={{ min: 1, max: count, now: activeIndex + 1 }}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space('space.1') }}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        // Tappable bars carry their own target width, so the gap between the
+        // rules is already there; adding `space.1` on top would space the
+        // targets, not the rules, and §3's rail would read as three buttons.
+        gap: onSelect === undefined ? theme.space('space.1') : 0,
+      }}
     >
       {Array.from({ length: count }, (_, index) => {
         const isActive = index === activeIndex;
-        return (
+        // Keyed here so the non-interactive branch renders the bar as a direct
+        // child of the row — byte-for-byte the markup Register already had.
+        const bar = (
           <View
             key={index}
             style={{
@@ -61,6 +83,30 @@ export function AuthStepIndicator({ count, activeIndex }: AuthStepIndicatorProps
               ),
             }}
           />
+        );
+
+        if (onSelect === undefined) {
+          return bar;
+        }
+
+        return (
+          <Pressable
+            key={index}
+            accessibilityRole="button"
+            accessibilityLabel={`Go to step ${String(index + 1)} of ${String(count)}`}
+            accessibilityState={{ selected: isActive }}
+            onPress={() => {
+              onSelect(index);
+            }}
+            style={{
+              minHeight: AUTH_TAP_TARGET,
+              minWidth: AUTH_TAP_TARGET,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {bar}
+          </Pressable>
         );
       })}
     </View>

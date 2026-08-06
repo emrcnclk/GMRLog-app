@@ -44,3 +44,14 @@ export const AUTH_STEP_BAR_WIDTH_ACTIVE: SemanticSpaceToken = 'space.5';
 
 /** §3's inactive bars. */
 export const AUTH_STEP_BAR_WIDTH_INACTIVE: SemanticSpaceToken = 'space.2';
+
+/**
+ * CLAUDE.md's tap-target floor — "Tap targets ≥44px on both" platforms.
+ *
+ * §3 makes the step bars tappable, and a 2px rule cannot be the target: the
+ * rule keeps its geometry and sits centred inside a box this size. Named here
+ * rather than inlined for the same reason as `AUTH_STEP_BAR_HEIGHT` — it is a
+ * rule from the law, not a spacing choice, and 44 is not on the scale
+ * (`space.10` is 40, `space.12` is 48).
+ */
+export const AUTH_TAP_TARGET = 44;
