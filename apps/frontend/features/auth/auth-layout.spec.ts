@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { AUTH_BUTTON_HEIGHT, AUTH_GUTTER, AUTH_MEASURE } from './auth-layout';
+import {
+  AUTH_BUTTON_HEIGHT,
+  AUTH_GUTTER,
+  AUTH_MEASURE,
+  AUTH_STEP_BAR_HEIGHT,
+  AUTH_STEP_BAR_WIDTH_ACTIVE,
+  AUTH_STEP_BAR_WIDTH_INACTIVE,
+} from './auth-layout';
 
 /**
  * §2's failure mode, spelled out in the doc: "If Register grows a card or a
@@ -29,5 +36,16 @@ describe('auth shell layout constants', () => {
 
   it('caps the top-zone paragraph at §1 reading measure', () => {
     expect(AUTH_MEASURE).toBe(280);
+  });
+
+  it('draws §3 step bars on the scale, and the active one wider', () => {
+    expect(AUTH_STEP_BAR_WIDTH_ACTIVE).toBe('space.5');
+    expect(AUTH_STEP_BAR_WIDTH_INACTIVE).toBe('space.2');
+    expect(AUTH_STEP_BAR_WIDTH_ACTIVE).not.toBe(AUTH_STEP_BAR_WIDTH_INACTIVE);
+  });
+
+  it('keeps the bar a 2px rule', () => {
+    // The scale's smallest step is 4; a rule weight is not a spacing value.
+    expect(AUTH_STEP_BAR_HEIGHT).toBe(2);
   });
 });

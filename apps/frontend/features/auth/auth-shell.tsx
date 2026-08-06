@@ -87,7 +87,13 @@ export function AuthShell({ headline, body, topZoneFooter, children }: AuthShell
               {body}
             </Text>
 
-            {topZoneFooter}
+            {/* §3 puts the step rail "`space.9` below the body" — a step that
+                does not exist; 0.1's correction picks `space.10` (40). The gap
+                belongs to the shell rather than to either caller, so §2's
+                Register and §3's Onboarding cannot drift apart on it. */}
+            {topZoneFooter === undefined ? null : (
+              <View style={{ marginTop: theme.space('space.10') }}>{topZoneFooter}</View>
+            )}
           </View>
 
           <View style={{ gap: theme.space('space.2') }}>{children}</View>

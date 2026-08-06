@@ -26,3 +26,21 @@ export const AUTH_BUTTON_HEIGHT: SemanticSpaceToken = 'space.12';
  * class of compositional constant as the profile case cover's 98px width.
  */
 export const AUTH_MEASURE = 280;
+
+/**
+ * §3's step bars: "three 2px bars — the active one is `20px` wide and accent,
+ * the rest are `8px` and `border.default`."
+ *
+ * The two widths land on the scale exactly (`space.5` is 20, `space.2` is 8).
+ * The height does not: the scale's smallest step is 4. Two is a *rule weight*
+ * rather than a layout gap — the same class as the presence dot's 11 in §11 and
+ * `Icon`'s literal sizes — so it stays a number, named here rather than inlined
+ * so §2's Register and §3's Onboarding draw one rail and not two.
+ */
+export const AUTH_STEP_BAR_HEIGHT = 2;
+
+/** §3's active bar. */
+export const AUTH_STEP_BAR_WIDTH_ACTIVE: SemanticSpaceToken = 'space.5';
+
+/** §3's inactive bars. */
+export const AUTH_STEP_BAR_WIDTH_INACTIVE: SemanticSpaceToken = 'space.2';

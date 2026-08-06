@@ -1,10 +1,10 @@
-import { Button, Container, ErrorBanner, Screen, Text, TextField, useTheme } from '@gmrlog/ui';
+import { Button, ErrorBanner, Text, TextField, useTheme } from '@gmrlog/ui';
 import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Controller } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
+import { useState, type ComponentProps } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
+import { View } from 'react-native';
 
 import { mapAuthError, type AuthUiError } from '../../src/auth/map-auth-error';
 import { useAppForm } from '../../src/forms/use-app-form';
@@ -12,17 +12,73 @@ import { visibleFieldError } from '../../src/forms/visible-field-error';
 import { useAuthStore } from '../../src/state/auth-store';
 import { useConnectivityStore } from '../../src/state/stores';
 
+import { AUTH_BUTTON_HEIGHT } from './auth-layout';
+import { AuthShell } from './auth-shell';
+import { AuthStepIndicator } from './auth-step-indicator';
+import { isRegisterStepComplete, REGISTER_STEPS, type RegisterField } from './register-steps';
+
 /**
- * Production register — email · password · displayName · handle (S1 §14.2).
+ * The per-field input configuration, unchanged from the single-page form — the
+ * autofill contract is the part of a register screen that must not be
+ * recomposed. Split out so the step loop stays a loop.
+ */
+const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
+  displayName: {
+    label: 'Display name',
+    autoCapitalize: 'words',
+    autoComplete: 'name',
+    textContentType: 'name',
+    returnKeyType: 'next',
+  },
+  handle: {
+    label: 'Handle',
+    autoCapitalize: 'none',
+    autoCorrect: false,
+    autoComplete: 'username',
+    textContentType: 'username',
+    returnKeyType: 'next',
+  },
+  email: {
+    label: 'Email',
+    autoCapitalize: 'none',
+    autoComplete: 'email',
+    autoCorrect: false,
+    keyboardType: 'email-address',
+    textContentType: 'emailAddress',
+    returnKeyType: 'next',
+  },
+  password: {
+    label: 'Password',
+    secureTextEntry: true,
+    autoCapitalize: 'none',
+    autoComplete: 'new-password',
+    textContentType: 'newPassword',
+    returnKeyType: 'done',
+  },
+};
+
+/**
+ * `SCREEN_REDESIGNS.md` §2 — Register.
+ *
+ * "Same shell as Login, different headline and a three-field bottom zone. The
+ * two screens must look like one screen in two states." That is why nothing
+ * here draws a column: `AuthShell` and the three constants in `auth-layout.ts`
+ * are imported, not re-derived. §2's own failure mode is this screen growing a
+ * card or a second headline size.
+ *
+ * Layout only, as everywhere in Phase 3: `useAppForm`, `sessionRegisterSchema`,
+ * `mapAuthError`, `ErrorBanner` and `useAuthStore().register` are exactly what
+ * they were. What changed is that the four fields arrive in three steps instead
+ * of all at once.
  */
 export function RegisterScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const isOnline = useConnectivityStore((s) => s.isOnline);
   const [banner, setBanner] = useState<AuthUiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
 
   const form = useAppForm(sessionRegisterSchema, {
     defaultValues: { email: '', password: '', displayName: '', handle: '' },
@@ -35,13 +91,21 @@ export function RegisterScreen() {
     formState: { errors, isValid, isSubmitted, isSubmitting, touchedFields },
   } = form;
 
-  const disabled = submitting || isSubmitting || !isValid;
+  const values = useWatch({ control });
+  const busy = submitting || isSubmitting;
 
-  const onSubmit = handleSubmit(async (values: SessionRegisterInput) => {
+  const step = REGISTER_STEPS[stepIndex];
+  const isLastStep = stepIndex === REGISTER_STEPS.length - 1;
+  // Each step's own fields gate its forward button; the last one also waits on
+  // the whole schema, which is §2's "the submit stays disabled, as it does now".
+  const stepComplete = isRegisterStepComplete(stepIndex, values);
+  const disabled = busy || !stepComplete || (isLastStep && !isValid);
+
+  const onSubmit = handleSubmit(async (input: SessionRegisterInput) => {
     setBanner(null);
     setSubmitting(true);
     try {
-      await register(values);
+      await register(input);
     } catch (error) {
       setBanner(mapAuthError(error, isOnline));
     } finally {
@@ -49,154 +113,104 @@ export function RegisterScreen() {
     }
   });
 
+  const onForward = () => {
+    if (isLastStep) {
+      void onSubmit();
+      return;
+    }
+    setBanner(null);
+    setStepIndex((current) => current + 1);
+  };
+
+  if (step === undefined) return null;
+
   return (
-    <Screen edges={[]} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.top}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: 'center',
-            paddingTop: insets.top + theme.space('space.6'),
-            paddingBottom: insets.bottom + theme.space('space.6'),
-            paddingHorizontal: theme.space('space.4'),
-          }}
+    <AuthShell
+      headline="Create your digital home."
+      body="A handle, an email, a password. Three steps, and the record starts."
+      topZoneFooter={<AuthStepIndicator count={REGISTER_STEPS.length} activeIndex={stepIndex} />}
+    >
+      {/* Same position §1 gives it on Login: above the bottom zone. */}
+      {banner ? <ErrorBanner title={banner.title} description={banner.description} /> : null}
+
+      <View style={{ gap: theme.space('space.3') }}>
+        {step.fields.map((field) => (
+          <Controller
+            key={field}
+            control={control}
+            name={field}
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextField
+                {...FIELD_PROPS[field]}
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                onSubmitEditing={onForward}
+                error={visibleFieldError(errors[field], touchedFields[field], isSubmitted)}
+                editable={!submitting}
+              />
+            )}
+          />
+        ))}
+
+        <Button
+          variant="accent"
+          accessibilityLabel={step.action}
+          loading={isLastStep && busy}
+          disabled={disabled}
+          style={{ minHeight: theme.space(AUTH_BUTTON_HEIGHT) }}
+          onPress={onForward}
         >
-          <Container>
-            <View style={{ gap: theme.space('space.6') }}>
-              <View style={{ gap: theme.space('space.2') }}>
-                <Text role="display">GMRLOG</Text>
-                <Text role="body" color="color.text.secondary">
-                  Create your digital home
-                </Text>
-              </View>
+          {step.action}
+        </Button>
 
-              {banner ? (
-                <ErrorBanner title={banner.title} description={banner.description} />
-              ) : null}
+        {/* §2 does not describe the way back through the steps, and Login's own
+            "Other ways in" set the precedent: a one-way door into a form is a
+            trap. Step one's way back is "Sign in" below, so it draws nothing. */}
+        {stepIndex > 0 ? (
+          <Button
+            variant="ghost"
+            accessibilityLabel="Back a step"
+            disabled={busy}
+            icon={
+              <ArrowLeft size={18} color={theme.color('color.text.primary')} strokeWidth={1.75} />
+            }
+            style={{ minHeight: theme.space(AUTH_BUTTON_HEIGHT) }}
+            onPress={() => {
+              setBanner(null);
+              setStepIndex((current) => current - 1);
+            }}
+          >
+            Back
+          </Button>
+        ) : null}
+      </View>
 
-              <View style={{ gap: theme.space('space.4') }}>
-                <Controller
-                  control={control}
-                  name="displayName"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextField
-                      label="Display name"
-                      autoCapitalize="words"
-                      autoComplete="name"
-                      textContentType="name"
-                      returnKeyType="next"
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      error={visibleFieldError(
-                        errors.displayName,
-                        touchedFields.displayName,
-                        isSubmitted,
-                      )}
-                      editable={!submitting}
-                    />
-                  )}
-                />
+      {/* The mirror of Login's "Create an account", down to the borderless
+          treatment, so neither screen strands anyone on the other's route. */}
+      <Button
+        variant="ghost"
+        accessibilityLabel="Sign in"
+        disabled={busy}
+        style={{ borderWidth: 0 }}
+        onPress={() => {
+          router.back();
+        }}
+      >
+        Already have an account
+      </Button>
 
-                <Controller
-                  control={control}
-                  name="handle"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextField
-                      label="Handle"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoComplete="username"
-                      textContentType="username"
-                      returnKeyType="next"
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      error={visibleFieldError(errors.handle, touchedFields.handle, isSubmitted)}
-                      editable={!submitting}
-                    />
-                  )}
-                />
-
-                <Controller
-                  control={control}
-                  name="email"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextField
-                      label="Email"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      textContentType="emailAddress"
-                      returnKeyType="next"
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      error={visibleFieldError(errors.email, touchedFields.email, isSubmitted)}
-                      editable={!submitting}
-                    />
-                  )}
-                />
-
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextField
-                      label="Password"
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoComplete="new-password"
-                      textContentType="newPassword"
-                      returnKeyType="done"
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      onSubmitEditing={() => {
-                        void onSubmit();
-                      }}
-                      error={visibleFieldError(
-                        errors.password,
-                        touchedFields.password,
-                        isSubmitted,
-                      )}
-                      editable={!submitting}
-                    />
-                  )}
-                />
-
-                <Button
-                  accessibilityLabel="Sign up"
-                  loading={submitting || isSubmitting}
-                  disabled={disabled}
-                  onPress={() => {
-                    void onSubmit();
-                  }}
-                >
-                  Sign up
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  accessibilityLabel="Sign in"
-                  disabled={submitting || isSubmitting}
-                  onPress={() => {
-                    router.back();
-                  }}
-                >
-                  Sign in
-                </Button>
-              </View>
-            </View>
-          </Container>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Screen>
+      {/* Not named in §2, carried from §1: Login renders it, and the screen that
+          actually creates the account is the one where the sentence means
+          something. Terms and Privacy are still text, not links — neither route
+          exists (tracked in TASKS.md against 3.10). */}
+      <Text
+        role="bodySm"
+        color="color.text.tertiary"
+        style={{ textAlign: 'center', marginTop: theme.space('space.2') }}
+      >
+        By continuing you agree to the Terms and Privacy Policy.
+      </Text>
+    </AuthShell>
   );
 }
