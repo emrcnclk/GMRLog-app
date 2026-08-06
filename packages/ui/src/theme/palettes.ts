@@ -308,6 +308,24 @@ export function scrimRgbTriple(token: string): string {
     .join(',');
 }
 
+/**
+ * `#RRGGBB` → `"R,G,B"`. For consumers that need a scrim to land on a flat
+ * *surface* colour rather than a `color.scrim.*` token — a hero's bottom-up
+ * fade has to disappear into `color.background.primary` exactly, and that
+ * token is a plain hex, not an `rgba(...)` string `scrimRgbTriple` can parse.
+ */
+export function hexToRgbTriple(hex: string): string {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex);
+  const value = match?.[1];
+  if (value === undefined) {
+    return '0,0,0';
+  }
+  const r = Number.parseInt(value.slice(0, 2), 16);
+  const g = Number.parseInt(value.slice(2, 4), 16);
+  const b = Number.parseInt(value.slice(4, 6), 16);
+  return `${String(r)},${String(g)},${String(b)}`;
+}
+
 /** 8pt grid — DESIGN_TOKENS.md space.* keys. */
 export const spaceScale: SemanticSpaceScale = {
   'space.0': 0,

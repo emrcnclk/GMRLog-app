@@ -8,6 +8,8 @@ import { initialsFromDisplayName } from '../../friends/hooks/friends-model';
 export interface PresenceRailProps {
   friends: OnlineFriendResponse[];
   onPressFriend: (userId: string) => void;
+  /** Rail kicker. Defaults to the inbox's own "Online now" — opt-in override. */
+  title?: string;
 }
 
 const STATUS_DOT_SIZE = 11;
@@ -25,7 +27,11 @@ function statusColor(status: PresenceStatusValue): SemanticColorToken {
  * only asked for here, and `Avatar` has ~two dozen other call sites that don't
  * want it.
  */
-function PresenceRailComponent({ friends, onPressFriend }: PresenceRailProps) {
+function PresenceRailComponent({
+  friends,
+  onPressFriend,
+  title = 'Online now',
+}: PresenceRailProps) {
   const theme = useTheme();
 
   if (friends.length === 0) {
@@ -33,7 +39,7 @@ function PresenceRailComponent({ friends, onPressFriend }: PresenceRailProps) {
   }
 
   return (
-    <Rail title="Online now" gap={theme.space('space.4')}>
+    <Rail title={title} gap={theme.space('space.4')}>
       {friends.map(({ user, presence }) => (
         <Pressable
           key={user.id}

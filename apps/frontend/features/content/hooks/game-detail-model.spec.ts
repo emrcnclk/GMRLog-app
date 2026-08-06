@@ -1,10 +1,16 @@
-import type { GameHubResponse, GameMediaResponse, GameResponse } from '@gmrlog/types';
+import type {
+  GameHubResponse,
+  GameMediaResponse,
+  GameResponse,
+  ReviewResponse,
+} from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
   GAME_HUB_BLOCK_TABS,
   GAME_HUB_TAB_ORDER,
   bucketGameMedia,
+  bucketReviewDistribution,
   buildGameHubTabs,
   formatAttribution,
   formatCommunityRating,
@@ -43,65 +49,43 @@ const hub: GameHubResponse = {
 
 describe('isGameHubTabId', () => {
   it('accepts known tabs and rejects anything else', () => {
-    expect(isGameHubTabId('overview')).toBe(true);
+    expect(isGameHubTabId('about')).toBe(true);
     expect(isGameHubTabId('recommendations')).toBe(true);
-    expect(isGameHubTabId('guides')).toBe(false);
+    expect(isGameHubTabId('overview')).toBe(false);
   });
 });
 
 describe('buildGameHubTabs', () => {
   it('omits counts entirely while the hub read is pending', () => {
-    const tabs = buildGameHubTabs({
-      hub: null,
-      videoCount: 0,
-      screenshotCount: 0,
-      recommendationCount: 0,
-    });
+    const tabs = buildGameHubTabs({ hub: null, recommendationCount: 0 });
     expect(tabs.every((tab) => tab.count === undefined)).toBe(true);
   });
 
   it('surfaces hub counts on the tabs that have them', () => {
-    const tabs = buildGameHubTabs({
-      hub,
-      videoCount: 2,
-      screenshotCount: 9,
-      recommendationCount: 5,
-    });
+    const tabs = buildGameHubTabs({ hub, recommendationCount: 5 });
     const byId = new Map(tabs.map((tab) => [tab.id, tab.count]));
     expect(byId.get('reviews')).toBe(12);
-    expect(byId.get('collections')).toBe(7);
-    expect(byId.get('screenshots')).toBe(9);
-    expect(byId.get('videos')).toBe(2);
+    expect(byId.get('workshop')).toBe(2);
+    expect(byId.get('players')).toBe(88);
     expect(byId.get('recommendations')).toBe(5);
-    expect(byId.get('overview')).toBeUndefined();
+    expect(byId.get('about')).toBeUndefined();
+    expect(byId.get('community')).toBeUndefined();
   });
 
-  it('hides a zero count rather than advertising emptiness', () => {
-    const tabs = buildGameHubTabs({
-      hub,
-      videoCount: 0,
-      screenshotCount: 0,
-      recommendationCount: 0,
-    });
+  it('hides a zero recommendation count rather than advertising emptiness', () => {
+    const tabs = buildGameHubTabs({ hub, recommendationCount: 0 });
     const byId = new Map(tabs.map((tab) => [tab.id, tab.count]));
-    expect(byId.get('videos')).toBeUndefined();
-    expect(byId.get('screenshots')).toBeUndefined();
+    expect(byId.get('recommendations')).toBeUndefined();
   });
 
   it('always returns every tab in a stable order', () => {
-    const tabs = buildGameHubTabs({
-      hub,
-      videoCount: 1,
-      screenshotCount: 1,
-      recommendationCount: 1,
-    });
+    const tabs = buildGameHubTabs({ hub, recommendationCount: 1 });
     expect(tabs.map((tab) => tab.id)).toEqual([
-      'overview',
+      'about',
       'reviews',
-      'activity',
-      'screenshots',
-      'videos',
-      'collections',
+      'community',
+      'workshop',
+      'players',
       'recommendations',
     ]);
   });
@@ -222,8 +206,8 @@ describe('game hub tab classification', () => {
   it('classifies every tab as either a block or a list, never both or neither', () => {
     const listTabs = GAME_HUB_TAB_ORDER.filter((tab) => !isGameHubBlockTab(tab));
 
-    expect(GAME_HUB_BLOCK_TABS).toEqual(['overview', 'screenshots', 'videos', 'recommendations']);
-    expect(listTabs).toEqual(['reviews', 'activity', 'collections']);
+    expect(GAME_HUB_BLOCK_TABS).toEqual(['about', 'community', 'recommendations']);
+    expect(listTabs).toEqual(['reviews', 'workshop', 'players']);
     expect(GAME_HUB_BLOCK_TABS.length + listTabs.length).toBe(GAME_HUB_TAB_ORDER.length);
   });
 
@@ -245,9 +229,7 @@ describe('gameHubEmptyCopy', () => {
       icon: 'star',
       description: 'Be the first to write about Hollow Knight.',
     });
-    expect(gameHubEmptyCopy('collections', 'Hollow Knight').description).toContain(
-      'has not been added to a public collection',
-    );
+    expect(gameHubEmptyCopy('workshop', 'Hollow Knight').description).toContain('guide');
   });
 
   it('gives every list tab a distinct icon so the states do not read alike', () => {
@@ -261,5 +243,31 @@ describe('gameHubEmptyCopy', () => {
     for (const tab of GAME_HUB_TAB_ORDER) {
       expect(gameHubEmptyCopy(tab, 'Celeste').description).toContain('Celeste');
     }
+  });
+});
+
+describe('bucketReviewDistribution', () => {
+  function review(rating: number): Pick<ReviewResponse, 'rating'> {
+    return { rating };
+  }
+
+  it('bins ratings into five bands, rounding to the nearest whole point', () => {
+    const rows = bucketReviewDistribution([
+      review(10),
+      review(9.6),
+      review(7),
+      review(5.2),
+      review(3),
+      review(1),
+      review(1.4),
+    ]);
+    expect(rows.map((row) => row.label)).toEqual(['9–10', '7–8', '5–6', '3–4', '1–2']);
+    expect(rows.map((row) => row.count)).toEqual([2, 1, 1, 1, 2]);
+  });
+
+  it('returns every band at zero rather than omitting empty ones', () => {
+    const rows = bucketReviewDistribution([]);
+    expect(rows.every((row) => row.count === 0)).toBe(true);
+    expect(rows).toHaveLength(5);
   });
 });

@@ -1,36 +1,44 @@
 import type { GameMediaResponse, GameResponse } from '@gmrlog/types';
 import { AspectBox, Chip, EmptyState, Rail, Skeleton, Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { CachedImage } from '../../../../src/assets/cached-image';
 import { formatAttribution } from '../../hooks/game-detail-model';
 
-export interface GameOverviewTabProps {
+import { GameVideoList } from './game-media-grid';
+
+export interface GameAboutTabProps {
   game: GameResponse | null;
   screenshots: readonly GameMediaResponse[];
+  videos: readonly GameMediaResponse[];
+  trailerUrl: string | null;
   isPending: boolean;
   onSeeAllScreenshots: () => void;
-  onWriteReview: () => void;
-  onWritePost: () => void;
+  onOpenUrl: (url: string) => void;
 }
 
 const SCREENSHOT_RAIL_TILE = 236;
 const RAIL_PREVIEW_LIMIT = 8;
 
 /**
- * Overview — the "what is this game" tab. Everything here comes from the D3.25
- * catalog; sections disappear entirely when the catalog has no data for them
- * rather than rendering an empty shell.
+ * About (§5) — the "what is this game" tab. Everything here comes from the
+ * D3.25 catalog; sections disappear entirely when the catalog has no data for
+ * them rather than rendering an empty shell. Screenshots and Videos fold in
+ * here rather than staying standalone tabs — §5 names five tabs and neither
+ * is one of them, and both are real content the doc never asks to remove.
+ * "Add to the conversation" moved out: both real actions (review, post) now
+ * live in the hero's persistent action row instead of duplicating here.
  */
-function GameOverviewTabComponent({
+function GameAboutTabComponent({
   game,
   screenshots,
+  videos,
+  trailerUrl,
   isPending,
   onSeeAllScreenshots,
-  onWriteReview,
-  onWritePost,
-}: GameOverviewTabProps) {
+  onOpenUrl,
+}: GameAboutTabProps) {
   const theme = useTheme();
   const attribution = formatAttribution(game);
   const blurb = game?.summary ?? game?.description ?? null;
@@ -54,6 +62,19 @@ function GameOverviewTabComponent({
           <Text role="body" color="color.text.secondary">
             {blurb}
           </Text>
+        </View>
+      ) : null}
+
+      {game !== null && game.tags.length > 0 ? (
+        <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.2') }}>
+          <Text role="title">Themes &amp; modes</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
+            {game.tags.slice(0, 16).map((tag) => (
+              <Chip key={tag.id} interactive={false}>
+                {tag.name}
+              </Chip>
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -81,20 +102,22 @@ function GameOverviewTabComponent({
         </Rail>
       ) : null}
 
-      {game !== null && game.tags.length > 0 ? (
-        <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.2') }}>
-          <Text role="title">Themes &amp; modes</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
-            {game.tags.slice(0, 16).map((tag) => (
-              <Chip key={tag.id} interactive={false}>
-                {tag.name}
-              </Chip>
-            ))}
-          </View>
+      {videos.length > 0 || (trailerUrl !== null && trailerUrl.length > 0) ? (
+        <View style={{ gap: theme.space('space.2') }}>
+          <Text role="title" style={{ paddingHorizontal: theme.space('space.4') }}>
+            Videos
+          </Text>
+          <GameVideoList
+            items={videos}
+            trailerUrl={trailerUrl}
+            isPending={false}
+            gameTitle={game?.title ?? 'Game'}
+            onOpenUrl={onOpenUrl}
+          />
         </View>
       ) : null}
 
-      {game?.series != null || game?.franchise != null ? (
+      {game !== null && (game.series != null || game.franchise != null) ? (
         <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.1') }}>
           <Text role="title">Part of</Text>
           {game.series != null ? (
@@ -110,15 +133,7 @@ function GameOverviewTabComponent({
         </View>
       ) : null}
 
-      <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.2') }}>
-        <Text role="title">Add to the conversation</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
-          <ActionPill label="Write a review" onPress={onWriteReview} />
-          <ActionPill label="Write a post" onPress={onWritePost} />
-        </View>
-      </View>
-
-      {blurb === null && screenshots.length === 0 ? (
+      {blurb === null && screenshots.length === 0 && videos.length === 0 ? (
         <EmptyState
           title="Catalog details are still arriving"
           description="Artwork and descriptions are mirrored in the background. Community writing below is already live."
@@ -136,28 +151,4 @@ function GameOverviewTabComponent({
   );
 }
 
-function ActionPill({ label, onPress }: { label: string; onPress: () => void }) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 44,
-        justifyContent: 'center',
-        paddingHorizontal: theme.space('space.4'),
-        borderRadius: theme.radius('radius.full'),
-        backgroundColor: theme.color('color.accent.default'),
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      <Text role="label" color="color.accent.onAccent">
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-export const GameOverviewTab = memo(GameOverviewTabComponent);
+export const GameAboutTab = memo(GameAboutTabComponent);

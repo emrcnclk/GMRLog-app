@@ -1,20 +1,29 @@
-import type { GameMediaResponse, GameResponse } from '@gmrlog/types';
+import type { GameHubResponse, GameMediaResponse, GameResponse } from '@gmrlog/types';
 import {
   ASPECT,
-  AspectBox,
   Badge,
+  Button,
   Chip,
   GradientScrim,
+  HatchOverlay,
+  Icon,
+  IconButton,
+  MetricStrip,
   Skeleton,
+  StatTile,
   Text,
+  hexToRgbTriple,
   useTheme,
 } from '@gmrlog/ui';
+import { Edit3 } from 'lucide-react-native';
 import { memo } from 'react';
 import { View } from 'react-native';
 
 import { CachedImage } from '../../../../src/assets/cached-image';
 import { GmrImage } from '../../../../src/assets/gmr-image';
 import {
+  COVER_OVERLAP,
+  GAME_HUB_HERO_HEIGHT,
   formatCommunityRating,
   formatCompanies,
   formatCriticScore,
@@ -26,19 +35,36 @@ import {
 export interface GameHeroProps {
   game: GameResponse | null;
   media: readonly GameMediaResponse[];
+  hub: GameHubResponse | null;
   isPending: boolean;
+  onWriteReview: () => void;
+  onWritePost: () => void;
 }
 
 const COVER_WIDTH = 108;
 
 /**
- * Game Hub header — hero artwork, scrim, cover, and the identity block
- * (title · year · rating · platforms · genres · studios).
+ * Game Hub header — the cinematic overlap hero (§5).
  *
- * Height is reserved by AspectBox before artwork resolves, so the identity block
- * never jumps when the image lands.
+ * 330px full-bleed key art (a fixed compositional constant, the same class as
+ * `ASPECT`'s own ratios, not a spacing token) under a diagonal hatch and a
+ * scrim that fades to `color.background.primary` exactly, so the image seams
+ * invisibly into the screen below it. The cover pulls up 74px into the art —
+ * the single move §5 calls out as what makes this read as a product page —
+ * with the title and studio bottom-aligned beside it. Depth on the cover
+ * comes from a mat of the elevated background, not the "heavy drop shadow"
+ * the doc asks for: `THEME_MIGRATION.md` §5 already took the shadow
+ * dependency out of the system, and this screen keeps that law rather than
+ * reintroducing it for one card.
  */
-function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
+function GameHeroComponent({
+  game,
+  media,
+  hub,
+  isPending,
+  onWriteReview,
+  onWritePost,
+}: GameHeroProps) {
   const theme = useTheme();
   const heroUrl = resolveHeroArtwork(game, media);
   const releaseYear = formatReleaseYear(game?.releaseDate ?? null);
@@ -47,10 +73,11 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
   const developers = formatCompanies(game?.developers ?? []);
   const publishers = formatCompanies(game?.publishers ?? []);
   const shelf = game?.library?.status;
+  const studioLine = [releaseYear, developers].filter((part) => part !== null).join(' · ');
 
   return (
     <View>
-      <AspectBox ratio="hero" radius="radius.none">
+      <View style={{ height: GAME_HUB_HERO_HEIGHT, overflow: 'hidden' }}>
         {heroUrl !== null ? (
           <CachedImage
             source={{ uri: heroUrl }}
@@ -62,8 +89,13 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
             style={{ width: '100%', height: '100%' }}
           />
         ) : null}
-        <GradientScrim direction="to-top" intensity={0.92} />
-      </AspectBox>
+        <HatchOverlay opacity={0.045} />
+        <GradientScrim
+          direction="to-top"
+          intensity={1}
+          rgb={hexToRgbTriple(theme.color('color.background.primary'))}
+        />
+      </View>
 
       <View
         style={{
@@ -71,8 +103,7 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
           alignItems: 'flex-end',
           gap: theme.space('space.4'),
           paddingHorizontal: theme.space('space.4'),
-          // Lift the cover over the hero's lower edge.
-          marginTop: -(COVER_WIDTH / ASPECT.cover) / 2.6,
+          marginTop: -COVER_OVERLAP,
         }}
       >
         {/* The cover overlaps the hero, so it needs to sit above the artwork
@@ -120,22 +151,27 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
               {game?.title ?? 'Unknown game'}
             </Text>
           )}
+          {studioLine.length > 0 ? (
+            <Text role="meta" color="color.text.tertiary">
+              {studioLine}
+            </Text>
+          ) : null}
         </View>
       </View>
 
       <View
         style={{
           paddingHorizontal: theme.space('space.4'),
-          paddingTop: theme.space('space.3'),
-          gap: theme.space('space.3'),
+          paddingTop: theme.space('space.4'),
+          gap: theme.space('space.4'),
         }}
       >
-        <ScoreRow
-          releaseYear={releaseYear}
-          criticScore={criticScore}
-          criticCount={game?.externalRatingCount ?? null}
+        <GameMetricStrip
           communityRating={communityRating}
           communityCount={game?.stats?.ratingCount ?? 0}
+          criticScore={criticScore}
+          criticCount={game?.externalRatingCount ?? null}
+          players={hub?.tabCounts.players ?? null}
           libraryCount={game?.stats?.libraryCount ?? 0}
         />
 
@@ -147,48 +183,67 @@ function GameHeroComponent({ game, media, isPending }: GameHeroProps) {
           <ChipRow label="Genres" values={game.genres.map((genre) => genre.name)} />
         ) : null}
 
-        {developers !== null || publishers !== null ? (
-          <View style={{ gap: theme.space('space.1') }}>
-            {developers !== null ? (
-              <Text role="meta" color="color.text.secondary">
-                Developed by {developers}
-              </Text>
-            ) : null}
-            {publishers !== null ? (
-              <Text role="meta" color="color.text.tertiary">
-                Published by {publishers}
-              </Text>
-            ) : null}
-          </View>
+        {publishers !== null ? (
+          <Text role="meta" color="color.text.tertiary">
+            Published by {publishers}
+          </Text>
         ) : null}
+
+        <View style={{ flexDirection: 'row', gap: theme.space('space.2') }}>
+          <Button
+            variant="accent"
+            icon={<Edit3 size={16} color={theme.color('color.accent.default')} />}
+            onPress={onWriteReview}
+            style={{ flex: 1 }}
+          >
+            Log &amp; review
+          </Button>
+          <IconButton
+            accessibilityLabel="Write a post"
+            variant="secondary"
+            size="lg"
+            onPress={onWritePost}
+          >
+            <Icon name="message-square" decorative size={20} color="color.text.primary" />
+          </IconButton>
+        </View>
       </View>
     </View>
   );
 }
 
-interface ScoreRowProps {
-  releaseYear: string | null;
-  criticScore: string | null;
-  criticCount: number | null;
+interface GameMetricStripProps {
   communityRating: string | null;
   communityCount: number;
+  criticScore: string | null;
+  criticCount: number | null;
+  /** `GameHubResponse.tabCounts.players` — real, but not a live concurrent count. */
+  players: number | null;
   libraryCount: number;
 }
 
-/** Facts row. Each cell renders only when the catalog actually has the number. */
-function ScoreRow({
-  releaseYear,
-  criticScore,
-  criticCount,
+/**
+ * §5 asks for "Rating / Hours / Players". Hours has no backing field anywhere
+ * on `GameResponse`, `GameStatsProjection` or `GameHubResponse` — no per-game
+ * playtime aggregate exists, only per-*user* lifetime stats elsewhere in the
+ * app. Built from what's real instead: community rating, critic score when
+ * the catalog has one, the Players tab's real count, and library count.
+ */
+function GameMetricStrip({
   communityRating,
   communityCount,
+  criticScore,
+  criticCount,
+  players,
   libraryCount,
-}: ScoreRowProps) {
-  const theme = useTheme();
-
+}: GameMetricStripProps) {
   const cells: { key: string; value: string; label: string }[] = [];
-  if (releaseYear !== null) {
-    cells.push({ key: 'year', value: releaseYear, label: 'Released' });
+  if (communityRating !== null) {
+    cells.push({
+      key: 'rating',
+      value: communityRating,
+      label: communityCount > 0 ? `Rating (${String(communityCount)})` : 'Rating',
+    });
   }
   if (criticScore !== null) {
     cells.push({
@@ -198,15 +253,11 @@ function ScoreRow({
         criticCount != null && criticCount > 0 ? `Critics (${String(criticCount)})` : 'Critics',
     });
   }
-  if (communityRating !== null) {
-    cells.push({
-      key: 'community',
-      value: communityRating,
-      label: communityCount > 0 ? `Players (${String(communityCount)})` : 'Players',
-    });
+  if (players !== null) {
+    cells.push({ key: 'players', value: String(players), label: 'Players' });
   }
   if (libraryCount > 0) {
-    cells.push({ key: 'library', value: String(libraryCount), label: 'In libraries' });
+    cells.push({ key: 'library', value: String(libraryCount), label: 'In library' });
   }
 
   if (cells.length === 0) {
@@ -214,19 +265,11 @@ function ScoreRow({
   }
 
   return (
-    <View
-      accessibilityRole="summary"
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.5') }}
-    >
+    <MetricStrip accessibilityLabel="Game facts">
       {cells.map((cell) => (
-        <View key={cell.key} style={{ gap: theme.space('space.1') }}>
-          <Text role="title">{cell.value}</Text>
-          <Text role="meta" color="color.text.tertiary">
-            {cell.label}
-          </Text>
-        </View>
+        <StatTile key={cell.key} value={cell.value} label={cell.label} />
       ))}
-    </View>
+    </MetricStrip>
   );
 }
 

@@ -25,8 +25,10 @@ export {
   RARITY_TIERS,
   createThemeTokens,
   elevationScale,
+  hexToRgbTriple,
   radiusScale,
   rarityGeometry,
+  scrimRgbTriple,
   spaceScale,
   typographyScale,
   type RarityGeometry,
@@ -95,6 +97,7 @@ export {
   type GradientScrimProps,
   type ScrimDirection,
 } from './components/gradient-scrim';
+export { HatchOverlay, type HatchOverlayProps } from './components/hatch-overlay';
 export { ProgressBar, type ProgressBarProps } from './components/progress-bar';
 export { StatTile, type StatTileProps } from './components/stat-tile';
 export { MetricStrip, type MetricStripProps } from './components/metric-strip';

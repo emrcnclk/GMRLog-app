@@ -1,69 +1,92 @@
-import type {
-  FeedItemResponse,
-  GameHubCollectionSummaryResponse,
-  ReviewResponse,
-} from '@gmrlog/types';
-import { EmptyState, HeroBackButton, ListItem, Screen, SegmentedTabs, useTheme } from '@gmrlog/ui';
+import type { GameHubPlayerResponse, PostResponse, ReviewResponse } from '@gmrlog/types';
+import {
+  Avatar,
+  DistributionBars,
+  EmptyState,
+  HeroBackButton,
+  IconButton,
+  Icon,
+  ListItem,
+  Screen,
+  SegmentedTabs,
+  Text,
+  useTheme,
+} from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
+import { MoreHorizontal } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Linking, RefreshControl, View } from 'react-native';
+import { FlatList, Linking, RefreshControl, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuthStore } from '../../../src/state/auth-store';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { useSimilarGames } from '../../discover/hooks/use-discover';
+import { useOnlineFriends } from '../../friends/hooks/use-friends';
 import { ContentErrorState } from '../components/content-error-state';
 import { ContentListSkeleton } from '../components/content-list-skeleton';
-import { GameActivityRow } from '../components/game-hub/game-activity-row';
+import { GameAboutTab } from '../components/game-hub/game-about-tab';
+import { GameCommunityTab } from '../components/game-hub/game-community-tab';
 import { GameHero } from '../components/game-hub/game-hero';
-import { GameMediaGrid, GameVideoList } from '../components/game-hub/game-media-grid';
-import { GameOverviewTab } from '../components/game-hub/game-overview-tab';
 import { GameRecommendationsTab } from '../components/game-hub/game-recommendations-tab';
+import { PostCard } from '../components/post-card';
 import { ReviewCard } from '../components/review-card';
+import { selectOnlineFriendsPlaying } from '../hooks/game-community-model';
 import {
   bucketGameMedia,
+  bucketReviewDistribution,
   buildGameHubTabs,
   GAME_HUB_TAB_LABELS,
   gameHubEmptyCopy,
   isGameHubBlockTab,
+  LIBRARY_STATUS_LABELS,
   type GameHubTabId,
 } from '../hooks/game-detail-model';
 import { useGameDetail, useGameMedia, useGameRelated } from '../hooks/use-game-detail';
 import { useGameHub } from '../hooks/use-game-hub';
-import { useGameHubCollections, useGameTimeline } from '../hooks/use-game-hub-tabs';
+import {
+  useGameGuides,
+  useGameHubCollections,
+  useGameHubPlayers,
+  useGameTimeline,
+} from '../hooks/use-game-hub-tabs';
 import { useGameReviews } from '../hooks/use-reviews';
 
 export interface GameHubScreenProps {
   gameId: string;
 }
 
-/**
- * One row shape per list-bearing tab.
- *
- * The hub renders every tab through a single `FlatList` rather than swapping
- * whole scroll containers, so the hero and tab strip stay mounted across a tab
- * change and scroll position is never thrown away. That means one `data` array
- * has to carry three different entities — hence the discriminated union.
- */
-type HubRow =
-  | { kind: 'activity'; key: string; item: FeedItemResponse }
-  | { kind: 'review'; key: string; item: ReviewResponse }
-  | { kind: 'collection'; key: string; item: GameHubCollectionSummaryResponse };
+const LIVE_ACTIVITY_LIMIT = 5;
 
 /**
- * Game Hub — hero artwork, identity block, and seven sections over one
- * virtualized list (D3.27 · `docs/07_SOCIAL/GAME_HUB.md`).
+ * One row shape per list-bearing tab (Reviews / Workshop / Players).
+ *
+ * The hub renders every list-bearing tab through a single `FlatList` rather
+ * than swapping whole scroll containers, so the hero and tab strip stay
+ * mounted across a tab change and scroll position is never thrown away.
+ * That means one `data` array has to carry three different entities — hence
+ * the discriminated union.
+ */
+type HubRow =
+  | { kind: 'review'; key: string; item: ReviewResponse }
+  | { kind: 'post'; key: string; item: PostResponse }
+  | { kind: 'player'; key: string; item: GameHubPlayerResponse };
+
+/**
+ * Game Hub — the cinematic overlap hero, over one virtualized list (§5).
  *
  * The screen owns no card markup and no formatting rules: every visual belongs
  * to `@gmrlog/ui` or a `components/game-hub/*` part, and every derived string
- * comes from `game-detail-model`. What is left here is composition — which read
- * feeds which tab, and what the list shows while they are in flight.
+ * comes from `game-detail-model` / `game-community-model`. What is left here is
+ * composition — which read feeds which tab, and what the list shows while
+ * they are in flight.
  */
 export function GameHubScreen({ gameId }: GameHubScreenProps) {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isOnline = useConnectivityStore((s) => s.isOnline);
-  const [activeTab, setActiveTab] = useState<GameHubTabId>('overview');
+  const userId = useAuthStore((s) => s.user?.id);
+  const [activeTab, setActiveTab] = useState<GameHubTabId>('about');
 
   const detail = useGameDetail(gameId);
   const media = useGameMedia(gameId);
@@ -73,6 +96,9 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
   const timeline = useGameTimeline(gameId);
   const reviews = useGameReviews(gameId);
   const collections = useGameHubCollections(gameId);
+  const guides = useGameGuides(gameId);
+  const players = useGameHubPlayers(gameId);
+  const onlineFriends = useOnlineFriends();
 
   const game = detail.game;
   const gameTitle = game?.title ?? 'Game';
@@ -83,15 +109,23 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     [media.media, screenshotsInline],
   );
 
+  const onlineFriendsPlaying = useMemo(
+    () => selectOnlineFriendsPlaying(onlineFriends.friends, players.items),
+    [onlineFriends.friends, players.items],
+  );
+
+  const reviewDistribution = useMemo(
+    () => bucketReviewDistribution(reviews.items),
+    [reviews.items],
+  );
+
   const tabs = useMemo(
     () =>
       buildGameHubTabs({
         hub: hub.hub,
-        videoCount: videos.length,
-        screenshotCount: screenshots.length,
         recommendationCount: related.related.length + similar.items.length,
       }),
-    [hub.hub, videos.length, screenshots.length, related.related.length, similar.items.length],
+    [hub.hub, related.related.length, similar.items.length],
   );
 
   const openGame = useCallback(
@@ -102,8 +136,8 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
   );
 
   const openUser = useCallback(
-    (userId: string) => {
-      router.push(`/(app)/user/${userId}`);
+    (userId2: string) => {
+      router.push(`/(app)/user/${userId2}`);
     },
     [router],
   );
@@ -115,12 +149,23 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     [router],
   );
 
+  const openPost = useCallback(
+    (postId: string) => {
+      router.push(`/(app)/post/${postId}`);
+    },
+    [router],
+  );
+
   const openCollection = useCallback(
     (collectionId: string) => {
       router.push(`/(app)/collection/${collectionId}`);
     },
     [router],
   );
+
+  const openScreenshots = useCallback(() => {
+    router.push(`/(app)/game/${gameId}/screenshots`);
+  }, [gameId, router]);
 
   const writeReview = useCallback(() => {
     router.push({ pathname: '/(app)/review/create', params: { gameId } });
@@ -134,46 +179,69 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     void Linking.openURL(url);
   }, []);
 
+  const shareGame = useCallback(() => {
+    void Share.share({ message: gameTitle, title: gameTitle });
+  }, [gameTitle]);
+
   const rows: HubRow[] = useMemo(() => {
     switch (activeTab) {
-      case 'activity':
-        return timeline.items.map((item) => ({
-          kind: 'activity' as const,
-          key: `activity-${item.id}`,
-          item,
-        }));
       case 'reviews':
         return reviews.items.map((item) => ({
           kind: 'review' as const,
           key: `review-${item.id}`,
           item,
         }));
-      case 'collections':
-        return collections.items.map((item) => ({
-          kind: 'collection' as const,
-          key: `collection-${item.id}`,
+      case 'workshop':
+        return guides.items.map((item) => ({
+          kind: 'post' as const,
+          key: `post-${item.id}`,
+          item,
+        }));
+      case 'players':
+        return players.items.map((item) => ({
+          kind: 'player' as const,
+          key: `player-${item.user.id}`,
           item,
         }));
       default:
         return [];
     }
-  }, [activeTab, collections.items, reviews.items, timeline.items]);
+  }, [activeTab, guides.items, players.items, reviews.items]);
 
   const renderRow = useCallback(
     ({ item: row }: { item: HubRow }) => {
       switch (row.kind) {
-        case 'activity':
-          return <GameActivityRow item={row.item} onPressGame={openGame} onPressUser={openUser} />;
         case 'review':
           return <ReviewCard review={row.item} onPress={openReview} onPressGame={openGame} />;
-        case 'collection':
+        case 'post':
+          return (
+            <PostCard
+              post={row.item}
+              onPress={openPost}
+              onPressGame={openGame}
+              onPressEdit={userId === row.item.author.id ? openPost : undefined}
+            />
+          );
+        case 'player':
           return (
             <ListItem
-              title={row.item.title}
-              subtitle={`Curated by ${row.item.owner.displayName}`}
-              accessibilityLabel={`${row.item.title}, curated by ${row.item.owner.displayName}`}
+              title={row.item.user.displayName}
+              subtitle={`@${row.item.user.handle}`}
+              accessibilityLabel={`${row.item.user.displayName}, ${LIBRARY_STATUS_LABELS[row.item.status]}`}
+              leading={
+                <Avatar
+                  size="md"
+                  uri={row.item.user.avatarUrl ?? undefined}
+                  accessibilityLabel={`${row.item.user.displayName} avatar`}
+                />
+              }
+              trailing={
+                <Text role="meta" color="color.text.tertiary">
+                  {LIBRARY_STATUS_LABELS[row.item.status]}
+                </Text>
+              }
               onPress={() => {
-                openCollection(row.item.id);
+                openUser(row.item.user.id);
               }}
             />
           );
@@ -183,18 +251,18 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         }
       }
     },
-    [openCollection, openGame, openReview, openUser],
+    [openGame, openPost, openReview, openUser, userId],
   );
 
   /** Whether the active tab's own read is still resolving. */
   const isTabPending = ((): boolean => {
     switch (activeTab) {
-      case 'activity':
-        return timeline.isPending;
       case 'reviews':
         return reviews.status === 'loading';
-      case 'collections':
-        return collections.status === 'loading';
+      case 'workshop':
+        return guides.status === 'loading';
+      case 'players':
+        return players.status === 'loading';
       default:
         return false;
     }
@@ -204,23 +272,34 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     void detail.refresh();
     void hub.refresh();
     switch (activeTab) {
-      case 'activity':
-        void timeline.refresh();
-        break;
       case 'reviews':
         void reviews.refresh();
         break;
-      case 'collections':
+      case 'workshop':
+        void guides.refresh();
+        break;
+      case 'players':
+        void players.refresh();
+        break;
+      case 'community':
         void collections.refresh();
+        void timeline.refresh();
         break;
       default:
         break;
     }
-  }, [activeTab, collections, detail, hub, reviews, timeline]);
+  }, [activeTab, collections, detail, guides, hub, players, reviews, timeline]);
 
   const header = (
     <View>
-      <GameHero game={game} media={media.media} isPending={detail.isPending} />
+      <GameHero
+        game={game}
+        media={media.media}
+        hub={hub.hub}
+        isPending={detail.isPending}
+        onWriteReview={writeReview}
+        onWritePost={writePost}
+      />
       <SegmentedTabs
         items={tabs}
         activeId={activeTab}
@@ -228,13 +307,28 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         accessibilityLabel={`${gameTitle} sections`}
         style={{ marginTop: theme.space('space.4') }}
       />
+      {activeTab === 'reviews' ? (
+        <View
+          style={{
+            paddingHorizontal: theme.space('space.4'),
+            paddingTop: theme.space('space.4'),
+          }}
+        >
+          <DistributionBars
+            rows={reviewDistribution}
+            barHeight={3}
+            accessibilityLabel={`${gameTitle} rating distribution`}
+          />
+        </View>
+      ) : null}
     </View>
   );
 
   /**
-   * Block tabs render here rather than as list data: a grid, a rail set, and a
-   * prose column are each single units with their own internal layout, and
-   * splitting them into rows would virtualize them into incoherence.
+   * Block tabs render here rather than as list data: a prose column, a set of
+   * community sections, and a rail grid are each single units with their own
+   * internal layout, and splitting them into rows would virtualize them into
+   * incoherence.
    */
   const footer = ((): React.ReactElement | null => {
     if (isTabPending && rows.length === 0 && !isGameHubBlockTab(activeTab)) {
@@ -242,37 +336,32 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     }
 
     switch (activeTab) {
-      case 'overview':
+      case 'about':
         return (
-          <GameOverviewTab
+          <GameAboutTab
             game={game}
             screenshots={screenshots}
-            isPending={detail.isPending}
-            onSeeAllScreenshots={() => {
-              setActiveTab('screenshots');
-            }}
-            onWriteReview={writeReview}
-            onWritePost={writePost}
-          />
-        );
-      case 'screenshots':
-        return (
-          <GameMediaGrid
-            items={screenshots}
-            isPending={media.isPending}
-            gameTitle={gameTitle}
-            emptyTitle="No screenshots yet"
-            emptyDescription={`The catalog has not mirrored any artwork for ${gameTitle}.`}
-          />
-        );
-      case 'videos':
-        return (
-          <GameVideoList
-            items={videos}
+            videos={videos}
             trailerUrl={game?.trailerUrl ?? null}
-            isPending={media.isPending}
-            gameTitle={gameTitle}
+            isPending={detail.isPending}
+            onSeeAllScreenshots={openScreenshots}
             onOpenUrl={openUrl}
+          />
+        );
+      case 'community':
+        return (
+          <GameCommunityTab
+            gameTitle={gameTitle}
+            onlineFriendsPlaying={onlineFriendsPlaying}
+            isFriendsPending={onlineFriends.isPending || players.status === 'loading'}
+            onPressFriend={openUser}
+            collections={collections.items}
+            isCollectionsPending={collections.status === 'loading'}
+            onPressCollection={openCollection}
+            activity={timeline.items.slice(0, LIVE_ACTIVITY_LIMIT)}
+            isActivityPending={timeline.isPending}
+            onPressGame={openGame}
+            onPressUser={openUser}
           />
         );
       case 'recommendations':
@@ -284,8 +373,6 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
             onPressGame={openGame}
           />
         );
-      case 'activity':
-        return timeline.isFetchingNextPage ? <ContentListSkeleton rows={2} /> : null;
       default:
         return null;
     }
@@ -328,6 +415,53 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         onPress={() => {
           router.back();
         }}
+        trailing={
+          <View style={{ flexDirection: 'row', gap: theme.space('space.2') }}>
+            <IconButton
+              accessibilityLabel="Share"
+              size="lg"
+              onPress={shareGame}
+              hitSlop={8}
+              style={{
+                margin: theme.space('space.3'),
+                backgroundColor: theme.color('color.scrim.strong'),
+              }}
+            >
+              <Icon
+                name="share-2"
+                decorative
+                size={theme.space('space.6')}
+                color="color.scrim.foreground"
+              />
+            </IconButton>
+            {/*
+              Overflow: §5 asks for a third floating button here, but no
+              destination or action set is defined anywhere in the docs or
+              the app for it. Rendered as decoration only (not a `Pressable`,
+              hidden from assistive tech) rather than a button that does
+              nothing when tapped — the same "chevron is composition only"
+              call 3.2's ProCard already made.
+            */}
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={{
+                width: theme.space('space.12'),
+                height: theme.space('space.12'),
+                margin: theme.space('space.3'),
+                borderRadius: theme.radius('radius.full'),
+                backgroundColor: theme.color('color.scrim.strong'),
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MoreHorizontal
+                size={theme.space('space.6')}
+                color={theme.color('color.scrim.foreground')}
+              />
+            </View>
+          </View>
+        }
       />
 
       <FlatList
@@ -339,8 +473,6 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         ListFooterComponent={
           <View style={{ paddingBottom: theme.space('space.8') }}>{footer}</View>
         }
-        onEndReached={activeTab === 'activity' ? timeline.loadMore : undefined}
-        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={detail.isRefreshing}

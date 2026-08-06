@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '../theme/theme-provider';
@@ -11,6 +12,11 @@ export interface HeroBackButtonProps {
   topInset?: number;
   /** Name the destination where you can: "Back to Discover" beats "Go back". */
   accessibilityLabel?: string;
+  /**
+   * Sibling floating controls at the row's trailing edge — share, overflow.
+   * Opt-in: omitted, the row renders exactly as before (back button alone).
+   */
+  trailing?: ReactNode;
   style?: ViewStyle | ViewStyle[];
 }
 
@@ -26,6 +32,7 @@ export function HeroBackButton({
   onPress,
   topInset = 0,
   accessibilityLabel = 'Go back',
+  trailing,
   style,
 }: HeroBackButtonProps) {
   const theme = useTheme();
@@ -39,6 +46,8 @@ export function HeroBackButton({
           left: 0,
           right: 0,
           zIndex: 2,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
         },
         style,
       ]}
@@ -61,6 +70,7 @@ export function HeroBackButton({
           color="color.scrim.foreground"
         />
       </IconButton>
+      {trailing ?? null}
     </View>
   );
 }

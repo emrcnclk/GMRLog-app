@@ -3,42 +3,42 @@ import type {
   GameMediaResponse,
   GameResponse,
   LibraryStatusValue,
+  ReviewResponse,
 } from '@gmrlog/types';
-import type { SegmentedTabItem } from '@gmrlog/ui';
+import type { DistributionRow, SegmentedTabItem } from '@gmrlog/ui';
 import { REVIEW_RATING_MAX } from '@gmrlog/validators';
 
 /**
- * D3.27 Game Hub presentation model. Pure functions only — the screen stays a
- * thin renderer and every formatting rule below is covered by
+ * D3.27 / §5 Game Hub presentation model. Pure functions only — the screen
+ * stays a thin renderer and every formatting rule below is covered by
  * `game-detail-model.spec.ts`.
  */
 
+/**
+ * §5's five tabs (About/Reviews/Community/Workshop/Players), plus
+ * `recommendations` — real, working "Players also like" content the doc
+ * never asks to remove, kept per the same call 3.7 made for Discover's rails.
+ * `screenshots` and `videos` fold into `about`; `activity` and `collections`
+ * fold into `community`.
+ */
 export type GameHubTabId =
-  | 'overview'
-  | 'reviews'
-  | 'activity'
-  | 'screenshots'
-  | 'videos'
-  | 'collections'
-  | 'recommendations';
+  'about' | 'reviews' | 'community' | 'workshop' | 'players' | 'recommendations';
 
 export const GAME_HUB_TAB_LABELS: Record<GameHubTabId, string> = {
-  overview: 'Overview',
+  about: 'About',
   reviews: 'Reviews',
-  activity: 'Activity',
-  screenshots: 'Screenshots',
-  videos: 'Videos',
-  collections: 'Collections',
+  community: 'Community',
+  workshop: 'Workshop',
+  players: 'Players',
   recommendations: 'More like this',
 };
 
 export const GAME_HUB_TAB_ORDER: readonly GameHubTabId[] = [
-  'overview',
+  'about',
   'reviews',
-  'activity',
-  'screenshots',
-  'videos',
-  'collections',
+  'community',
+  'workshop',
+  'players',
   'recommendations',
 ];
 
@@ -48,8 +48,6 @@ export function isGameHubTabId(value: string): value is GameHubTabId {
 
 export interface GameHubTabCountInput {
   hub: GameHubResponse | null;
-  videoCount: number;
-  screenshotCount: number;
   recommendationCount: number;
 }
 
@@ -59,8 +57,6 @@ export interface GameHubTabCountInput {
  */
 export function buildGameHubTabs({
   hub,
-  videoCount,
-  screenshotCount,
   recommendationCount,
 }: GameHubTabCountInput): SegmentedTabItem<GameHubTabId>[] {
   const counts = hub?.tabCounts;
@@ -70,12 +66,10 @@ export function buildGameHubTabs({
     switch (id) {
       case 'reviews':
         return { id, label, count: counts?.reviews };
-      case 'collections':
-        return { id, label, count: counts?.collections };
-      case 'screenshots':
-        return { id, label, count: screenshotCount > 0 ? screenshotCount : undefined };
-      case 'videos':
-        return { id, label, count: videoCount > 0 ? videoCount : undefined };
+      case 'workshop':
+        return { id, label, count: counts?.guides };
+      case 'players':
+        return { id, label, count: counts?.players };
       case 'recommendations':
         return { id, label, count: recommendationCount > 0 ? recommendationCount : undefined };
       default:
@@ -90,9 +84,8 @@ export function buildGameHubTabs({
  * empty copy, so the hub's list-level empty state must not also fire for them.
  */
 export const GAME_HUB_BLOCK_TABS: readonly GameHubTabId[] = [
-  'overview',
-  'screenshots',
-  'videos',
+  'about',
+  'community',
   'recommendations',
 ];
 
@@ -103,9 +96,9 @@ export function isGameHubBlockTab(tab: GameHubTabId): boolean {
 /**
  * Empty-state copy for a list-bearing tab.
  *
- * An empty tab is an invitation, not a dead end: reviews and collections name
+ * An empty tab is an invitation, not a dead end: reviews and workshop name
  * the action that fills them. Block tabs are absent from this map on purpose —
- * asking for their copy is a caller bug, so they fall to the activity wording
+ * asking for their copy is a caller bug, so they fall to the players wording
  * rather than silently rendering an empty string.
  */
 export function gameHubEmptyCopy(
@@ -115,15 +108,12 @@ export function gameHubEmptyCopy(
   switch (tab) {
     case 'reviews':
       return { icon: 'star', description: `Be the first to write about ${gameTitle}.` };
-    case 'collections':
-      return {
-        icon: 'folder',
-        description: `${gameTitle} has not been added to a public collection yet.`,
-      };
+    case 'workshop':
+      return { icon: 'folder', description: `No one has posted a guide for ${gameTitle} yet.` };
     default:
       return {
-        icon: 'activity',
-        description: `Logs, reviews, and posts about ${gameTitle} will appear here.`,
+        icon: 'users',
+        description: `Nobody in the catalog has logged ${gameTitle} yet.`,
       };
   }
 }
@@ -253,4 +243,40 @@ export function formatCompanies(companies: readonly { name: string }[], limit = 
   const names = companies.slice(0, limit).map((company) => company.name);
   const remainder = companies.length - names.length;
   return remainder > 0 ? `${names.join(', ')} +${String(remainder)}` : names.join(', ');
+}
+
+/**
+ * How far the cover pulls up into the key art (§5's literal "-74px") — an
+ * off-grid compositional constant in the same class as `RARITY_PLATE_MIN`,
+ * not a spacing token.
+ */
+export const COVER_OVERLAP = 74;
+
+/** Fixed key-art height (§5's literal "330px full-bleed key art"). */
+export const GAME_HUB_HERO_HEIGHT = 330;
+
+const RATING_BANDS: readonly { label: string; min: number; max: number }[] = [
+  { label: '9–10', min: 9, max: 10 },
+  { label: '7–8', min: 7, max: 8 },
+  { label: '5–6', min: 5, max: 6 },
+  { label: '3–4', min: 3, max: 4 },
+  { label: '1–2', min: 1, max: 2 },
+];
+
+/**
+ * Five-row rating histogram (§5's Reviews tab) built client-side from the real
+ * per-review `rating` field — there is no server-computed distribution
+ * endpoint, so this buckets `reviews.items` the same way a profile's own
+ * distribution would. Ratings round to the nearest whole point before binning.
+ */
+export function bucketReviewDistribution(
+  reviews: readonly Pick<ReviewResponse, 'rating'>[],
+): DistributionRow[] {
+  return RATING_BANDS.map((band) => ({
+    label: band.label,
+    count: reviews.filter((review) => {
+      const rounded = Math.round(review.rating);
+      return rounded >= band.min && rounded <= band.max;
+    }).length,
+  }));
 }

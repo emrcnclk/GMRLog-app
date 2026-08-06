@@ -49,6 +49,7 @@ export function IconButton({
       case 'secondary':
         return theme.color('color.surface.secondary');
       case 'ghost':
+      case 'accent':
         return 'transparent';
       case 'danger':
         return theme.color('color.status.error');

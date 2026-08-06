@@ -15,6 +15,8 @@ export interface DistributionBarsProps {
   rows: readonly DistributionRow[];
   /** Shown when every count is zero. */
   emptyLabel?: string;
+  /** Bar track height, px. Default 8 — Game hub's reviews ramp wants 3. */
+  barHeight?: number;
   accessibilityLabel?: string;
   style?: ViewStyle | ViewStyle[];
 }
@@ -27,6 +29,7 @@ export interface DistributionBarsProps {
 export function DistributionBars({
   rows,
   emptyLabel = 'No ratings yet',
+  barHeight = 8,
   accessibilityLabel,
   style,
 }: DistributionBarsProps) {
@@ -65,7 +68,7 @@ export function DistributionBars({
           <ProgressBar
             value={row.count}
             target={peak}
-            height={8}
+            height={barHeight}
             accessibilityLabel={`${row.label}: ${String(row.count)} of ${String(total)}`}
             style={{ flex: 1 }}
           />

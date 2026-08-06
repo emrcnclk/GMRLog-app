@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, type PressableProps, type ViewStyle } from 'react-native';
 
 import { useReduceMotion } from '../motion/motion-provider';
@@ -7,7 +8,7 @@ import type { SemanticSpaceToken } from '../theme/tokens';
 
 import { Text } from './text';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
@@ -16,6 +17,8 @@ export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> 
   size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
+  /** Leading glyph — the accent CTA's pencil, for instance. Decorative. */
+  icon?: ReactNode;
   style?: ViewStyle | ViewStyle[];
 }
 
@@ -40,6 +43,7 @@ export function Button({
   size = 'md',
   loading = false,
   disabled = false,
+  icon,
   style,
   ...rest
 }: ButtonProps) {
@@ -57,6 +61,7 @@ export function Button({
       case 'secondary':
         return theme.color('color.surface.secondary');
       case 'ghost':
+      case 'accent':
         return 'transparent';
       case 'danger':
         return theme.color('color.status.error');
@@ -78,6 +83,8 @@ export function Button({
       case 'secondary':
       case 'ghost':
         return 'color.text.primary' as const;
+      case 'accent':
+        return 'color.accent.default' as const;
       default: {
         const _exhaustive: never = variant;
         return _exhaustive;
@@ -85,10 +92,20 @@ export function Button({
     }
   })();
 
-  const borderColor =
-    variant === 'secondary' || variant === 'ghost'
-      ? theme.color('color.border.default')
-      : 'transparent';
+  const borderColor = (() => {
+    if (isDisabled) {
+      return 'transparent';
+    }
+    switch (variant) {
+      case 'secondary':
+      case 'ghost':
+        return theme.color('color.border.default');
+      case 'accent':
+        return theme.color('color.accent.default');
+      default:
+        return 'transparent';
+    }
+  })();
 
   return (
     <Pressable
@@ -105,7 +122,8 @@ export function Button({
           minHeight: MIN_TOUCH_TARGET,
           borderRadius: theme.radius('radius.md'),
           backgroundColor,
-          borderWidth: variant === 'secondary' || variant === 'ghost' ? 1 : 0,
+          borderWidth:
+            variant === 'secondary' || variant === 'ghost' || variant === 'accent' ? 1 : 0,
           borderColor,
         },
         pressableMotionStyle(pressed && !isDisabled, reduceMotion),
@@ -116,9 +134,12 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={theme.color(textColor)} />
       ) : (
-        <Text role="label" color={textColor}>
-          {children}
-        </Text>
+        <>
+          {icon}
+          <Text role="label" color={textColor}>
+            {children}
+          </Text>
+        </>
       )}
     </Pressable>
   );
