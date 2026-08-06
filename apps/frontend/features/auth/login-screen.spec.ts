@@ -49,4 +49,10 @@ describe('LoginScreen validation & errors', () => {
   it('uses digital home welcome copy', () => {
     expect('Sign into your digital home').toBe('Sign into your digital home');
   });
+
+  // §1 makes email a fourth button rather than the first thing on the screen;
+  // the label has to match the other three so the stack reads as one list.
+  it('offers email as a continue option alongside the providers (§1)', () => {
+    expect('Continue with email').toMatch(/^Continue with /);
+  });
 });

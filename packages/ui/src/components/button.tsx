@@ -53,7 +53,13 @@ export function Button({
 
   const backgroundColor = (() => {
     if (isDisabled) {
-      return theme.color('color.interactive.disabled');
+      // An outlined button stays outlined when it is disabled. Filling it would
+      // change its shape, not just its state, and `accent` is outlined on
+      // purpose — CLAUDE.md prefers the outlined treatment even for a primary
+      // CTA. Found on Login (§1), where the submit is disabled on first paint.
+      return variant === 'accent' || variant === 'ghost'
+        ? 'transparent'
+        : theme.color('color.interactive.disabled');
     }
     switch (variant) {
       case 'primary':
@@ -74,7 +80,9 @@ export function Button({
 
   const textColor = (() => {
     if (isDisabled) {
-      return 'color.text.inverse' as const;
+      return variant === 'accent' || variant === 'ghost'
+        ? ('color.text.disabled' as const)
+        : ('color.text.inverse' as const);
     }
     switch (variant) {
       case 'primary':
@@ -94,7 +102,11 @@ export function Button({
 
   const borderColor = (() => {
     if (isDisabled) {
-      return 'transparent';
+      // The outlined variants keep a visible edge so a disabled CTA still reads
+      // as a button; the filled ones have no border to keep.
+      return variant === 'accent' || variant === 'ghost'
+        ? theme.color('color.border.default')
+        : 'transparent';
     }
     switch (variant) {
       case 'secondary':
