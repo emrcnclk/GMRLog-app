@@ -1,5 +1,5 @@
 import { Screen } from '@gmrlog/ui';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 
 import { ScreenHeader } from '../../src/navigation/screen-header';
@@ -91,15 +91,29 @@ function DiscoverGamesSurface({
   );
 }
 
-/** Discover Games — GET /discover/games. */
+/**
+ * Discover Games — GET /discover/games.
+ *
+ * `genreId`/`genreName` arrive from the hub's genre chips (`SCREEN_REDESIGNS.md`
+ * §7); opened any other way (the hub's "See all", `EmptyDiscover`'s "Browse all
+ * games") they're absent and this is the exact unfiltered browse it always was.
+ */
 export function DiscoverGamesScreen() {
-  const list = useDiscoverGames();
+  const params = useLocalSearchParams<{ genreId?: string; genreName?: string }>();
+  const genreId = typeof params.genreId === 'string' ? params.genreId : undefined;
+  const genreName = typeof params.genreName === 'string' ? params.genreName : undefined;
+  const list = useDiscoverGames(genreId);
+
   return (
     <DiscoverGamesSurface
-      title="Games"
+      title={genreName !== undefined ? `Games — ${genreName}` : 'Games'}
       errorTitle="Could not load games"
       emptyTitle="No games yet"
-      emptyDescription="The games catalog is empty right now. Pull to refresh."
+      emptyDescription={
+        genreName !== undefined
+          ? `No ${genreName} games in the catalog right now. Pull to refresh.`
+          : 'The games catalog is empty right now. Pull to refresh.'
+      }
       list={list}
     />
   );

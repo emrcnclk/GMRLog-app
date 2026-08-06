@@ -15,7 +15,8 @@ describe('discover query architecture', () => {
 
   it('uses stable discover keys', () => {
     expect(queryKeys.discover.hub()).toEqual(['discover', 'hub']);
-    expect(queryKeys.discover.games()).toEqual(['discover', 'games']);
+    expect(queryKeys.discover.games()).toEqual(['discover', 'games', 'all']);
+    expect(queryKeys.discover.games('rpg')).toEqual(['discover', 'games', 'rpg']);
     expect(queryKeys.discover.communities()).toEqual(['discover', 'communities']);
     expect(queryKeys.discover.events()).toEqual(['discover', 'events']);
     expect(queryKeys.discover.trending()).toEqual(['discover', 'trending', '7d']);

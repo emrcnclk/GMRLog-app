@@ -4,7 +4,7 @@ import type {
   EventResponse,
   GameCardResponse,
 } from '@gmrlog/types';
-import { EntityList, useTheme } from '@gmrlog/ui';
+import { EntityList } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 
@@ -12,8 +12,8 @@ import { CollectionCard } from '../../collections/components/collection-card';
 import { CommunityCard } from '../../communities/components/community-card';
 import { EventCard } from '../../events/components/event-card';
 
-import { DiscoverCardSkeleton, DiscoverGridSkeleton } from './discover-skeleton';
-import { GamePosterCard, POSTER_WIDTH } from './game-poster-card';
+import { DiscoverCardSkeleton } from './discover-skeleton';
+import { GameCard } from './game-card';
 
 interface DiscoverListChromeProps {
   refreshing: boolean;
@@ -23,21 +23,13 @@ interface DiscoverListChromeProps {
 }
 
 /**
- * Columns for the game grid.
- *
- * Two across a phone keeps the cover large enough to sell the game, which is
- * the whole point of Discover; three would return us to the thumbnail row this
- * sprint replaced.
- */
-const GAME_GRID_COLUMNS = 2;
-
-/**
- * Full-catalog game browse — a poster grid, not a list of rows.
- *
- * These four lists used to be near-identical `FlatList` wrappers differing only
- * in item type and card. They render through `EntityList` now, so scroll
- * physics, refresh tint, pagination threshold, footer treatment, and list
- * semantics are defined once in the design system.
+ * Full-catalog game browse — "result rows: cover, title, meta, rating"
+ * (`SCREEN_REDESIGNS.md` §7), a hairline-separated list rather than the poster
+ * grid this rendered before 3.7. `GameCard` already had exactly this row shape
+ * built (D3.28) but was never wired to a real list — the poster grid used
+ * `GamePosterCard` instead. These four lists render through `EntityList`, so
+ * scroll physics, refresh tint, pagination threshold, footer treatment, and
+ * list semantics are defined once in the design system.
  */
 export function GameCardList({
   items,
@@ -46,7 +38,6 @@ export function GameCardList({
   onEndReached,
   isFetchingNextPage,
 }: DiscoverListChromeProps & { items: GameCardResponse[] }) {
-  const theme = useTheme();
   const router = useRouter();
 
   const openGame = useCallback(
@@ -60,28 +51,14 @@ export function GameCardList({
     <EntityList
       items={items}
       keyExtractor={(item) => item.id}
-      renderItem={(item, index) => (
-        <GamePosterCard
-          game={item}
-          onPress={openGame}
-          width={POSTER_WIDTH}
-          // Roughly the first three rows are on screen at mount.
-          priority={index < GAME_GRID_COLUMNS * 3 ? 'normal' : 'low'}
-        />
-      )}
-      numColumns={GAME_GRID_COLUMNS}
+      renderItem={(item) => <GameCard game={item} onPress={openGame} />}
       refreshing={refreshing}
       onRefresh={() => {
         void onRefresh();
       }}
       onEndReached={onEndReached}
       isFetchingNextPage={isFetchingNextPage}
-      footerSkeleton={<DiscoverGridSkeleton rows={1} />}
-      contentContainerStyle={{
-        paddingTop: theme.space('space.4'),
-        gap: theme.space('space.5'),
-        paddingBottom: theme.space('space.8'),
-      }}
+      footerSkeleton={<DiscoverCardSkeleton />}
       accessibilityLabel="Games"
     />
   );

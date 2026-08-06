@@ -47,7 +47,7 @@ export const queryKeys = {
   discover: {
     all: ['discover'] as const,
     hub: () => ['discover', 'hub'] as const,
-    games: () => ['discover', 'games'] as const,
+    games: (genreId?: string) => ['discover', 'games', genreId ?? 'all'] as const,
     communities: () => ['discover', 'communities'] as const,
     events: () => ['discover', 'events'] as const,
     trending: (window?: string) => ['discover', 'trending', window ?? '7d'] as const,

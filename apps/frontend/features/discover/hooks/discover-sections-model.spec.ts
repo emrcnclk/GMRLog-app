@@ -11,10 +11,12 @@ import {
   RECENT_RELEASE_WINDOW_DAYS,
   selectContinuePlaying,
   selectFriendsPlaying,
+  selectGenreChips,
   selectHighestRated,
   selectIndie,
   selectRecentlyReleased,
   selectUpcoming,
+  type DiscoverRailModel,
 } from './discover-sections-model';
 
 const NOW = Date.parse('2026-08-01T00:00:00.000Z');
@@ -84,6 +86,53 @@ describe('selectUpcoming', () => {
 
   it('treats an unparseable date as no date rather than as epoch zero', () => {
     expect(selectUpcoming([released('broken', 'not-a-date')], NOW)).toEqual([]);
+  });
+});
+
+function rail(id: string, games: GameCardResponse[]): DiscoverRailModel {
+  return {
+    id: id as DiscoverRailModel['id'],
+    title: id,
+    subtitle: id,
+    href: null,
+    games,
+    isProjection: false,
+  };
+}
+
+function genreGame(id: string, genres: { id: string; name: string }[]): GameCardResponse {
+  return game({ id, genres: genres.map((g) => ({ ...g, slug: g.id })) });
+}
+
+describe('selectGenreChips', () => {
+  it('collapses the same genre id across rails into one chip', () => {
+    const chips = selectGenreChips([
+      rail('a', [genreGame('g1', [{ id: 'rpg', name: 'RPG' }])]),
+      rail('b', [genreGame('g2', [{ id: 'rpg', name: 'RPG' }])]),
+    ]);
+
+    expect(chips).toEqual([{ id: 'rpg', name: 'RPG' }]);
+  });
+
+  it('orders chips first-seen across rails', () => {
+    const chips = selectGenreChips([
+      rail('a', [genreGame('g1', [{ id: 'action', name: 'Action' }])]),
+      rail('b', [genreGame('g2', [{ id: 'indie', name: 'Indie' }])]),
+    ]);
+
+    expect(chips.map((c) => c.id)).toEqual(['action', 'indie']);
+  });
+
+  it('stops at the limit rather than collecting every genre in the catalog', () => {
+    const games = Array.from({ length: 20 }, (_, i) =>
+      genreGame(`g${String(i)}`, [{ id: `genre-${String(i)}`, name: `Genre ${String(i)}` }]),
+    );
+
+    expect(selectGenreChips([rail('a', games)], 5)).toHaveLength(5);
+  });
+
+  it('returns nothing when no rail has loaded yet', () => {
+    expect(selectGenreChips([])).toEqual([]);
   });
 });
 

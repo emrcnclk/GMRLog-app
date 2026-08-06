@@ -1,31 +1,54 @@
-import { Rail, Screen, useTheme } from '@gmrlog/ui';
+import {
+  Icon,
+  MIN_TOUCH_TARGET,
+  Rail,
+  SCREEN_GUTTER,
+  Screen,
+  ScreenTitle,
+  Text,
+  useTheme,
+} from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { FlatList, RefreshControl } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { FlatList, Pressable, RefreshControl } from 'react-native';
 
-import { ScreenHeader } from '../../src/navigation/screen-header';
 import { useConnectivityStore } from '../../src/state/stores';
 
 import { DiscoverErrorState } from './components/discover-error-state';
 import { DiscoverHubSkeleton } from './components/discover-skeleton';
 import { EmptyDiscover } from './components/empty-discover';
 import { GamePosterCard } from './components/game-poster-card';
-import type { DiscoverRailModel } from './hooks/discover-sections-model';
+import { GenreChipsRow } from './components/genre-chips-row';
+import {
+  selectGenreChips,
+  type DiscoverGenreChip,
+  type DiscoverRailModel,
+} from './hooks/discover-sections-model';
 import { useDiscoverRails } from './hooks/use-discover-rails';
 
 /** Tiles in the first rail that are worth fetching eagerly. */
 const EAGER_TILES = 3;
 
 /**
- * Discover — ten rails of artwork over one virtualized list (D3.28 Phase 1).
+ * Discover — search-first chrome (`SCREEN_REDESIGNS.md` §7) over the ten-rail
+ * shelf list underneath (D3.28 Phase 1), kept exactly as it was.
  *
- * The previous hub was a vertical stack of link cards: a table of contents that
- * made you tap before you could see a single game. This screen puts the games
- * themselves on the surface, and keeps the dedicated list screens behind each
- * rail's "See all" so nothing that D3.22 built becomes unreachable.
+ * §7's own bullets ("Screen title, then search... then a rhythm of rails")
+ * read as compatible with, not a replacement for, the existing rails: every
+ * rail here is a real, working query (`useDiscoverRails`), and nothing about
+ * this task's "layout only" scope justifies deleting six of them to match a
+ * flatter mock. The "Plays like you" rail is explicitly deferred to 6.2 and
+ * is not built here. The sponsored card has no data behind it anywhere in
+ * this API — not even a reserved field — so it is not built either; see
+ * `TASKS.md` 3.7 for the backend follow-up this needs before it can be real.
  *
- * Rails come from `useDiscoverRails`; empty ones are dropped upstream, so
- * anything rendered here has content.
+ * The search field is a navigation trigger, not an inline filter: there is no
+ * free-text search parameter on `GET /discover/games`, and the app already
+ * has a real server-searched Search tab (the same shortcut Home's header
+ * search icon already uses). Genre chips are real, though — they're a
+ * projection over whichever rail games are already loaded (no
+ * `/discover/genres` endpoint exists) and tapping one navigates to the games
+ * list filtered by the real `genreId` param that endpoint already accepts.
  */
 export function DiscoverHubScreen() {
   const router = useRouter();
@@ -33,9 +56,25 @@ export function DiscoverHubScreen() {
   const isOnline = useConnectivityStore((s) => s.isOnline);
   const discover = useDiscoverRails();
 
+  const genreChips = useMemo(() => selectGenreChips(discover.rails), [discover.rails]);
+
   const openGame = useCallback(
     (gameId: string) => {
       router.push(`/(app)/game/${gameId}`);
+    },
+    [router],
+  );
+
+  const openSearch = useCallback(() => {
+    router.push('/(app)/(tabs)/search');
+  }, [router]);
+
+  const openGenre = useCallback(
+    (genre: DiscoverGenreChip) => {
+      router.push({
+        pathname: '/(app)/(tabs)/discover/games',
+        params: { genreId: genre.id, genreName: genre.name },
+      });
     },
     [router],
   );
@@ -80,8 +119,30 @@ export function DiscoverHubScreen() {
   );
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <ScreenHeader title="Discover" />
+    <Screen edges={['top']} style={{ paddingBottom: 0 }}>
+      <ScreenTitle title="Discover" />
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Search games, communities, and people"
+        onPress={openSearch}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.space('space.2'),
+          minHeight: MIN_TOUCH_TARGET,
+          marginHorizontal: theme.space(SCREEN_GUTTER),
+          marginBottom: theme.space('space.4'),
+          paddingHorizontal: theme.space('space.3'),
+          borderRadius: theme.radius('radius.md'),
+          backgroundColor: theme.color('color.surface.secondary'),
+        }}
+      >
+        <Icon name="search" decorative size={18} color="color.text.tertiary" />
+        <Text role="body" color="color.text.tertiary">
+          Search games, communities, people
+        </Text>
+      </Pressable>
 
       {discover.status === 'loading' ? <DiscoverHubSkeleton /> : null}
 
@@ -107,9 +168,14 @@ export function DiscoverHubScreen() {
           data={discover.rails}
           keyExtractor={(rail) => rail.id}
           renderItem={renderRail}
+          ListHeaderComponent={
+            genreChips.length > 0 ? (
+              <GenreChipsRow genres={genreChips} onSelectGenre={openGenre} />
+            ) : null
+          }
           refreshControl={refreshControl}
           contentContainerStyle={{
-            paddingVertical: theme.space('space.4'),
+            paddingTop: theme.space('space.4'),
             gap: theme.space('space.6'),
             paddingBottom: theme.space('space.10'),
           }}

@@ -38,15 +38,21 @@ export function useDiscoverHub() {
   return { ...view, refresh, refetch: query.refetch };
 }
 
-export function useDiscoverGames() {
+/**
+ * `genreId` wires the hub's genre chips (`SCREEN_REDESIGNS.md` §7) to the real
+ * `genreId` filter `GET /discover/games` already accepts — omitted, this is
+ * the exact unfiltered browse the pre-3.7 screen already used.
+ */
+export function useDiscoverGames(genreId?: string) {
   const api = useApiClient();
   const queryClient = useQueryClient();
 
   const query = useInfiniteQuery({
-    queryKey: queryKeys.discover.games(),
+    queryKey: queryKeys.discover.games(genreId),
     queryFn: ({ pageParam }) =>
       api.listDiscoverGames({
         limit: DISCOVER_LIST_DEFAULT_LIMIT,
+        ...(genreId !== undefined ? { genreId } : {}),
         ...(pageParam !== undefined ? { cursor: pageParam } : {}),
       }),
     initialPageParam: undefined as string | undefined,
@@ -69,8 +75,8 @@ export function useDiscoverGames() {
   });
 
   const refresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.discover.games() });
-  }, [queryClient]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.discover.games(genreId) });
+  }, [queryClient, genreId]);
 
   const loadMore = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) {

@@ -283,6 +283,41 @@ export function selectFriendsPlaying(
   return picked;
 }
 
+export interface DiscoverGenreChip {
+  id: string;
+  name: string;
+}
+
+/**
+ * Genre chips (`SCREEN_REDESIGNS.md` §7) are a client-side projection over
+ * whatever rail games are already loaded — there is no `/discover/genres` (or
+ * any other canonical genre list) endpoint anywhere in this API, the same
+ * "no rail may invent an endpoint" constraint the rails above are already
+ * built under. Genres collapse by id across every rail's games; order is
+ * first-seen, which in practice tracks `DISCOVER_RAIL_ORDER`.
+ */
+export function selectGenreChips(
+  rails: readonly DiscoverRailModel[],
+  limit = 10,
+): DiscoverGenreChip[] {
+  const seen = new Map<string, DiscoverGenreChip>();
+
+  outer: for (const rail of rails) {
+    for (const game of rail.games) {
+      for (const genre of game.genres) {
+        if (!seen.has(genre.id)) {
+          seen.set(genre.id, { id: genre.id, name: genre.name });
+        }
+        if (seen.size >= limit) {
+          break outer;
+        }
+      }
+    }
+  }
+
+  return [...seen.values()];
+}
+
 export interface DiscoverRailInput {
   continuePlaying: readonly LibraryEntryResponse[];
   recommended: readonly GameCardResponse[];

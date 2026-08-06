@@ -1,9 +1,13 @@
 import type { SimilarGameResponse } from '@gmrlog/types';
 import { Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { GameCard } from './game-card';
+
+const noop = () => {
+  // GameCard's onPress is required — a static rendering has nothing to navigate to.
+};
 
 export interface SimilarGamesSectionProps {
   items: SimilarGameResponse[];
@@ -37,22 +41,9 @@ function SimilarGamesSectionComponent({ items, isPending, onPressGame }: Similar
         You may also like
       </Text>
       <View>
-        {items.map((row) =>
-          onPressGame ? (
-            <Pressable
-              key={row.game.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${row.game.title}`}
-              onPress={() => {
-                onPressGame(row.game.id);
-              }}
-            >
-              <GameCard game={row.game} />
-            </Pressable>
-          ) : (
-            <GameCard key={row.game.id} game={row.game} />
-          ),
-        )}
+        {items.map((row) => (
+          <GameCard key={row.game.id} game={row.game} onPress={onPressGame ?? noop} />
+        ))}
       </View>
     </View>
   );
