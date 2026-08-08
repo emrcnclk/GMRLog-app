@@ -592,6 +592,14 @@ export class AxiosApiClient {
     return this.delete<null>(`/communities/${id}`);
   }
 
+  /** `GET /communities/{id}/feed` — §14's Feed tab (cursor-paginated). */
+  listCommunityFeed(
+    id: string,
+    query?: { cursor?: string; limit?: number },
+  ): Promise<ApiEnvelope<FeedItemResponse[]>> {
+    return this.get<FeedItemResponse[]>(`/communities/${id}/feed`, query);
+  }
+
   /** `GET /communities/{id}/members` — members (oldest → newest). */
   listCommunityMembers(id: string): Promise<ApiEnvelope<CommunityMemberResponse[]>> {
     return this.get<CommunityMemberResponse[]>(`/communities/${id}/members`);

@@ -2,6 +2,8 @@ import type { CommunityResponse } from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
+  COMMUNITY_DETAIL_TABS,
+  communityDetailMeta,
   communityDirectoryMeta,
   communityFooterLine,
   communityFriendReason,
@@ -64,6 +66,24 @@ describe('community directory model', () => {
     expect(communityFooterLine(community('a', 1204, false))).toBe('1204 members');
     expect(communityFooterLine(community('b', 1, false))).toBe('1 member');
     expect(communityFooterLine(community('c', 0, false))).toBe('0 members');
+  });
+
+  describe('detail shell (§14)', () => {
+    it('carries only the meta term the DTO can answer', () => {
+      // §14 asks for "members · created · privacy". `CommunityResponse` has no
+      // createdAt and deliberately does not project visibility, so the line is
+      // the member count alone — never a placeholder for the other two.
+      expect(communityDetailMeta(community('a', 42, false))).toBe('42 members');
+      expect(communityDetailMeta(community('b', 1, false))).toBe('1 member');
+      expect(communityDetailMeta(community('c', 0, false))).not.toContain('·');
+    });
+
+    it('offers the three tabs that have an endpoint, in §14’s order', () => {
+      // §14 lists Feed / Members / Events / About; nothing under
+      // `/communities/{id}` returns events, so that tab is not offered.
+      expect(COMMUNITY_DETAIL_TABS.map((t) => t.id)).toEqual(['feed', 'members', 'about']);
+      expect(COMMUNITY_DETAIL_TABS.map((t) => t.label)).toEqual(['Feed', 'Members', 'About']);
+    });
   });
 
   describe('friend reason (3b.1b)', () => {

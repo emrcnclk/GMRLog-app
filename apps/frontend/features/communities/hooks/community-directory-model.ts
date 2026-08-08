@@ -61,6 +61,36 @@ export function communityFooterLine(community: CommunityResponse): string {
 }
 
 /**
+ * `SCREEN_REDESIGNS_2.md` §14's tab set, minus the one with no endpoint.
+ *
+ * §14 lists Feed / Members / Events / About. There is no route under
+ * `/communities/{id}` that returns events — the `Event` model carries a
+ * `communityId`, but nothing exposes it — so an Events tab could only ever
+ * render an empty panel. Tracked on 3b.2 rather than shipped as furniture.
+ */
+export const COMMUNITY_DETAIL_TABS = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'members', label: 'Members' },
+  { id: 'about', label: 'About' },
+] as const;
+
+export type CommunityDetailTabId = (typeof COMMUNITY_DETAIL_TABS)[number]['id'];
+
+/**
+ * §14's monospace meta line: "members · created · privacy".
+ *
+ * Only the first term exists. `CommunityResponse` projects no `createdAt`, and
+ * `community-model.ts` records in its own comment that visibility is
+ * deliberately not projected either — the API enforces it rather than
+ * publishing it. So the line carries the member count and stops; the two
+ * missing terms are a follow-up on 3b.2, not a `—` placeholder.
+ */
+export function communityDetailMeta(community: CommunityResponse): string {
+  const members = community.counts.members;
+  return `${String(members)} ${members === 1 ? 'member' : 'members'}`;
+}
+
+/**
  * §13's "one-line reason in accent monospace" under a suggested circle —
  * "3 friends here" (3b.1b).
  *

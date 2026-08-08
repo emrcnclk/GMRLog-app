@@ -132,6 +132,8 @@ export const queryKeys = {
     list: () => ['communities', 'list'] as const,
     detail: (id: string) => ['communities', 'detail', id] as const,
     members: (id: string) => ['communities', 'members', id] as const,
+    /** §14's Feed tab — `GET /communities/{id}/feed`, cursor-paginated. */
+    feed: (id: string) => ['communities', 'feed', id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

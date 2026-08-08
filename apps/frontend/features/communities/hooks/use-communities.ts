@@ -96,6 +96,60 @@ export function useCommunity(communityId: string) {
   };
 }
 
+/**
+ * §14's Feed tab — `GET /communities/{id}/feed`.
+ *
+ * Paginated from the start, in the shape 3b.1a settled on: the directory's
+ * unpaginated list is the reason that task existed, and a community feed grows
+ * the same way.
+ */
+export function useCommunityFeed(communityId: string) {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.communities.feed(communityId),
+    enabled: communityId.length > 0,
+    queryFn: ({ pageParam }) =>
+      api.listCommunityFeed(communityId, {
+        ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => getNextPageParam(lastPage.meta),
+  });
+
+  const items = useMemo(
+    () => query.data?.pages.flatMap((page) => page.data) ?? [],
+    [query.data?.pages],
+  );
+
+  const view = resolveListView({
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    items,
+    isRefreshing: query.isRefetching && !query.isFetchingNextPage,
+  });
+
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.communities.feed(communityId) });
+  }, [communityId, queryClient]);
+
+  const loadMore = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query]);
+
+  return {
+    ...view,
+    refresh,
+    loadMore,
+    isFetchingNextPage: query.isFetchingNextPage,
+    refetch: query.refetch,
+  };
+}
+
 export function useCommunityMembers(communityId: string) {
   const api = useApiClient();
   const queryClient = useQueryClient();

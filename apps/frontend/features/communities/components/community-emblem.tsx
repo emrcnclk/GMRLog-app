@@ -15,9 +15,20 @@ export const COMMUNITY_EMBLEM_OVERLAP = COMMUNITY_EMBLEM_SIZE / 2;
 /** §13's "3px background-coloured ring" — a mat, drawn as padding, not a border. */
 export const COMMUNITY_EMBLEM_RING = 3;
 
+/**
+ * §14's detail header. The doc gives only the overlap (`-30px`); the size comes
+ * from §13's own rule that the emblem overlaps by exactly half itself, which is
+ * what makes the plate sit on the banner's edge rather than near it. 60 is also
+ * the one size that keeps that relationship while matching §14's number.
+ */
+export const COMMUNITY_EMBLEM_SIZE_DETAIL = 60;
+export const COMMUNITY_EMBLEM_OVERLAP_DETAIL = COMMUNITY_EMBLEM_SIZE_DETAIL / 2;
+
 export interface CommunityEmblemProps {
   name: string;
   avatarUrl: string | null;
+  /** Defaults to §13's card size; §14's header passes the detail size. */
+  size?: number;
 }
 
 /**
@@ -36,9 +47,13 @@ export interface CommunityEmblemProps {
  * background-coloured ring" means: the emblem punches a hole in the banner
  * rather than sitting on a drawn outline. Depth from surface, not from a line.
  */
-export function CommunityEmblem({ name, avatarUrl }: CommunityEmblemProps) {
+export function CommunityEmblem({
+  name,
+  avatarUrl,
+  size = COMMUNITY_EMBLEM_SIZE,
+}: CommunityEmblemProps) {
   const theme = useTheme();
-  const inner = COMMUNITY_EMBLEM_SIZE;
+  const inner = size;
 
   return (
     <View
