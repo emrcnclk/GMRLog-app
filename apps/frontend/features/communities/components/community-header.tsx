@@ -47,6 +47,16 @@ export function CommunityHeader({ community, onBack, onError, onOverflow }: Comm
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
+  /**
+   * The glass buttons sit **on the scrim**, which is dark in both schemes by
+   * design (`THEME_MIGRATION.md` §1–2, and the reason `scrim.foreground` is the
+   * one token with the same value in light and dark). Their icons must take
+   * that foreground, not `text.primary` — measured in light, `text.primary`
+   * strokes `#16182A` on an `rgba(22,24,42,0.82)` fill, which is a dark glyph
+   * on a dark plate and effectively invisible.
+   */
+  const glassForeground = theme.color('color.scrim.foreground');
+
   const glass = {
     width: GLASS_BUTTON_SIZE,
     height: GLASS_BUTTON_SIZE,
@@ -94,7 +104,7 @@ export function CommunityHeader({ community, onBack, onError, onOverflow }: Comm
             onPress={onBack}
             style={glass}
           >
-            <ChevronLeft size={20} color={theme.color('color.text.primary')} strokeWidth={1.75} />
+            <ChevronLeft size={20} color={glassForeground} strokeWidth={1.75} />
           </Pressable>
 
           {onOverflow === undefined ? null : (
@@ -104,11 +114,7 @@ export function CommunityHeader({ community, onBack, onError, onOverflow }: Comm
               onPress={onOverflow}
               style={glass}
             >
-              <MoreHorizontal
-                size={20}
-                color={theme.color('color.text.primary')}
-                strokeWidth={1.75}
-              />
+              <MoreHorizontal size={20} color={glassForeground} strokeWidth={1.75} />
             </Pressable>
           )}
         </View>

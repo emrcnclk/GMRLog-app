@@ -61,7 +61,7 @@ export function CommunityDetailScreen() {
 
   if (detail.isPending && !detail.community) {
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={[]}>
         <CommunityDetailSkeleton />
       </Screen>
     );
@@ -70,7 +70,7 @@ export function CommunityDetailScreen() {
   if (detail.isError && !detail.community) {
     const mapped = mapAuthError(detail.error, isOnline);
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={[]}>
         <CommunityErrorState
           title={mapped.title}
           description={mapped.description}
@@ -85,7 +85,7 @@ export function CommunityDetailScreen() {
 
   if (!detail.community) {
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={[]}>
         <CommunityErrorState
           title="Community not found"
           description="This community may have been removed."
@@ -99,7 +99,7 @@ export function CommunityDetailScreen() {
   const owner = isCommunityOwner(community);
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Screen edges={[]}>
       <ScrollView
         refreshControl={
           <RefreshControl
