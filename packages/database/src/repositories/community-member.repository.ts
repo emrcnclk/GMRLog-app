@@ -25,6 +25,14 @@ export interface CommunityMemberRepository {
     communityIds: readonly string[],
     userId: string,
   ): Promise<CommunityMember[]>;
+  /**
+   * How many of `userIds` belong to each community, in one `groupBy` — 3b.1b's
+   * "N friends here". Communities with none are absent from the map.
+   */
+  countByCommunityIdsForUsers(
+    communityIds: readonly string[],
+    userIds: readonly string[],
+  ): Promise<Map<string, number>>;
   /** The owner row of each community in a page, in one query. */
   listOwnersByCommunityIds(communityIds: readonly string[]): Promise<CommunityMember[]>;
   update(id: string, data: Prisma.CommunityMemberUpdateInput): Promise<CommunityMember>;
@@ -91,6 +99,21 @@ export class PrismaCommunityMemberRepository implements CommunityMemberRepositor
     return this.db.communityMember.findMany({
       where: { communityId: { in: [...communityIds] }, userId },
     });
+  }
+
+  async countByCommunityIdsForUsers(
+    communityIds: readonly string[],
+    userIds: readonly string[],
+  ): Promise<Map<string, number>> {
+    if (communityIds.length === 0 || userIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db.communityMember.groupBy({
+      by: ['communityId'],
+      where: { communityId: { in: [...communityIds] }, userId: { in: [...userIds] } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.communityId, row._count._all]));
   }
 
   listOwnersByCommunityIds(communityIds: readonly string[]): Promise<CommunityMember[]> {

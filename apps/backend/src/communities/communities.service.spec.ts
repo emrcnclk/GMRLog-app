@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { PostRepository } from '@gmrlog/database';
+import type { FriendshipRepository, PostRepository } from '@gmrlog/database';
 
 import { createFakeFollowRepository } from '../follows/testing/fake-repositories';
 import type { RequestIdentity } from '../auth/interfaces/identity';
@@ -58,6 +58,8 @@ let pins: FakeCommunityPinRepository;
 let badges: FakeCommunityBadgeRepository;
 let posts: FakeCommunityPostRepository;
 let notifications!: { create: (data: unknown) => Promise<{ id: string }> };
+/** 3b.1b — only `listFriendIds` is reached from the directory projection. */
+let friendships!: FriendshipRepository;
 let service: CommunitiesService;
 
 function buildService(): CommunitiesService {
@@ -72,12 +74,16 @@ function buildService(): CommunitiesService {
     badges,
     posts as unknown as PostRepository,
     notifications as never,
+    friendships,
   );
 }
 
 beforeEach(() => {
   follows = createFakeFollowRepository();
   notifications = { create: async () => ({ id: 'n1' }) as never };
+  friendships = {
+    listFriendIds: () => Promise.resolve([]),
+  } as unknown as FriendshipRepository;
   users = createFakeUserRepository([
     makeUser({ id: 'user-1', handle: 'gamer', displayName: 'Gamer' }),
     makeUser({ id: 'user-2', handle: 'other', displayName: 'Other' }),
@@ -180,6 +186,35 @@ describe('CommunitiesService.listCommunities', () => {
 
   it('rejects a malformed cursor rather than returning page one', async () => {
     await expect(service.listCommunities(guest, { cursor: 'not-a-cursor' })).rejects.toThrow();
+  });
+
+  /**
+   * 3b.1b — §13's "N friends here". Viewer-relative, so it sits beside
+   * `viewerMembership` rather than in `counts`: the same circle reports a
+   * different number to a different viewer, and nothing at all to a guest.
+   */
+  it('counts the viewer’s friends inside each circle', async () => {
+    // `user-1` owns `community-1`; viewing as `user-2` with `user-1` as a
+    // friend, that circle should report one friend and the one where they have
+    // none should report zero — same page, same query, different rows.
+    friendships = {
+      listFriendIds: () => Promise.resolve(['user-1']),
+    } as unknown as FriendshipRepository;
+    service = buildService();
+
+    const listed = await service.listCommunities({ class: 'player', userId: 'user-2' });
+    expect(listed.items.find((row) => row.id === 'community-1')?.viewerFriendCount).toBe(1);
+    expect(listed.items.find((row) => row.id === 'community-private')?.viewerFriendCount).toBe(0);
+  });
+
+  it('omits the friend count entirely for a guest', async () => {
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]).not.toHaveProperty('viewerFriendCount');
+  });
+
+  it('reports zero rather than nothing when a signed-in viewer has no friends there', async () => {
+    const listed = await service.listCommunities(player);
+    expect(listed.items[0]?.viewerFriendCount).toBe(0);
   });
 });
 

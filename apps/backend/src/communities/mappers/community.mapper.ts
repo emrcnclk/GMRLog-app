@@ -42,6 +42,8 @@ export function toCommunityResponse(
   community: Community,
   memberCount: number,
   viewerMembership: CommunityMembershipSummary | null,
+  /** 3b.1b — omitted for a guest, and by every caller that does not compute it. */
+  viewerFriendCount?: number,
 ): CommunityResponse {
   return {
     id: community.id,
@@ -51,6 +53,7 @@ export function toCommunityResponse(
     bannerUrl: resolveMediaUrl(community.bannerKey),
     viewerMembership,
     counts: { members: memberCount },
+    ...(viewerFriendCount === undefined ? {} : { viewerFriendCount }),
   };
 }
 

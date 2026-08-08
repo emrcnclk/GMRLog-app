@@ -346,6 +346,17 @@ export function createFakeCommunityMemberRepository(
         [...rows.values()].filter((row) => wanted.has(row.communityId) && row.role === 'owner'),
       );
     },
+    countByCommunityIdsForUsers: (communityIds, userIds) => {
+      const wantedCommunities = new Set(communityIds);
+      const wantedUsers = new Set(userIds);
+      const counts = new Map<string, number>();
+      for (const row of rows.values()) {
+        if (wantedCommunities.has(row.communityId) && wantedUsers.has(row.userId)) {
+          counts.set(row.communityId, (counts.get(row.communityId) ?? 0) + 1);
+        }
+      }
+      return Promise.resolve(counts);
+    },
     update: (id, data) => {
       const current = rows.get(id);
       if (!current) {

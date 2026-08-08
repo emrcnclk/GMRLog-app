@@ -487,6 +487,16 @@ export interface CommunityResponse {
   bannerUrl: string | null;
   viewerMembership: CommunityMembershipSummary | null;
   counts: CommunityCounts;
+  /**
+   * 3b.1b — how many of the viewer's friends are members, behind §13's
+   * "3 friends here" line on a suggested circle.
+   *
+   * Additive and optional: absent for a guest, and absent from every endpoint
+   * that does not compute it, so existing consumers keep working. It is
+   * viewer-relative, which is why it sits beside `viewerMembership` rather than
+   * inside `counts` — two viewers see different numbers for the same circle.
+   */
+  viewerFriendCount?: number;
 }
 
 /** Community members list — user projection + role for a11y (S3 SHCM-03). */

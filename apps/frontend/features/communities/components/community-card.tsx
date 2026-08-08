@@ -11,7 +11,7 @@ import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { CachedImage } from '../../../src/assets/cached-image';
-import { communityFooterLine } from '../hooks/community-directory-model';
+import { communityFooterLine, communityFriendReason } from '../hooks/community-directory-model';
 import { isCommunityMember } from '../hooks/community-model';
 
 import { COMMUNITY_EMBLEM_OVERLAP, CommunityEmblem } from './community-emblem';
@@ -40,11 +40,12 @@ function CommunityCardComponent({ community, onPress }: CommunityCardProps) {
   const reduceMotion = useReduceMotion();
   const joined = isCommunityMember(community);
   const footer = communityFooterLine(community);
+  const friendReason = communityFriendReason(community);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${community.name}. ${footer}${joined ? '. Joined' : ''}`}
+      accessibilityLabel={`${community.name}. ${footer}${friendReason === null ? '' : `. ${friendReason}`}${joined ? '. Joined' : ''}`}
       onPress={() => {
         onPress(community.id);
       }}
@@ -116,6 +117,15 @@ function CommunityCardComponent({ community, onPress }: CommunityCardProps) {
         <Text role="meta" color="color.text.tertiary">
           {footer}
         </Text>
+
+        {/* §13: "each with a one-line reason in accent monospace". The accent
+            as text is what the law permits it to be — a line, not a fill — and
+            monospace is where CLAUDE.md puts every count. */}
+        {friendReason === null ? null : (
+          <Text role="meta" color="color.accent.default">
+            {friendReason}
+          </Text>
+        )}
       </View>
     </Pressable>
   );

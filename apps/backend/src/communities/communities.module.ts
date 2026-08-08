@@ -5,6 +5,7 @@ import {
   PrismaCommunityPinRepository,
   PrismaCommunityRepository,
   PrismaCommunityWikiRepository,
+  PrismaFriendshipRepository,
   PrismaNotificationRepository,
   PrismaPostRepository,
   PrismaUserRepository,
@@ -22,6 +23,7 @@ import { CommunitiesService } from './communities.service';
 import {
   COMMUNITY_ACTIVITY_REPOSITORY,
   COMMUNITY_BADGE_REPOSITORY,
+  COMMUNITY_FRIENDSHIP_REPOSITORY,
   COMMUNITY_MEMBER_REPOSITORY,
   COMMUNITY_NOTIFICATION_REPOSITORY,
   COMMUNITY_PIN_REPOSITORY,
@@ -48,6 +50,11 @@ import {
       provide: COMMUNITY_MEMBER_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaCommunityMemberRepository(prisma),
+    },
+    {
+      provide: COMMUNITY_FRIENDSHIP_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaFriendshipRepository(prisma),
     },
     {
       provide: COMMUNITY_USER_REPOSITORY,

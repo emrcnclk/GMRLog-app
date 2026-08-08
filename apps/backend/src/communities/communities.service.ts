@@ -10,6 +10,7 @@ import type {
   CommunityRepository,
   CommunityWikiRepository,
   FollowRepository,
+  FriendshipRepository,
   NotificationRepository,
   PostRepository,
   Prisma,
@@ -59,6 +60,7 @@ import { FeedCacheService } from '../infrastructure/redis/feed-cache.service';
 import {
   COMMUNITY_ACTIVITY_REPOSITORY,
   COMMUNITY_BADGE_REPOSITORY,
+  COMMUNITY_FRIENDSHIP_REPOSITORY,
   COMMUNITY_MEMBER_REPOSITORY,
   COMMUNITY_NOTIFICATION_REPOSITORY,
   COMMUNITY_PIN_REPOSITORY,
@@ -106,6 +108,8 @@ export class CommunitiesService {
     @Inject(COMMUNITY_POST_REPOSITORY) private readonly posts: PostRepository,
     @Inject(COMMUNITY_NOTIFICATION_REPOSITORY)
     private readonly notifications: NotificationRepository,
+    @Inject(COMMUNITY_FRIENDSHIP_REPOSITORY)
+    private readonly friendships: FriendshipRepository,
     @Optional() private readonly feedCache: FeedCacheService | null = null,
   ) {}
 
@@ -581,13 +585,20 @@ export class CommunitiesService {
       return [];
     }
     const ids = rows.map((row) => row.id);
-    const [owners, counts, memberships] = await Promise.all([
+    const [owners, counts, memberships, friendIds] = await Promise.all([
       this.members.listOwnersByCommunityIds(ids),
       this.members.countByCommunityIds(ids),
       viewerId === null
         ? Promise.resolve<CommunityMember[]>([])
         : this.members.listByCommunityIdsAndUser(ids, viewerId),
+      // 3b.1b: §13's "N friends here". One id lookup plus one `groupBy` for the
+      // whole page — the same batching rule the rest of this projection follows.
+      viewerId === null ? Promise.resolve<string[]>([]) : this.friendships.listFriendIds(viewerId),
     ]);
+    const friendCounts =
+      friendIds.length === 0
+        ? new Map<string, number>()
+        : await this.members.countByCommunityIdsForUsers(ids, friendIds);
 
     const ownerByCommunity = new Map(owners.map((row) => [row.communityId, row.userId]));
     const membershipByCommunity = new Map(memberships.map((row) => [row.communityId, row]));
@@ -625,6 +636,8 @@ export class CommunitiesService {
           row,
           counts.get(row.id) ?? 0,
           membership === null ? null : toCommunityMembershipSummary(membership),
+          // Absent for a guest; zero is a real answer for a signed-in viewer.
+          viewerId === null ? undefined : (friendCounts.get(row.id) ?? 0),
         ),
       );
     }

@@ -59,3 +59,20 @@ export function communityFooterLine(community: CommunityResponse): string {
   const members = community.counts.members;
   return `${String(members)} ${members === 1 ? 'member' : 'members'}`;
 }
+
+/**
+ * §13's "one-line reason in accent monospace" under a suggested circle —
+ * "3 friends here" (3b.1b).
+ *
+ * `null` when there is no reason to give: a guest (the field is absent), a
+ * circle where none of the viewer's friends are members, or a circle the viewer
+ * has already joined — "friends here" is an argument for joining, and it has no
+ * work to do on a circle you are in.
+ */
+export function communityFriendReason(community: CommunityResponse): string | null {
+  const friends = community.viewerFriendCount;
+  if (friends === undefined || friends <= 0 || isCommunityMember(community)) {
+    return null;
+  }
+  return `${String(friends)} ${friends === 1 ? 'friend' : 'friends'} here`;
+}

@@ -4,10 +4,16 @@ import { describe, expect, it } from 'vitest';
 import {
   communityDirectoryMeta,
   communityFooterLine,
+  communityFriendReason,
   splitCommunityDirectory,
 } from './community-directory-model';
 
-function community(id: string, members: number, joined: boolean): CommunityResponse {
+function community(
+  id: string,
+  members: number,
+  joined: boolean,
+  viewerFriendCount?: number,
+): CommunityResponse {
   return {
     id,
     name: `Circle ${id}`,
@@ -16,6 +22,7 @@ function community(id: string, members: number, joined: boolean): CommunityRespo
     bannerUrl: null,
     viewerMembership: joined ? { role: 'member', joinedAt: '2026-01-01T00:00:00.000Z' } : null,
     counts: { members },
+    ...(viewerFriendCount === undefined ? {} : { viewerFriendCount }),
   };
 }
 
@@ -57,5 +64,20 @@ describe('community directory model', () => {
     expect(communityFooterLine(community('a', 1204, false))).toBe('1204 members');
     expect(communityFooterLine(community('b', 1, false))).toBe('1 member');
     expect(communityFooterLine(community('c', 0, false))).toBe('0 members');
+  });
+
+  describe('friend reason (3b.1b)', () => {
+    it('gives §13’s line when friends are already there', () => {
+      expect(communityFriendReason(community('a', 10, false, 3))).toBe('3 friends here');
+      expect(communityFriendReason(community('b', 10, false, 1))).toBe('1 friend here');
+    });
+
+    it('says nothing when there is nothing to say', () => {
+      // No friends there, a guest (field absent), and a circle already joined —
+      // "friends here" is an argument for joining, not a fact about a member.
+      expect(communityFriendReason(community('c', 10, false, 0))).toBeNull();
+      expect(communityFriendReason(community('d', 10, false))).toBeNull();
+      expect(communityFriendReason(community('e', 10, true, 4))).toBeNull();
+    });
   });
 });
