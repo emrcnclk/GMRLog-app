@@ -48,6 +48,17 @@ When code and these docs disagree, the docs win — unless the code reveals the 
 - **Additive DTO changes.** New response fields are optional so existing consumers keep working.
 - **One screen, one commit.** Even when several screens share a session.
 
+## Known platform traps
+
+React Native Web silently drops things rather than failing. Each of these was found by measuring a live screen, then rediscovered on a later one — they are written here so the third screen does not pay for them again. **None of them is a reason to fork a web-only implementation:** keep the correct cross-platform prop, which native reads, and record what the web build does with it.
+
+- **`accessibilityValue` does not reach the DOM on a `View`.** A `progressbar` renders its `role` and `aria-label` but no `aria-valuenow`. Measured on the auth step rail (3.11). Put the value in the label as well, so the state is announced on both platforms.
+- **`accessibilityState` does not reach the DOM on a `Pressable`.** The element renders `role="button"`, `aria-label` and `tabindex="0"`, but no `aria-selected` / `aria-checked`. Measured on the same rail once its bars became tappable (3.12). Same remedy: say it in the label.
+- **`Animated.timing` driving `interpolate(transform)` never advances.** The completion callback does not fire, with `useNativeDriver` true or false; colour changes still work because those are plain re-renders. Measured twice — the `Toggle` knob (3.2, fixed by computing the transform directly and snapping) and the reason §3's Onboarding panel slide was not built (3.12). Do not spend a session rediscovering it: either compute the value directly, or reach for a mechanism that is not `Animated` (a paged `ScrollView` gives horizontal panel movement with no animation API at all).
+- **`Icon name="..."` resolved to `undefined` on web** until 3.3 replaced the dynamic `require` with a static map. Fixed — listed so the symptom (a neutral placeholder box where a glyph should be) is recognisable if it returns.
+
+The a11y entries are input to **8.2**, the accessibility pass; the `Animated` entry is input to **6.3**, the only task in the list that animates anything.
+
 ## Working rhythm
 
 `TASKS.md` holds the ordered checklist. At the start of a session, read it, take the next unchecked task, and do only that task. When it is done and committed, tick the box and stop.
