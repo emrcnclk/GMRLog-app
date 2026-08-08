@@ -1,40 +1,69 @@
 import type { CommunityResponse } from '@gmrlog/types';
 import type { CommunityCreateInput, CommunityPatchInput } from '@gmrlog/validators';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { COMMUNITY_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
 import { useApiClient } from '../../../src/api/api-provider';
 import { durableMeta, runOrEnqueueOffline } from '../../../src/offline';
-import { queryKeys } from '../../../src/query/query-client';
+import { getNextPageParam, queryKeys } from '../../../src/query/query-client';
 
 import { optimisticJoin, optimisticLeave, resolveListView } from './community-model';
 
+/**
+ * `GET /communities`, one page at a time (3b.1a).
+ *
+ * The endpoint used to return every discoverable community in a single array
+ * and took 111,603 ms to do it — past the client's own 30s timeout, so this
+ * hook never resolved. It is an infinite query now, the same shape the discover
+ * lists already use, and the screen asks for the next page as it scrolls.
+ */
 export function useCommunities() {
   const api = useApiClient();
   const queryClient = useQueryClient();
 
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: queryKeys.communities.list(),
-    queryFn: async () => {
-      const envelope = await api.listCommunities();
-      return envelope.data;
-    },
+    queryFn: ({ pageParam }) =>
+      api.listCommunities({
+        limit: COMMUNITY_LIST_DEFAULT_LIMIT,
+        ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => getNextPageParam(lastPage.meta),
   });
 
-  const items = query.data ?? [];
+  const items = useMemo(
+    () => query.data?.pages.flatMap((page) => page.data) ?? [],
+    [query.data?.pages],
+  );
+
   const view = resolveListView({
     isPending: query.isPending,
     isError: query.isError,
     error: query.error,
     items,
-    isRefreshing: query.isRefetching,
+    isRefreshing: query.isRefetching && !query.isFetchingNextPage,
   });
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.communities.list() });
   }, [queryClient]);
 
-  return { ...view, refresh, refetch: query.refetch };
+  const loadMore = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query]);
+
+  return {
+    ...view,
+    refresh,
+    loadMore,
+    isFetchingNextPage: query.isFetchingNextPage,
+    hasNextPage: query.hasNextPage,
+    refetch: query.refetch,
+  };
 }
 
 export function useCommunity(communityId: string) {
@@ -167,12 +196,12 @@ export function useDeleteCommunity() {
       const detailKey = queryKeys.communities.detail(communityId);
       await queryClient.cancelQueries({ queryKey: listKey });
       await queryClient.cancelQueries({ queryKey: detailKey });
-      const previous = queryClient.getQueryData<CommunityResponse[]>(listKey);
+      const previous = queryClient.getQueryData<CommunityListCache>(listKey);
       const previousDetail = queryClient.getQueryData<CommunityResponse>(detailKey);
       if (previous) {
         queryClient.setQueryData(
           listKey,
-          previous.filter((item) => item.id !== communityId),
+          mapListPages(previous, (page) => page.filter((item) => item.id !== communityId)),
         );
       }
       queryClient.removeQueries({ queryKey: detailKey });
@@ -275,18 +304,40 @@ export function useLeaveCommunity(communityId: string) {
   });
 }
 
+/**
+ * The directory cache is an infinite query since 3b.1a, so every optimistic
+ * writer edits pages rather than one flat array. Getting this wrong is silent:
+ * `getQueryData` would hand back `{ pages }` and `.map` would be undefined.
+ */
+interface CommunityListCache {
+  pages: { data: CommunityResponse[]; meta: unknown }[];
+  pageParams: unknown[];
+}
+
+function mapListPages(
+  cache: CommunityListCache,
+  update: (page: CommunityResponse[]) => CommunityResponse[],
+): CommunityListCache {
+  return {
+    ...cache,
+    pages: cache.pages.map((page) => ({ ...page, data: update(page.data) })),
+  };
+}
+
 function patchListItem(
   queryClient: ReturnType<typeof useQueryClient>,
   community: CommunityResponse,
 ): void {
   const listKey = queryKeys.communities.list();
-  const list = queryClient.getQueryData<CommunityResponse[]>(listKey);
-  if (!list) {
+  const cache = queryClient.getQueryData<CommunityListCache>(listKey);
+  if (!cache) {
     return;
   }
   queryClient.setQueryData(
     listKey,
-    list.map((item) => (item.id === community.id ? community : item)),
+    mapListPages(cache, (page) =>
+      page.map((item) => (item.id === community.id ? community : item)),
+    ),
   );
 }
 

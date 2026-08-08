@@ -2,6 +2,7 @@ import type {
   ActivityKind,
   Community,
   CommunityActivityRepository,
+  CommunityListCursor,
   CommunityMember,
   CommunityMemberBadgeRepository,
   CommunityMemberRepository,
@@ -28,12 +29,17 @@ import type {
   ActivityQueryInput,
   CommunityCreateInput,
   CommunityFeedQueryInput,
+  CommunityListQueryInput,
   CommunityMemberRolePatchInput,
   CommunityPatchInput,
   CommunityPinCreateInput,
   CommunityWikiUpsertInput,
 } from '@gmrlog/validators';
-import { ACTIVITY_LIST_DEFAULT_LIMIT, COMMUNITY_PIN_CAP } from '@gmrlog/validators';
+import {
+  ACTIVITY_LIST_DEFAULT_LIMIT,
+  COMMUNITY_LIST_DEFAULT_LIMIT,
+  COMMUNITY_PIN_CAP,
+} from '@gmrlog/validators';
 import {
   BadRequestException,
   ConflictException,
@@ -103,15 +109,43 @@ export class CommunitiesService {
     @Optional() private readonly feedCache: FeedCacheService | null = null,
   ) {}
 
-  async listCommunities(identity: RequestIdentity): Promise<CommunityResponse[]> {
+  /**
+   * S1 §5 cursor pagination + a batched projection.
+   *
+   * This used to return every discoverable community and project each one with
+   * its own queries — a member count, a viewer-membership lookup and, through
+   * `isReadable`, a full member list to find the owner. Measured at 111,603 ms
+   * over 100,009 rows, past the client's 30s timeout, so the directory never
+   * loaded at all. A page is now bounded and costs a fixed number of queries
+   * regardless of its size.
+   */
+  async listCommunities(
+    identity: RequestIdentity,
+    query: CommunityListQueryInput = {},
+  ): Promise<PaginatedPayload<CommunityResponse>> {
     const viewerId = viewerIdOf(identity);
+    const limit = query.limit ?? COMMUNITY_LIST_DEFAULT_LIMIT;
+    const cursor = query.cursor !== undefined ? decodeCommunityCursor(query.cursor) : undefined;
+    const options = { limit: limit + 1, ...(cursor !== undefined ? { cursor } : {}) };
+
     const rows =
       viewerId === null
-        ? await this.communities.listPublic()
+        ? await this.communities.listPublic(options)
         : await this.communities.listDiscoverableForMemberCommunityIds(
             await this.members.listCommunityIdsByUser(viewerId),
+            options,
           );
-    return this.projectMany(rows, viewerId);
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    const next =
+      hasMore && last !== undefined
+        ? encodeCommunityCursor({ updatedAt: last.updatedAt, id: last.id })
+        : null;
+
+    const projected = await this.projectPage(page, viewerId);
+    return new PaginatedPayload(projected, { next }, hasMore, limit);
   }
 
   async getCommunity(communityId: string, identity: RequestIdentity): Promise<CommunityResponse> {
@@ -529,25 +563,72 @@ export class CommunitiesService {
     return toCommunityResponse(community, memberCount, viewerMembership);
   }
 
-  private async projectMany(
+  /**
+   * Projects a page with a fixed query budget: one owner lookup, one count
+   * `groupBy`, one viewer-membership query for the whole page — plus, only for
+   * a `followers`-visibility row the viewer has not joined, a follow check.
+   * That last case cannot arise from the directory list (it returns public
+   * rows plus the viewer's own), and where it could it is bounded by the page.
+   *
+   * The readability filter runs on the batched data rather than re-querying,
+   * which is what `filterReadable` used to do once per row.
+   */
+  private async projectPage(
     rows: Community[],
     viewerId: string | null,
   ): Promise<CommunityResponse[]> {
     if (rows.length === 0) {
       return [];
     }
-    const readable = await this.filterReadable(rows, viewerId);
-    return Promise.all(readable.map((row) => this.project(row, viewerId)));
-  }
+    const ids = rows.map((row) => row.id);
+    const [owners, counts, memberships] = await Promise.all([
+      this.members.listOwnersByCommunityIds(ids),
+      this.members.countByCommunityIds(ids),
+      viewerId === null
+        ? Promise.resolve<CommunityMember[]>([])
+        : this.members.listByCommunityIdsAndUser(ids, viewerId),
+    ]);
 
-  private async filterReadable(rows: Community[], viewerId: string | null): Promise<Community[]> {
-    const results: Community[] = [];
+    const ownerByCommunity = new Map(owners.map((row) => [row.communityId, row.userId]));
+    const membershipByCommunity = new Map(memberships.map((row) => [row.communityId, row]));
+
+    const projected: CommunityResponse[] = [];
     for (const row of rows) {
-      if (await this.isReadable(row, viewerId)) {
-        results.push(row);
+      const ownerUserId = ownerByCommunity.get(row.id);
+      if (ownerUserId === undefined) {
+        // An owner-less community is unreachable, exactly as `isReadable` says.
+        continue;
       }
+      const membership = membershipByCommunity.get(row.id) ?? null;
+      let viewerFollowsOwner = false;
+      if (
+        row.visibility === 'followers' &&
+        viewerId != null &&
+        viewerId !== ownerUserId &&
+        membership === null
+      ) {
+        viewerFollowsOwner = await this.follows.exists(viewerId, ownerUserId);
+      }
+      if (
+        !canViewerReadCommunity(
+          row.visibility,
+          ownerUserId,
+          viewerId,
+          membership !== null,
+          viewerFollowsOwner,
+        )
+      ) {
+        continue;
+      }
+      projected.push(
+        toCommunityResponse(
+          row,
+          counts.get(row.id) ?? 0,
+          membership === null ? null : toCommunityMembershipSummary(membership),
+        ),
+      );
     }
-    return results;
+    return projected;
   }
 
   private async projectMembers(communityId: string): Promise<CommunityMemberResponse[]> {
@@ -769,4 +850,29 @@ function decodeActivityCursor(raw: string): { occurredAt: Date; id: string } {
     throw new BadRequestException('Invalid cursor');
   }
   return { occurredAt, id };
+}
+
+/** Same `<iso>|<id>` shape the activity and discover cursors already use. */
+function encodeCommunityCursor(cursor: CommunityListCursor): string {
+  const payload = `${cursor.updatedAt.toISOString()}|${cursor.id}`;
+  return Buffer.from(payload, 'utf8').toString('base64url');
+}
+
+function decodeCommunityCursor(raw: string): CommunityListCursor {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(raw, 'base64url').toString('utf8');
+  } catch {
+    throw new BadRequestException('Invalid cursor');
+  }
+  const separator = decoded.indexOf('|');
+  if (separator <= 0) {
+    throw new BadRequestException('Invalid cursor');
+  }
+  const updatedAt = new Date(decoded.slice(0, separator));
+  const id = decoded.slice(separator + 1);
+  if (Number.isNaN(updatedAt.getTime()) || id.length === 0) {
+    throw new BadRequestException('Invalid cursor');
+  }
+  return { updatedAt, id };
 }

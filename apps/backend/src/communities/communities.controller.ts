@@ -37,6 +37,7 @@ import {
   CommunityCreateDto,
   CommunityFeedQueryDto,
   CommunityIdParamDto,
+  CommunityListQueryDto,
   CommunityMemberRolePatchDto,
   CommunityMemberUserParamDto,
   CommunityPatchDto,
@@ -57,8 +58,11 @@ export class CommunitiesController {
 
   @Get()
   @UseGuards(OptionalGuestGuard)
-  listCommunities(@CurrentUser() identity: RequestIdentity): Promise<CommunityResponse[]> {
-    return this.communitiesService.listCommunities(identity);
+  listCommunities(
+    @CurrentUser() identity: RequestIdentity,
+    @Query() query: CommunityListQueryDto,
+  ): Promise<PaginatedPayload<CommunityResponse>> {
+    return this.communitiesService.listCommunities(identity, query);
   }
 
   @Post()

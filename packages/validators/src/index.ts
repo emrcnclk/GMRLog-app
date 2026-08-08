@@ -1569,6 +1569,26 @@ export const communityFeedQuerySchema = activityQuerySchema
 
 export type CommunityFeedQueryInput = z.infer<typeof communityFeedQuerySchema>;
 
+/**
+ * `GET /communities` cursor pagination (S1 §5).
+ *
+ * The directory used to return every discoverable community in one array. That
+ * is unbounded by construction: measured at 111,603 ms against 100,009 rows,
+ * four times the client's own 30s timeout, so the screen could never load. The
+ * limits mirror the discover lists rather than inventing a second dialect.
+ */
+export const COMMUNITY_LIST_DEFAULT_LIMIT = 20;
+export const COMMUNITY_LIST_MAX_LIMIT = 50;
+
+export const communityListQuerySchema = z
+  .object({
+    cursor: z.string().trim().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(COMMUNITY_LIST_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+export type CommunityListQueryInput = z.infer<typeof communityListQuerySchema>;
+
 /** Product caps (COMMUNITIES_2.md). */
 export const COMMUNITY_PIN_CAP = 10;
 export const COMMUNITY_TOP_CONTRIBUTOR_MIN_SCORE = 3;

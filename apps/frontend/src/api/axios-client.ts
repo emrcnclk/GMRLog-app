@@ -552,9 +552,12 @@ export class AxiosApiClient {
     );
   }
 
-  /** `GET /communities` — community index (array · no cursor). */
-  listCommunities(): Promise<ApiEnvelope<CommunityResponse[]>> {
-    return this.get<CommunityResponse[]>('/communities');
+  /** `GET /communities` — community directory (cursor-paginated, S1 §5). */
+  listCommunities(query?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<ApiEnvelope<CommunityResponse[]>> {
+    return this.get<CommunityResponse[]>('/communities', query);
   }
 
   /** `POST /communities` — create community. */

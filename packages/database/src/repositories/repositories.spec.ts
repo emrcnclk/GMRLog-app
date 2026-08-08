@@ -507,19 +507,41 @@ describe('CommunityRepository', () => {
     await repo.update(privateCommunity.id, { visibility: 'private' });
     const owner = await createUser(db.prisma);
     const memberRepo = new PrismaCommunityMemberRepository(db.prisma);
-    await memberRepo.create({
-      community: { connect: { id: privateCommunity.id } },
-      user: { connect: { id: owner.id } },
-      role: 'owner',
-    });
+    // Both fixtures get an owner because `createCommunity` (the service) always
+    // writes one, and the directory lists now require it: an owner-less
+    // community is readable by nobody, so it must be excluded before the page
+    // is sliced rather than dropped afterwards.
+    for (const community of [publicCommunity, privateCommunity]) {
+      await memberRepo.create({
+        community: { connect: { id: community.id } },
+        user: { connect: { id: owner.id } },
+        role: 'owner',
+      });
+    }
 
     expect(await repo.findActiveById(publicCommunity.id)).not.toBeNull();
-    expect((await repo.listPublic()).some((row) => row.id === publicCommunity.id)).toBe(true);
     expect(
-      (await repo.listDiscoverableForMemberCommunityIds([privateCommunity.id])).some(
+      (await repo.listPublic({ limit: 50 })).some((row) => row.id === publicCommunity.id),
+    ).toBe(true);
+    expect(
+      (await repo.listDiscoverableForMemberCommunityIds([privateCommunity.id], { limit: 50 })).some(
         (row) => row.id === privateCommunity.id,
       ),
     ).toBe(true);
+
+    // A page never exceeds its limit, and the cursor walks the same
+    // `updatedAt desc, id desc` order the list is sorted by.
+    const firstPage = await repo.listPublic({ limit: 1 });
+    expect(firstPage).toHaveLength(1);
+    const head = firstPage[0];
+    expect(head).toBeDefined();
+    if (head !== undefined) {
+      const secondPage = await repo.listPublic({
+        limit: 1,
+        cursor: { updatedAt: head.updatedAt, id: head.id },
+      });
+      expect(secondPage.some((row) => row.id === head.id)).toBe(false);
+    }
 
     await repo.softDelete(publicCommunity.id);
     expect(await repo.findActiveById(publicCommunity.id)).toBeNull();

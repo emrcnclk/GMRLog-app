@@ -14,6 +14,19 @@ export interface CommunityMemberRepository {
   listByCommunity(communityId: string): Promise<CommunityMember[]>;
   listCommunityIdsByUser(userId: string): Promise<string[]>;
   countByCommunity(communityId: string): Promise<number>;
+  /**
+   * Member counts for a page of communities in one `groupBy`. A list projecting
+   * counts row by row is the N+1 that made `GET /communities` unusable.
+   * Communities with no members are absent from the map, not zero.
+   */
+  countByCommunityIds(communityIds: readonly string[]): Promise<Map<string, number>>;
+  /** One viewer's memberships across a page of communities, in one query. */
+  listByCommunityIdsAndUser(
+    communityIds: readonly string[],
+    userId: string,
+  ): Promise<CommunityMember[]>;
+  /** The owner row of each community in a page, in one query. */
+  listOwnersByCommunityIds(communityIds: readonly string[]): Promise<CommunityMember[]>;
   update(id: string, data: Prisma.CommunityMemberUpdateInput): Promise<CommunityMember>;
   delete(id: string): Promise<CommunityMember>;
   deleteByCommunityAndUser(communityId: string, userId: string): Promise<CommunityMember | null>;
@@ -54,6 +67,39 @@ export class PrismaCommunityMemberRepository implements CommunityMemberRepositor
 
   async countByCommunity(communityId: string): Promise<number> {
     return this.db.communityMember.count({ where: { communityId } });
+  }
+
+  async countByCommunityIds(communityIds: readonly string[]): Promise<Map<string, number>> {
+    if (communityIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db.communityMember.groupBy({
+      by: ['communityId'],
+      where: { communityId: { in: [...communityIds] } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.communityId, row._count._all]));
+  }
+
+  listByCommunityIdsAndUser(
+    communityIds: readonly string[],
+    userId: string,
+  ): Promise<CommunityMember[]> {
+    if (communityIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.db.communityMember.findMany({
+      where: { communityId: { in: [...communityIds] }, userId },
+    });
+  }
+
+  listOwnersByCommunityIds(communityIds: readonly string[]): Promise<CommunityMember[]> {
+    if (communityIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.db.communityMember.findMany({
+      where: { communityId: { in: [...communityIds] }, role: 'owner' },
+    });
   }
 
   update(id: string, data: Prisma.CommunityMemberUpdateInput): Promise<CommunityMember> {

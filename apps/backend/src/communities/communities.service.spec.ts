@@ -140,12 +140,46 @@ describe('Communities 2.0 permission matrix', () => {
 describe('CommunitiesService.listCommunities', () => {
   it('lists public communities for guests', async () => {
     const listed = await service.listCommunities(guest);
-    expect(listed.map((row) => row.id)).toEqual(['community-1']);
+    expect(listed.items.map((row) => row.id)).toEqual(['community-1']);
   });
 
   it('includes member private communities for authenticated viewers', async () => {
     const listed = await service.listCommunities({ class: 'player', userId: 'user-2' });
-    expect(listed.map((row) => row.id).sort()).toEqual(['community-1', 'community-private']);
+    expect(listed.items.map((row) => row.id).sort()).toEqual(['community-1', 'community-private']);
+  });
+
+  /**
+   * 3b.1a. The directory used to return every discoverable row; a page is now
+   * bounded and the cursor walks the same `updatedAt desc, id desc` order the
+   * repository sorts by.
+   */
+  it('bounds the page and reports whether more remain', async () => {
+    const page = await service.listCommunities({ class: 'player', userId: 'user-2' }, { limit: 1 });
+    expect(page.items).toHaveLength(1);
+    expect(page.limit).toBe(1);
+    expect(page.hasMore).toBe(true);
+    expect(page.cursor.next).not.toBeNull();
+  });
+
+  it('walks the cursor without repeating or dropping a row', async () => {
+    const viewer = { class: 'player', userId: 'user-2' } as const;
+    const first = await service.listCommunities(viewer, { limit: 1 });
+    const next = first.cursor.next;
+    expect(next).not.toBeNull();
+    const second = await service.listCommunities(viewer, {
+      limit: 1,
+      ...(next === null ? {} : { cursor: next }),
+    });
+
+    const seen = [...first.items, ...second.items].map((row) => row.id);
+    expect(new Set(seen).size).toBe(seen.length);
+    expect(seen.sort()).toEqual(['community-1', 'community-private']);
+    expect(second.hasMore).toBe(false);
+    expect(second.cursor.next).toBeNull();
+  });
+
+  it('rejects a malformed cursor rather than returning page one', async () => {
+    await expect(service.listCommunities(guest, { cursor: 'not-a-cursor' })).rejects.toThrow();
   });
 });
 

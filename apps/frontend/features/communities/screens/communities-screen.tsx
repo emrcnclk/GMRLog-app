@@ -1,5 +1,6 @@
 import {
   Button,
+  Loading,
   SCREEN_GUTTER,
   Screen,
   ScreenTitle,
@@ -167,6 +168,17 @@ export function CommunitiesScreen() {
             paddingHorizontal: theme.space(SCREEN_GUTTER),
             paddingBottom: theme.space('space.8'),
           }}
+          // 3b.1a: the directory is paged now, so the list asks for the next
+          // page instead of receiving every circle at once.
+          onEndReached={list.loadMore}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={
+            list.isFetchingNextPage ? (
+              <View style={{ paddingVertical: theme.space('space.6') }}>
+                <Loading label="Loading more circles" />
+              </View>
+            ) : null
+          }
           accessibilityRole="list"
           initialNumToRender={10}
           windowSize={9}

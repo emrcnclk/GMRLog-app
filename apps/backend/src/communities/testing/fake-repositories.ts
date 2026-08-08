@@ -3,6 +3,7 @@ import type {
   CommunityActivity,
   CommunityActivityFeedRow,
   CommunityActivityRepository,
+  CommunityListOptions,
   CommunityMember,
   CommunityMemberBadge,
   CommunityMemberBadgeRepository,
@@ -170,16 +171,12 @@ export function createFakeCommunityRepository(seed: Community[] = []): FakeCommu
       const row = rows.get(id);
       return Promise.resolve(row != null && row.deletedAt == null ? row : null);
     },
-    listPublic: () =>
+    listPublic: (options) =>
       Promise.resolve(
-        [...rows.values()]
-          .filter((row) => row.deletedAt == null && row.visibility === 'public')
-          .sort((a, b) => {
-            if (a.updatedAt.getTime() !== b.updatedAt.getTime()) {
-              return b.updatedAt.getTime() - a.updatedAt.getTime();
-            }
-            return b.id.localeCompare(a.id);
-          }),
+        paginateCommunityRows(
+          [...rows.values()].filter((row) => row.deletedAt == null && row.visibility === 'public'),
+          options,
+        ),
       ),
     searchByName: (query) => {
       const q = query.toLowerCase();
@@ -200,20 +197,16 @@ export function createFakeCommunityRepository(seed: Community[] = []): FakeCommu
           }),
       );
     },
-    listDiscoverableForMemberCommunityIds: (memberCommunityIds) => {
+    listDiscoverableForMemberCommunityIds: (memberCommunityIds, options) => {
       const memberIds = new Set(memberCommunityIds);
       return Promise.resolve(
-        [...rows.values()]
-          .filter(
+        paginateCommunityRows(
+          [...rows.values()].filter(
             (row) =>
               row.deletedAt == null && (row.visibility === 'public' || memberIds.has(row.id)),
-          )
-          .sort((a, b) => {
-            if (a.updatedAt.getTime() !== b.updatedAt.getTime()) {
-              return b.updatedAt.getTime() - a.updatedAt.getTime();
-            }
-            return b.id.localeCompare(a.id);
-          }),
+          ),
+          options,
+        ),
       );
     },
     update: (id, data) => {
@@ -244,6 +237,36 @@ export function createFakeCommunityRepository(seed: Community[] = []): FakeCommu
       return Promise.resolve(next);
     },
   };
+}
+
+/**
+ * Mirrors the Prisma repository's `updatedAt desc, id desc` keyset so the fakes
+ * page exactly the way the real query does — otherwise a paging bug only shows
+ * up against a live database.
+ *
+ * One deliberate divergence: the real query also requires an owner membership
+ * row, which this fake has no access to. It only ever *removes* rows the
+ * service's own projection would drop anyway, so both paths return the same
+ * items; the real one additionally guarantees the page is not short.
+ */
+function paginateCommunityRows(rows: Community[], options: CommunityListOptions): Community[] {
+  const sorted = rows.sort((a, b) => {
+    if (a.updatedAt.getTime() !== b.updatedAt.getTime()) {
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    }
+    return b.id.localeCompare(a.id);
+  });
+  const { cursor } = options;
+  const after =
+    cursor === undefined
+      ? sorted
+      : sorted.filter(
+          (row) =>
+            row.updatedAt.getTime() < cursor.updatedAt.getTime() ||
+            (row.updatedAt.getTime() === cursor.updatedAt.getTime() &&
+              row.id.localeCompare(cursor.id) < 0),
+        );
+  return after.slice(0, options.limit);
 }
 
 export interface FakeCommunityMemberRepository extends CommunityMemberRepository {
@@ -301,6 +324,28 @@ export function createFakeCommunityMemberRepository(
       ),
     countByCommunity: (communityId) =>
       Promise.resolve([...rows.values()].filter((row) => row.communityId === communityId).length),
+    countByCommunityIds: (communityIds) => {
+      const wanted = new Set(communityIds);
+      const counts = new Map<string, number>();
+      for (const row of rows.values()) {
+        if (wanted.has(row.communityId)) {
+          counts.set(row.communityId, (counts.get(row.communityId) ?? 0) + 1);
+        }
+      }
+      return Promise.resolve(counts);
+    },
+    listByCommunityIdsAndUser: (communityIds, userId) => {
+      const wanted = new Set(communityIds);
+      return Promise.resolve(
+        [...rows.values()].filter((row) => wanted.has(row.communityId) && row.userId === userId),
+      );
+    },
+    listOwnersByCommunityIds: (communityIds) => {
+      const wanted = new Set(communityIds);
+      return Promise.resolve(
+        [...rows.values()].filter((row) => wanted.has(row.communityId) && row.role === 'owner'),
+      );
+    },
     update: (id, data) => {
       const current = rows.get(id);
       if (!current) {

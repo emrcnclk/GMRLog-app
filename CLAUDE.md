@@ -59,6 +59,15 @@ React Native Web silently drops things rather than failing. Each of these was fo
 
 The a11y entries are input to **8.2**, the accessibility pass; the `Animated` entry is input to **6.3**, the only task in the list that animates anything.
 
+## Known environment traps
+
+The local stack fails quietly in ways that look like application bugs. Check these before debugging code.
+
+- **Redis dies on its own, and the backend does not recover.** Third silent drop in three sessions (3.13, 3b.1, 3b.1a). The container simply stops; the backend's ioredis client deferred its connect at boot and never retries, so every rate-limited route answers `503 INTEGRATION_UNAVAILABLE` (`RATE_LIMIT_REDIS_UNAVAILABLE`, "redis not ready") — which reads as an auth bug until you look at the log. **Restarting the container is not enough: restart the backend after it.** Check `docker exec gmrlog-redis redis-cli ping` before blaming sign-in.
+- **The backend loads `@gmrlog/database` from `dist`, and its watcher does not cover `packages/`.** Editing a repository under `packages/database/src` changes nothing at runtime until `pnpm --filter @gmrlog/database run build` **and** a backend restart. Worse, that build runs `prisma generate`, which fails with `EPERM … query_engine-windows.dll.node` while a backend is running — so the order is: stop the backend → build → start it. A source edit that silently does nothing is indistinguishable from a wrong fix.
+- **Metro is started with `CI=1`,** which disables the watcher along with the interactive menu. Every frontend edit needs a Metro restart, and it must not start before `@gmrlog/ui` finishes building.
+- **The release-gate script leaves data behind.** `scripts/release/smoke-d3-24-release-gate.mjs` creates a `Gate Community <timestamp>` on every run and never removes it; the local database holds ~100k of them. They have no owner membership row, so they are invisible to the app but they are real rows in every unpaginated query.
+
 ## Working rhythm
 
 `TASKS.md` holds the ordered checklist. At the start of a session, read it, take the next unchecked task, and do only that task. When it is done and committed, tick the box and stop.

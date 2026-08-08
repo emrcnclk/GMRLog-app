@@ -130,7 +130,12 @@ export {
   type NotificationListParams,
   type NotificationRepository,
 } from './notification.repository';
-export { PrismaCommunityRepository, type CommunityRepository } from './community.repository';
+export {
+  PrismaCommunityRepository,
+  type CommunityListCursor,
+  type CommunityListOptions,
+  type CommunityRepository,
+} from './community.repository';
 export {
   PrismaCommunityMemberRepository,
   type CommunityMemberRepository,
