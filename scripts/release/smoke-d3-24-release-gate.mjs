@@ -8,15 +8,44 @@
 
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { Client } from 'pg';
+
 import { DEFAULTS, fail, httpJson, log, pass, registerUser, login } from './lib/common.mjs';
 
 const api = DEFAULTS.apiBase;
 const results = [];
 
+// 3b.1d — this run's own community, hard-deleted in cleanupGateCommunity()
+// regardless of how main() exits. Module-level because record()'s failure
+// path throws through the middle of main(), so a local try/finally around
+// just the communities section wouldn't run on every later step's failure.
+let gateCommunityId = null;
+
 function record(name, ok, detail = '') {
   results.push({ name, ok, detail });
   if (ok) pass(name);
   else fail(name, detail || 'failed');
+}
+
+/**
+ * 3b.1d — every run created a `Gate Community ${Date.now()}` row and never
+ * removed it; ~100k of them accumulated. The API's DELETE only soft-deletes
+ * (`deletedAt`), which leaves the row for every unpaginated/migration scan
+ * to pay for, so this goes straight to the database the way
+ * `smoke-d3-25-catalog-gate.mjs`'s `withDb` already does for this same repo.
+ */
+async function cleanupGateCommunity() {
+  if (!gateCommunityId) return;
+  const client = new Client({ connectionString: DEFAULTS.databaseUrl });
+  try {
+    await client.connect();
+    await client.query('DELETE FROM communities WHERE id = $1', [gateCommunityId]);
+    log('gate-cleanup', `deleted community ${gateCommunityId}`);
+  } catch (error) {
+    log('gate-cleanup', `failed to delete ${gateCommunityId}: ${error.message}`);
+  } finally {
+    await client.end().catch(() => undefined);
+  }
 }
 
 async function authHeaders(token) {
@@ -374,6 +403,7 @@ async function main() {
     `${community.response.status} ${JSON.stringify(community.body?.error ?? '')}`,
   );
   const communityId = community.data?.id;
+  gateCommunityId = communityId ?? null;
   if (communityId) {
     const joinPatch = await httpJson(`${api}/communities/${communityId}`, {
       method: 'PATCH',
@@ -515,6 +545,7 @@ async function main() {
     console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
   }
   console.log(`\nTOTAL ${results.length}  FAIL ${failed.length}`);
+  await cleanupGateCommunity();
   if (failed.length > 0) {
     process.exitCode = 1;
     console.error('D3_24_API_GATE FAIL');
@@ -523,8 +554,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
   console.error('D3_24_API_GATE FAIL');
   console.error(error instanceof Error ? error.message : error);
+  await cleanupGateCommunity();
   process.exitCode = 1;
 });
