@@ -2,7 +2,7 @@ import type { UserSelfResponse } from '@gmrlog/types';
 import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AxiosApiClient } from '../api/axios-client';
+import { FrontendApiError, type AxiosApiClient } from '../api/axios-client';
 import { SessionManager } from '../auth/session-manager';
 import { createInMemorySecureStorage } from '../../lib/storage/secure-storage';
 import { useAuthStore } from './auth-store';
@@ -96,6 +96,46 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().authenticated).toBe(false);
     expect(manager.getAccessToken()).toBeNull();
     expect(useAuthStore.getState().bootstrapping).toBe(false);
+  });
+
+  /**
+   * 3b.1c — a network failure during bootstrap must not read as "the session
+   * is invalid." Distinguished from the existing "refresh explicitly fails"
+   * case above by the error shape: a real rejection is a plain/HTTP error, a
+   * network failure is a `FrontendApiError` with `status === 0` (the shape
+   * `AxiosApiClient` uses for both a real network failure and its own
+   * fail-fast offline gate).
+   */
+  it('bootstrap stays authenticated, tokens intact, when /me fails due to network', async () => {
+    const access = makeJwt(600);
+    await manager.persistTokens({ accessToken: access, refreshToken: 'refresh-1' });
+    const api = createMockApi({
+      me: vi.fn().mockRejectedValue(new FrontendApiError('offline', 0, null, 'req_1')),
+    });
+
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+    await useAuthStore.getState().bootstrap();
+
+    expect(useAuthStore.getState().authenticated).toBe(true);
+    expect(useAuthStore.getState().bootstrapping).toBe(false);
+    expect(manager.getAccessToken()).toBe(access);
+    expect(manager.getRefreshToken()).toBe('refresh-1');
+  });
+
+  it('bootstrap stays authenticated when an expired token cannot be refreshed due to network', async () => {
+    const expired = makeJwt(-60);
+    await manager.persistTokens({ accessToken: expired, refreshToken: 'refresh-1' });
+    const api = createMockApi({
+      refreshSession: vi.fn().mockRejectedValue(new FrontendApiError('offline', 0, null, 'req_1')),
+    });
+
+    useAuthStore.getState().bindRuntime({ api, manager, queryClient });
+    await useAuthStore.getState().bootstrap();
+
+    expect(useAuthStore.getState().authenticated).toBe(true);
+    expect(useAuthStore.getState().bootstrapping).toBe(false);
+    expect(manager.getAccessToken()).toBe(expired);
+    expect(manager.getRefreshToken()).toBe('refresh-1');
   });
 
   it('login stores tokens and UserSelfResponse from /me', async () => {

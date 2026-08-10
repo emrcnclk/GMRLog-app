@@ -3,7 +3,7 @@ import type { SessionRegisterInput } from '@gmrlog/validators';
 import type { QueryClient } from '@tanstack/react-query';
 import { create } from 'zustand';
 
-import type { AxiosApiClient } from '../api/axios-client';
+import { FrontendApiError, type AxiosApiClient } from '../api/axios-client';
 import { isAccessTokenExpired } from '../auth/jwt';
 import type { SessionManager } from '../auth/session-manager';
 import { queryKeys } from '../query/query-client';
@@ -61,6 +61,17 @@ function readTokensFromEnvelope(data: unknown): SessionCredentialResponse | null
     return null;
   }
   return { accessToken, refreshToken };
+}
+
+/**
+ * `status === 0` is `AxiosApiClient`'s uniform signal for "no response arrived" —
+ * a genuine network failure, a timeout, or its own request-interceptor's fail-fast
+ * offline gate (`axios-client.ts`'s `isOnline` check throws exactly this shape).
+ * It is never a status a real server response carries, so it is safe to treat as
+ * "couldn't reach the server," distinct from an explicit rejection (401, etc.).
+ */
+function isNetworkError(error: unknown): boolean {
+  return error instanceof FrontendApiError && error.status === 0;
 }
 
 async function fetchMeAndActivate(
@@ -173,6 +184,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     await clearLocalSession(manager, queryClient, set);
   },
 
+  // A network failure (no response — see `isNetworkError`) is rethrown rather
+  // than swallowed to `false`, so `bootstrap` can tell "the refresh token was
+  // rejected" from "couldn't reach the server to ask." Nothing outside this
+  // store calls `refresh` today, so widening its failure contract is safe.
   refresh: async () => {
     const { api, manager } = requireRuntime();
     const refreshToken = manager.getRefreshToken();
@@ -188,11 +203,24 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       await manager.applyRefreshedTokens(tokens);
       set({ accessToken: tokens.accessToken });
       return true;
-    } catch {
+    } catch (error) {
+      if (isNetworkError(error)) {
+        throw error;
+      }
       return false;
     }
   },
 
+  /**
+   * A network failure here means "couldn't verify right now," not "the
+   * session is invalid" (3b.1c). Wiping tokens on every unreachable API would
+   * conflate the two and log the viewer out just because the backend was
+   * briefly down — so a network failure keeps the hydrated tokens and mounts
+   * the app optimistically-authenticated, trusting cached data and each
+   * query's own offline/error state to carry the real picture. Only an
+   * explicit rejection (a real 401, or `/me`/refresh genuinely saying no)
+   * clears the session.
+   */
   bootstrap: async () => {
     const { api, manager, queryClient } = requireRuntime();
     set({ bootstrapping: true, authenticated: false, user: null });
@@ -211,9 +239,23 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     set({ accessToken: material.accessToken });
 
+    const staySignedInOffline = (): void => {
+      manager.markAuthenticated();
+      set({ authenticated: true, bootstrapping: false });
+    };
+
     try {
       if (isAccessTokenExpired(material.accessToken)) {
-        const refreshed = await get().refresh();
+        let refreshed: boolean;
+        try {
+          refreshed = await get().refresh();
+        } catch (error) {
+          if (isNetworkError(error)) {
+            staySignedInOffline();
+            return;
+          }
+          throw error;
+        }
         if (!refreshed) {
           await clearLocalSession(manager, queryClient, set);
           return;
@@ -221,15 +263,32 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       }
 
       await fetchMeAndActivate(api, manager, queryClient, set);
-    } catch {
-      const recovered = await get().refresh();
+    } catch (error) {
+      if (isNetworkError(error)) {
+        staySignedInOffline();
+        return;
+      }
+      let recovered: boolean;
+      try {
+        recovered = await get().refresh();
+      } catch (refreshError) {
+        if (isNetworkError(refreshError)) {
+          staySignedInOffline();
+          return;
+        }
+        recovered = false;
+      }
       if (!recovered) {
         await clearLocalSession(manager, queryClient, set);
         return;
       }
       try {
         await fetchMeAndActivate(api, manager, queryClient, set);
-      } catch {
+      } catch (innerError) {
+        if (isNetworkError(innerError)) {
+          staySignedInOffline();
+          return;
+        }
         await clearLocalSession(manager, queryClient, set);
       }
     }

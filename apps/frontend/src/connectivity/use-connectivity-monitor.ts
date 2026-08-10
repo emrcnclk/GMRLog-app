@@ -10,6 +10,16 @@ import { probeApiReachability } from './api-reachability';
 const PROBE_DEBOUNCE_MS = 10_000;
 
 /**
+ * How often to re-probe while marked offline (3b.1c).
+ *
+ * NetInfo only fires on an interface change — a dead API with the network
+ * adapter still up is not one, so without this the store latches offline
+ * indefinitely once wrong (or once the API genuinely goes down) and only a
+ * full reload clears it, because nothing else ever asks again.
+ */
+const RECONNECT_POLL_MS = 8_000;
+
+/**
  * Subscribes to online/offline detection and reconnect signals (D3.15).
  *
  * NetInfo's `isConnected` — a real interface state — is trusted directly: no
@@ -55,6 +65,19 @@ export function useConnectivityMonitor(): void {
       void resolve(state.isConnected !== false, state.type);
     });
 
-    return unsubscribe;
+    // Self-correct without a reload: only ticks while offline, and stops
+    // costing anything the moment a probe (from here or a NetInfo event)
+    // flips the store back online.
+    const pollInterval = setInterval(() => {
+      if (!useConnectivityStore.getState().isOnline) {
+        lastProbeAt = Date.now();
+        void resolve(true, 'poll');
+      }
+    }, RECONNECT_POLL_MS);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
   }, [setOnline]);
 }

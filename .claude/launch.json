@@ -28,6 +28,23 @@
         "8081"
       ],
       "port": 8081
+    },
+    {
+      "name": "frontend-web-ci",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@gmrlog/frontend",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--clear",
+        "--port",
+        "8081"
+      ],
+      "port": 8081,
+      "env": { "CI": "1" }
     }
   ]
 }
