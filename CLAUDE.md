@@ -31,6 +31,8 @@ When code and these docs disagree, the docs win — unless the code reveals the 
 
 **Rarity is geometry, not colour.** Legendary is a square plate with an ambient glow; common is a circle with a hairline. The colour ramp only brightens. This is why the system survives monochrome.
 
+**Anything drawn on a scrim takes `color.scrim.foreground`.** A scrim is dark in _both_ schemes — that is the whole point of it, and `color.scrim.foreground` (`#F3F5FE`) is the one token deliberately identical in light and dark. Every `color.text.*` flips with the scheme, so a glyph over a scrim that takes `text.primary` renders near-black on near-black in light, and `text.inverse` does the same in dark. It is invisible, and no test catches it: typecheck, lint and unit tests were all green over the one instance that shipped (§14's glass buttons, found only by looking at the screen in light). The pair is `color.scrim.strong` for the plate and `color.scrim.foreground` for what sits on it — the pattern `HeroBackButton` establishes. **Measuring dark-first is what produces this**, so check a scrim in light before calling it done. Geometry alone is not the test: an opaque surface between the glyph and the scrim (an avatar, §13's emblem ring) breaks the relationship, and those glyphs correctly keep their normal tokens.
+
 **Hairlines are whispers.** `color.border.default` is barely visible on purpose. Structure comes from space, not from drawn lines. If a layout feels loose after the palette change, add space or change surface — never darken the border.
 
 **Weight 300–500 only.** Hierarchy comes from size, colour and space. Large numbers are light; nothing is bold to shout.
