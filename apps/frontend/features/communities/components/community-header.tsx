@@ -1,6 +1,7 @@
 import type { CommunityResponse } from '@gmrlog/types';
-import { GradientScrim, HatchOverlay, Text, useTheme } from '@gmrlog/ui';
+import { type BottomSheetAnchor, GradientScrim, HatchOverlay, Text, useTheme } from '@gmrlog/ui';
 import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
+import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,8 +24,8 @@ export interface CommunityHeaderProps {
   community: CommunityResponse;
   onBack: () => void;
   onError?: (message: string) => void;
-  /** Owner actions live behind §14's overflow control. */
-  onOverflow?: () => void;
+  /** Owner actions live behind §14's overflow control, opened at its own measured rect. */
+  onOverflow?: (anchor: BottomSheetAnchor) => void;
 }
 
 /**
@@ -46,6 +47,13 @@ export interface CommunityHeaderProps {
 export function CommunityHeader({ community, onBack, onError, onOverflow }: CommunityHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const overflowTriggerRef = useRef<View>(null);
+
+  const openOverflow = () => {
+    overflowTriggerRef.current?.measureInWindow((x, y, width, height) => {
+      onOverflow?.({ x, y, width, height });
+    });
+  };
 
   /**
    * The glass buttons sit **on the scrim**, which is dark in both schemes by
@@ -109,9 +117,10 @@ export function CommunityHeader({ community, onBack, onError, onOverflow }: Comm
 
           {onOverflow === undefined ? null : (
             <Pressable
+              ref={overflowTriggerRef}
               accessibilityRole="button"
               accessibilityLabel="Community actions"
-              onPress={onOverflow}
+              onPress={openOverflow}
               style={glass}
             >
               <MoreHorizontal size={20} color={glassForeground} strokeWidth={1.75} />

@@ -1,4 +1,11 @@
-import { Button, ErrorBanner, SCREEN_GUTTER, Screen, SegmentedTabs, useTheme } from '@gmrlog/ui';
+import {
+  type BottomSheetAnchor,
+  ErrorBanner,
+  SCREEN_GUTTER,
+  Screen,
+  SegmentedTabs,
+  useTheme,
+} from '@gmrlog/ui';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
@@ -13,6 +20,7 @@ import {
 } from '../components/community-detail-tabs';
 import { CommunityErrorState } from '../components/community-error-state';
 import { CommunityHeader } from '../components/community-header';
+import { CommunityOwnerMenu } from '../components/community-owner-menu';
 import { CommunityDetailSkeleton } from '../components/community-skeleton';
 import {
   COMMUNITY_DETAIL_TABS,
@@ -33,10 +41,14 @@ export function CommunityDetailScreen() {
   const [banner, setBanner] = useState<{ title: string; description: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState<CommunityDetailTabId>('feed');
-  const [ownerActionsOpen, setOwnerActionsOpen] = useState(false);
+  const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<BottomSheetAnchor | null>(null);
 
-  const openOwnerActions = useCallback(() => {
-    setOwnerActionsOpen((open) => !open);
+  const openOwnerActions = useCallback((anchor: BottomSheetAnchor) => {
+    setOwnerMenuAnchor(anchor);
+  }, []);
+
+  const closeOwnerActions = useCallback(() => {
+    setOwnerMenuAnchor(null);
   }, []);
 
   const onBack = useCallback(() => {
@@ -129,37 +141,6 @@ export function CommunityDetailScreen() {
           </View>
         ) : null}
 
-        {/* §14 names an overflow button but not what it opens. Revealed inline
-            as a hairline pair rather than a sheet or popover: §15 is the section
-            that specifies "a sheet on native, a popover on web", so the menu
-            primitive belongs to 3b.3, not to this shell. */}
-        {owner && ownerActionsOpen ? (
-          <View
-            style={{
-              marginHorizontal: theme.space(SCREEN_GUTTER),
-              borderWidth: 1,
-              borderColor: theme.color('color.border.default'),
-              borderRadius: theme.radius('radius.lg'),
-              padding: theme.space('space.3'),
-              gap: theme.space('space.2'),
-            }}
-          >
-            <Button variant="secondary" accessibilityLabel="Edit community" onPress={openEdit}>
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              accessibilityLabel="Delete community"
-              onPress={() => {
-                setOwnerActionsOpen(false);
-                setDeleteOpen(true);
-              }}
-            >
-              Delete
-            </Button>
-          </View>
-        ) : null}
-
         {/* §14's underlined tabs. `SegmentedTabs` already draws the accent as a
             rule under the label, so there is no new tab strip here. */}
         <SegmentedTabs
@@ -180,6 +161,15 @@ export function CommunityDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <CommunityOwnerMenu
+        anchor={ownerMenuAnchor}
+        onClose={closeOwnerActions}
+        onEdit={openEdit}
+        onDelete={() => {
+          setDeleteOpen(true);
+        }}
+      />
 
       <ConfirmDialog
         visible={deleteOpen}
