@@ -1,5 +1,10 @@
 import type { ConnectedAccount, User, UserSettings } from '@gmrlog/database';
-import type { ConnectedAccountResponse, SettingsResponse, UserSelfResponse } from '@gmrlog/types';
+import type {
+  ConnectedAccountResponse,
+  SettingsResponse,
+  UserPublicResponse,
+  UserSelfResponse,
+} from '@gmrlog/types';
 
 import { resolveMediaUrl } from '../../infrastructure/media/resolve-media-url';
 
@@ -9,6 +14,15 @@ import { resolveMediaUrl } from '../../infrastructure/media/resolve-media-url';
  */
 
 export { resolveMediaUrl };
+
+export function toUserPublicResponse(user: User): UserPublicResponse {
+  return {
+    id: user.id,
+    handle: user.handle,
+    displayName: user.displayName,
+    avatarUrl: resolveMediaUrl(user.avatarKey),
+  };
+}
 
 export function toUserSelfResponse(
   user: User,

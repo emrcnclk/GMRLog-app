@@ -1181,7 +1181,7 @@ export class AxiosApiClient {
     return this.get<CommentResponse[]>(`/reviews/${reviewId}/comments`);
   }
 
-  /** `GET /users/{userId}` — public profile card (when mounted). */
+  /** `GET /users/{userId}` — public profile card. */
   getUserPublic(userId: string): Promise<ApiEnvelope<UserPublicResponse>> {
     return this.get<UserPublicResponse>(`/users/${userId}`);
   }

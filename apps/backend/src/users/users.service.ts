@@ -8,17 +8,29 @@ import type {
   UserSettingsRepository,
   UserSettingsUpsertData,
 } from '@gmrlog/database';
-import type { ConnectedAccountResponse, SettingsResponse, UserSelfResponse } from '@gmrlog/types';
+import type {
+  ConnectedAccountResponse,
+  SettingsResponse,
+  UserPublicResponse,
+  UserSelfResponse,
+} from '@gmrlog/types';
 import type {
   MePatchInput,
   SettingsAccessibilityPatchInput,
   SettingsAppearancePatchInput,
 } from '@gmrlog/validators';
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import {
   toConnectedAccountResponse,
   toSettingsResponse,
+  toUserPublicResponse,
   toUserSelfResponse,
 } from './mappers/user.mapper';
 import {
@@ -103,6 +115,15 @@ export class UsersService {
     await this.requireActiveUser(userId);
     const accounts = await this.accounts.listByUser(userId);
     return accounts.map(toConnectedAccountResponse);
+  }
+
+  /** `GET /users/{id}` — public profile card, guest-readable. */
+  async getPublicUser(userId: string): Promise<UserPublicResponse> {
+    const user = await this.users.findById(userId);
+    if (user == null || user.deletedAt != null) {
+      throw new NotFoundException('User not found');
+    }
+    return toUserPublicResponse(user);
   }
 
   /**

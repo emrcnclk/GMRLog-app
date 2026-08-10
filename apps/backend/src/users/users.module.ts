@@ -13,6 +13,7 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { ConnectedAccountsController } from './connected-accounts.controller';
 import { MeController } from './me.controller';
 import { SettingsController } from './settings.controller';
+import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import {
   CONNECTED_ACCOUNT_REPOSITORY,
@@ -27,7 +28,7 @@ import {
  */
 @Module({
   imports: [AuthModule, PrismaModule],
-  controllers: [MeController, SettingsController, ConnectedAccountsController],
+  controllers: [MeController, SettingsController, ConnectedAccountsController, UsersController],
   providers: [
     {
       provide: USER_REPOSITORY,
