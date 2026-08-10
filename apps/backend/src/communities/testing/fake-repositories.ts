@@ -50,6 +50,7 @@ export function makeCommunity(overrides: Partial<Community> = {}): Community {
     bannerBlurhash: null,
     bannerVariants: null,
     joinType: 'public' as const,
+    kind: 'games' as const,
     tags: [],
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -250,7 +251,9 @@ export function createFakeCommunityRepository(seed: Community[] = []): FakeCommu
  * items; the real one additionally guarantees the page is not short.
  */
 function paginateCommunityRows(rows: Community[], options: CommunityListOptions): Community[] {
-  const sorted = rows.sort((a, b) => {
+  const byKind =
+    options.kind === undefined ? rows : rows.filter((row) => row.kind === options.kind);
+  const sorted = byKind.sort((a, b) => {
     if (a.updatedAt.getTime() !== b.updatedAt.getTime()) {
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     }
@@ -447,6 +450,23 @@ export function createFakeCommunityActivityRepository(
       }
 
       return Promise.resolve(list.slice(0, params.limit));
+    },
+    countPostActivityByCommunityIdsSince: (communityIds, since) => {
+      const idSet = new Set(communityIds);
+      const counts = new Map<string, number>();
+      for (const entry of rows) {
+        if (!idSet.has(entry.communityId)) {
+          continue;
+        }
+        if (entry.row.activityItem.kind !== 'post') {
+          continue;
+        }
+        if (entry.row.activityItem.occurredAt.getTime() < since.getTime()) {
+          continue;
+        }
+        counts.set(entry.communityId, (counts.get(entry.communityId) ?? 0) + 1);
+      }
+      return Promise.resolve(counts);
     },
   };
 }

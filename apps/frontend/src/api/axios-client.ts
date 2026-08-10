@@ -6,6 +6,7 @@ import type {
   FeedItemResponse,
   CollectionResponse,
   CommentResponse,
+  CommunityKindValue,
   CommunityMemberResponse,
   CommunityResponse,
   ConnectedAccountResponse,
@@ -561,6 +562,8 @@ export class AxiosApiClient {
   listCommunities(query?: {
     cursor?: string;
     limit?: number;
+    /** 3b.1e — §13's filter pills. Omitted means every kind. */
+    kind?: CommunityKindValue;
   }): Promise<ApiEnvelope<CommunityResponse[]>> {
     return this.get<CommunityResponse[]>('/communities', query);
   }

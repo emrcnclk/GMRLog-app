@@ -1,4 +1,4 @@
-import type { CommunityResponse } from '@gmrlog/types';
+import type { CommunityKindValue, CommunityResponse } from '@gmrlog/types';
 import type { CommunityCreateInput, CommunityPatchInput } from '@gmrlog/validators';
 import { COMMUNITY_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,15 +18,16 @@ import { optimisticJoin, optimisticLeave, resolveListView } from './community-mo
  * hook never resolved. It is an infinite query now, the same shape the discover
  * lists already use, and the screen asks for the next page as it scrolls.
  */
-export function useCommunities() {
+export function useCommunities(kind?: CommunityKindValue) {
   const api = useApiClient();
   const queryClient = useQueryClient();
 
   const query = useInfiniteQuery({
-    queryKey: queryKeys.communities.list(),
+    queryKey: queryKeys.communities.list(kind),
     queryFn: ({ pageParam }) =>
       api.listCommunities({
         limit: COMMUNITY_LIST_DEFAULT_LIMIT,
+        ...(kind !== undefined ? { kind } : {}),
         ...(pageParam !== undefined ? { cursor: pageParam } : {}),
       }),
     initialPageParam: undefined as string | undefined,
@@ -47,8 +48,8 @@ export function useCommunities() {
   });
 
   const refresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.communities.list() });
-  }, [queryClient]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.communities.list(kind) });
+  }, [queryClient, kind]);
 
   const loadMore = useCallback(() => {
     if (query.hasNextPage && !query.isFetchingNextPage) {
@@ -246,24 +247,27 @@ export function useDeleteCommunity() {
       return communityId;
     },
     onMutate: async (communityId) => {
-      const listKey = queryKeys.communities.list();
+      // 3b.1e — `.list()` with no `kind` is a prefix, so this reaches every
+      // kind-filtered cache too, not only the unfiltered one.
+      const listPrefix = queryKeys.communities.list();
       const detailKey = queryKeys.communities.detail(communityId);
-      await queryClient.cancelQueries({ queryKey: listKey });
+      await queryClient.cancelQueries({ queryKey: listPrefix });
       await queryClient.cancelQueries({ queryKey: detailKey });
-      const previous = queryClient.getQueryData<CommunityListCache>(listKey);
+      const previousLists = queryClient.getQueriesData<CommunityListCache>({
+        queryKey: listPrefix,
+      });
       const previousDetail = queryClient.getQueryData<CommunityResponse>(detailKey);
-      if (previous) {
-        queryClient.setQueryData(
-          listKey,
-          mapListPages(previous, (page) => page.filter((item) => item.id !== communityId)),
-        );
-      }
+      queryClient.setQueriesData<CommunityListCache>({ queryKey: listPrefix }, (cache) =>
+        cache === undefined
+          ? cache
+          : mapListPages(cache, (page) => page.filter((item) => item.id !== communityId)),
+      );
       queryClient.removeQueries({ queryKey: detailKey });
-      return { previous, previousDetail, detailKey };
+      return { previousLists, previousDetail, detailKey };
     },
     onError: (_error, _id, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKeys.communities.list(), context.previous);
+      for (const [key, data] of context?.previousLists ?? []) {
+        queryClient.setQueryData(key, data);
       }
       if (context?.previousDetail) {
         queryClient.setQueryData(context.detailKey, context.previousDetail);
@@ -378,20 +382,19 @@ function mapListPages(
   };
 }
 
+/** 3b.1e — a prefix match, so a join/leave/edit reaches every kind-filtered cache too. */
 function patchListItem(
   queryClient: ReturnType<typeof useQueryClient>,
   community: CommunityResponse,
 ): void {
-  const listKey = queryKeys.communities.list();
-  const cache = queryClient.getQueryData<CommunityListCache>(listKey);
-  if (!cache) {
-    return;
-  }
-  queryClient.setQueryData(
-    listKey,
-    mapListPages(cache, (page) =>
-      page.map((item) => (item.id === community.id ? community : item)),
-    ),
+  queryClient.setQueriesData<CommunityListCache>(
+    { queryKey: queryKeys.communities.list() },
+    (cache) =>
+      cache === undefined
+        ? cache
+        : mapListPages(cache, (page) =>
+            page.map((item) => (item.id === community.id ? community : item)),
+          ),
   );
 }
 

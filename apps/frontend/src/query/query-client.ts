@@ -136,7 +136,16 @@ export const queryKeys = {
   },
   communities: {
     all: ['communities'] as const,
-    list: () => ['communities', 'list'] as const,
+    /**
+     * 3b.1e — §13's filter pills. `list()` (no `kind`) stays `['communities',
+     * 'list']`, unchanged from before this task, so it still prefix-matches
+     * every kind-scoped variant below it — every existing `invalidateQueries`
+     * call that passes no `kind` keeps invalidating all of them at once.
+     */
+    list: (kind?: string) =>
+      kind === undefined
+        ? (['communities', 'list'] as const)
+        : (['communities', 'list', kind] as const),
     detail: (id: string) => ['communities', 'detail', id] as const,
     members: (id: string) => ['communities', 'members', id] as const,
     /** §14's Feed tab — `GET /communities/{id}/feed`, cursor-paginated. */

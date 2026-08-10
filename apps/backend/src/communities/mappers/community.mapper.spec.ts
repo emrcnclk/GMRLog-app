@@ -43,9 +43,17 @@ describe('community.mapper', () => {
       name: 'Culture Club',
       counts: { members: 3 },
       viewerMembership: null,
+      kind: 'games',
     });
+    expect(toCommunityResponse(community, 3, null)).not.toHaveProperty('postsToday');
     expect(toCommunityMemberResponse(member, user).user.handle).toBe('player');
     expect(toCommunityMemberResponse(member, user).badges).toEqual([]);
+  });
+
+  it('carries the activity signal only when the caller computed one (3b.1e)', () => {
+    expect(
+      toCommunityResponse(community, 3, null, undefined, { postsToday: 4, activeNow: true }),
+    ).toMatchObject({ postsToday: 4, activeNow: true });
   });
 
   it('applies community visibility rules', () => {

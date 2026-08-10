@@ -21,6 +21,9 @@ export interface CommunityCardProps {
   onPress: (communityId: string) => void;
 }
 
+/** §13's footer "live dot when active" — a glyph dimension, not a spacing token. */
+const LIVE_DOT_SIZE = 6;
+
 /**
  * `SCREEN_REDESIGNS_2.md` §13's circle card.
  *
@@ -45,7 +48,7 @@ function CommunityCardComponent({ community, onPress }: CommunityCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${community.name}. ${footer}${friendReason === null ? '' : `. ${friendReason}`}${joined ? '. Joined' : ''}`}
+      accessibilityLabel={`${community.name}. ${footer}${community.activeNow === true ? '. Active now' : ''}${friendReason === null ? '' : `. ${friendReason}`}${joined ? '. Joined' : ''}`}
       onPress={() => {
         onPress(community.id);
       }}
@@ -114,9 +117,27 @@ function CommunityCardComponent({ community, onPress }: CommunityCardProps) {
           </Text>
         )}
 
-        <Text role="meta" color="color.text.tertiary">
-          {footer}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space('space.1') }}>
+          <Text role="meta" color="color.text.tertiary">
+            {footer}
+          </Text>
+          {/* §13's own third footer term: "a live dot when active". `activeNowCommunities`
+              drives the separate rail above; this is the same signal on the card itself,
+              per-circle rather than aggregate. Not animated — see `ActiveNowRail`'s own
+              note on why a pulse is not attempted on this build. */}
+          {community.activeNow === true ? (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={{
+                width: LIVE_DOT_SIZE,
+                height: LIVE_DOT_SIZE,
+                borderRadius: theme.radius('radius.full'),
+                backgroundColor: theme.color('color.status.success'),
+              }}
+            />
+          ) : null}
+        </View>
 
         {/* §13: "each with a one-line reason in accent monospace". The accent
             as text is what the law permits it to be — a line, not a fill — and

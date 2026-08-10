@@ -87,6 +87,7 @@ import {
   toCommunityResponse,
   toCommunityWikiPageResponse,
 } from './mappers/community.mapper';
+import type { CommunityActivitySignal } from './mappers/community.mapper';
 
 /**
  * Community domain service (F6.3 / D2.12 · S1.1 · D3.24 Communities 2.0).
@@ -130,7 +131,12 @@ export class CommunitiesService {
     const viewerId = viewerIdOf(identity);
     const limit = query.limit ?? COMMUNITY_LIST_DEFAULT_LIMIT;
     const cursor = query.cursor !== undefined ? decodeCommunityCursor(query.cursor) : undefined;
-    const options = { limit: limit + 1, ...(cursor !== undefined ? { cursor } : {}) };
+    const options = {
+      limit: limit + 1,
+      ...(cursor !== undefined ? { cursor } : {}),
+      // 3b.1e — §13's filter pills. Applies across the whole page, joined circles included.
+      ...(query.kind !== undefined ? { kind: query.kind } : {}),
+    };
 
     const rows =
       viewerId === null
@@ -564,7 +570,37 @@ export class CommunitiesService {
         viewerMembership = toCommunityMembershipSummary(membership);
       }
     }
-    return toCommunityResponse(community, memberCount, viewerMembership);
+    const activitySignal = (await this.activitySignalByCommunityIds([community.id])).get(
+      community.id,
+    );
+    return toCommunityResponse(community, memberCount, viewerMembership, undefined, activitySignal);
+  }
+
+  /**
+   * 3b.1e — `postsToday`/`activeNow` (BACKEND_CHANGES.md §6) for a page of
+   * communities in two `groupBy`s total, never a query per card. `postsToday`
+   * resets at UTC midnight for every viewer; `activeNow` is a rolling 3-hour
+   * window independent of the calendar day.
+   */
+  private async activitySignalByCommunityIds(
+    ids: readonly string[],
+  ): Promise<Map<string, CommunityActivitySignal>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const now = new Date();
+    const [postsToday, activeSince] = await Promise.all([
+      this.communityActivities.countPostActivityByCommunityIdsSince(ids, utcDayStart(now)),
+      this.communityActivities.countPostActivityByCommunityIdsSince(ids, activeNowCutoff(now)),
+    ]);
+    const signals = new Map<string, CommunityActivitySignal>();
+    for (const id of ids) {
+      signals.set(id, {
+        postsToday: postsToday.get(id) ?? 0,
+        activeNow: (activeSince.get(id) ?? 0) > 0,
+      });
+    }
+    return signals;
   }
 
   /**
@@ -585,7 +621,7 @@ export class CommunitiesService {
       return [];
     }
     const ids = rows.map((row) => row.id);
-    const [owners, counts, memberships, friendIds] = await Promise.all([
+    const [owners, counts, memberships, friendIds, activitySignals] = await Promise.all([
       this.members.listOwnersByCommunityIds(ids),
       this.members.countByCommunityIds(ids),
       viewerId === null
@@ -594,6 +630,8 @@ export class CommunitiesService {
       // 3b.1b: §13's "N friends here". One id lookup plus one `groupBy` for the
       // whole page — the same batching rule the rest of this projection follows.
       viewerId === null ? Promise.resolve<string[]>([]) : this.friendships.listFriendIds(viewerId),
+      // 3b.1e: postsToday/activeNow, two groupBys for the whole page.
+      this.activitySignalByCommunityIds(ids),
     ]);
     const friendCounts =
       friendIds.length === 0
@@ -638,6 +676,7 @@ export class CommunitiesService {
           membership === null ? null : toCommunityMembershipSummary(membership),
           // Absent for a guest; zero is a real answer for a signed-in viewer.
           viewerId === null ? undefined : (friendCounts.get(row.id) ?? 0),
+          activitySignals.get(row.id),
         ),
       );
     }
@@ -813,6 +852,18 @@ export class CommunitiesService {
 
 function viewerIdOf(identity: RequestIdentity): string | null {
   return isAuthenticatedIdentity(identity) ? identity.userId : null;
+}
+
+/** 3b.1e — `postsToday`'s cutoff. UTC always, so two viewers in two time zones never disagree. */
+function utcDayStart(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/** 3b.1e — `activeNow`'s cutoff, independent of the calendar day (BACKEND_CHANGES.md §6). */
+const ACTIVE_NOW_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+function activeNowCutoff(now: Date): Date {
+  return new Date(now.getTime() - ACTIVE_NOW_WINDOW_MS);
 }
 
 function feedTabToActivityKinds(

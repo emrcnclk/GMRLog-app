@@ -319,6 +319,16 @@ enum CommunityJoinType {
   @@map("community_join_type")
 }
 
+/// 3b.1e — design_handoff_dna_match_and_community/BACKEND_CHANGES.md §6. One value per circle, the prototype's own four.
+enum CommunityKind {
+  games
+  board_games
+  cosplay
+  live_events
+
+  @@map("community_kind")
+}
+
 enum EventKind {
   game
   community
@@ -1375,6 +1385,8 @@ model Community {
   visibility  ContentVisibility @default(public)
   /// D3.24
   joinType    CommunityJoinType @default(public) @map("join_type")
+  /// 3b.1e — required, single-valued, BACKEND_CHANGES.md §6. Existing rows backfilled to 'games'.
+  kind        CommunityKind     @default(games)
   tags        String[]          @default([])
   avatarKey   String?           @map("avatar_key")
   bannerKey   String?           @map("banner_key")

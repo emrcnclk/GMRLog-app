@@ -465,6 +465,9 @@ export interface BlockResponse {
 /** S2 CommunityRole — MVP roles only. */
 export type CommunityRoleValue = 'member' | 'moderator' | 'owner' | 'admin';
 
+/** 3b.1e — BACKEND_CHANGES.md §6. One value per circle, the prototype's own four. */
+export type CommunityKindValue = 'games' | 'board_games' | 'cosplay' | 'live_events';
+
 /** S1 §15.6 — viewer membership when authenticated and a member. */
 export interface CommunityMembershipSummary {
   role: CommunityRoleValue;
@@ -497,6 +500,16 @@ export interface CommunityResponse {
    * inside `counts` — two viewers see different numbers for the same circle.
    */
   viewerFriendCount?: number;
+  /**
+   * 3b.1e — BACKEND_CHANGES.md §6. Optional per CLAUDE.md's additive-DTO rule;
+   * every endpoint that projects a `Community` now computes all three, but the
+   * field stays optional so a caller that does not is still a valid response.
+   */
+  kind?: CommunityKindValue;
+  /** Post-kind activity items since the current UTC day's start. */
+  postsToday?: number;
+  /** At least one post-kind activity item in the last 3 hours. */
+  activeNow?: boolean;
 }
 
 /** Community members list — user projection + role for a11y (S3 SHCM-03). */

@@ -38,12 +38,20 @@ export function toCommunityMembershipSummary(member: CommunityMember): Community
   };
 }
 
+/** 3b.1e — BACKEND_CHANGES.md §6. `postsToday`/`activeNow`, computed by the caller. */
+export interface CommunityActivitySignal {
+  postsToday: number;
+  activeNow: boolean;
+}
+
 export function toCommunityResponse(
   community: Community,
   memberCount: number,
   viewerMembership: CommunityMembershipSummary | null,
   /** 3b.1b — omitted for a guest, and by every caller that does not compute it. */
   viewerFriendCount?: number,
+  /** 3b.1e — omitted only by a caller that has not computed it yet. */
+  activitySignal?: CommunityActivitySignal,
 ): CommunityResponse {
   return {
     id: community.id,
@@ -53,7 +61,9 @@ export function toCommunityResponse(
     bannerUrl: resolveMediaUrl(community.bannerKey),
     viewerMembership,
     counts: { members: memberCount },
+    kind: community.kind,
     ...(viewerFriendCount === undefined ? {} : { viewerFriendCount }),
+    ...(activitySignal ?? {}),
   };
 }
 

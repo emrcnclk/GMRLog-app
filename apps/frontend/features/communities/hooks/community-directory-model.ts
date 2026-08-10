@@ -1,4 +1,4 @@
-import type { CommunityResponse } from '@gmrlog/types';
+import type { CommunityKindValue, CommunityResponse } from '@gmrlog/types';
 
 import { isCommunityMember } from './community-model';
 
@@ -50,14 +50,45 @@ export function communityDirectoryMeta(items: CommunityResponse[]): string {
 /**
  * §13's card footer: "members · posts today · a live dot when active".
  *
- * Only the member count exists — `CommunityCounts` is members-only ("MVP" in its
- * own doc comment) and nothing on the DTO reports posts or activity. The line
- * carries what is real and says nothing else; the two missing terms are tracked
- * as follow-ups on 3b.1 rather than filled with a plausible number.
+ * `postsToday` (3b.1e, BACKEND_CHANGES.md §6) lands here now; the live dot is
+ * `activeNow`, rendered by the caller as its own element next to this line —
+ * a dot is geometry, not text, the same call every other presence indicator in
+ * this app makes (3.4's `PresenceRail`, 3.3's unread dot).
  */
 export function communityFooterLine(community: CommunityResponse): string {
   const members = community.counts.members;
-  return `${String(members)} ${members === 1 ? 'member' : 'members'}`;
+  const memberTerm = `${String(members)} ${members === 1 ? 'member' : 'members'}`;
+  if (community.postsToday === undefined) {
+    return memberTerm;
+  }
+  const posts = community.postsToday;
+  return `${memberTerm} · ${String(posts)} ${posts === 1 ? 'post' : 'posts'} today`;
+}
+
+/**
+ * §13's filter pills — the prototype's own `COMM_FILTERS`, "All" plus the four
+ * kinds. "All" is not a `CommunityKind`: it is the absence of the `kind` query
+ * param, so it stays a UI-only sentinel rather than a fifth enum value.
+ */
+export type CircleKindFilterValue = 'all' | CommunityKindValue;
+
+/** Typed against `CommunityKindValue` so a pill can never drift from the DTO's enum. */
+export const CIRCLE_KIND_FILTERS: readonly { value: CircleKindFilterValue; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'games', label: 'Games' },
+  { value: 'board_games', label: 'Board games' },
+  { value: 'cosplay', label: 'Cosplay' },
+  { value: 'live_events', label: 'Live events' },
+];
+
+/**
+ * §13's "Active now" rail — a highlight over the same page already fetched,
+ * the same relationship `splitCommunityDirectory` has to "Your circles" and
+ * "Suggested". Not a separate query: `activeNow` is a rolling 3-hour window,
+ * so the set it describes changes on its own between page loads regardless.
+ */
+export function activeNowCommunities(items: CommunityResponse[]): CommunityResponse[] {
+  return items.filter((item) => item.activeNow === true);
 }
 
 /**

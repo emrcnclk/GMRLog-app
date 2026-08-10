@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FriendshipRepository, PostRepository } from '@gmrlog/database';
 
@@ -184,6 +184,39 @@ describe('CommunitiesService.listCommunities', () => {
     expect(second.cursor.next).toBeNull();
   });
 
+  /** 3b.1e — §13's filter pills, applied server-side so a paginated page filters correctly. */
+  it('filters the directory by kind, joined circles included', async () => {
+    communities = createFakeCommunityRepository([
+      ...communities.rows.values(),
+      makeCommunity({
+        id: 'community-cosplay',
+        name: 'Cosplay Guild',
+        slug: 'cosplay-guild',
+        kind: 'cosplay',
+      }),
+    ]);
+    // Give the extra row a real owner so it clears `HAS_OWNER`.
+    members = createFakeCommunityMemberRepository([
+      ...members.rows.values(),
+      makeCommunityMember({
+        id: 'member-cosplay-owner',
+        communityId: 'community-cosplay',
+        userId: 'user-2',
+        role: 'owner',
+      }),
+    ]);
+    service = buildService();
+
+    const filtered = await service.listCommunities(guest, { kind: 'cosplay' });
+    expect(filtered.items.map((row) => row.id)).toEqual(['community-cosplay']);
+
+    const unfiltered = await service.listCommunities(guest);
+    expect(unfiltered.items.map((row) => row.id).sort()).toEqual([
+      'community-1',
+      'community-cosplay',
+    ]);
+  });
+
   it('rejects a malformed cursor rather than returning page one', async () => {
     await expect(service.listCommunities(guest, { cursor: 'not-a-cursor' })).rejects.toThrow();
   });
@@ -215,6 +248,123 @@ describe('CommunitiesService.listCommunities', () => {
   it('reports zero rather than nothing when a signed-in viewer has no friends there', async () => {
     const listed = await service.listCommunities(player);
     expect(listed.items[0]?.viewerFriendCount).toBe(0);
+  });
+});
+
+/**
+ * 3b.1e — BACKEND_CHANGES.md §6. `kind` is always present (the DB column is
+ * required); `postsToday`/`activeNow` are computed, not stored, so every case
+ * here fixes the clock rather than seeding a timestamp column.
+ */
+describe('CommunitiesService activity signal (3b.1e)', () => {
+  const now = new Date('2026-01-02T10:00:00.000Z');
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('carries the required kind on every projected community', async () => {
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.kind).toBe('games');
+  });
+
+  it('reports zero/false, not an absent field, for a circle with no activity', async () => {
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.postsToday).toBe(0);
+    expect(listed.items[0]?.activeNow).toBe(false);
+  });
+
+  it('counts a recent post toward both postsToday and activeNow', async () => {
+    communityActivities = createFakeCommunityActivityRepository([
+      {
+        communityId: 'community-1',
+        row: {
+          communityActivityId: 'ca-1',
+          activityItem: makeActivityItem({
+            id: 'activity-1',
+            kind: 'post',
+            occurredAt: new Date('2026-01-02T09:00:00.000Z'), // 1h ago
+          }),
+          actor: null,
+        },
+      },
+    ]);
+    service = buildService();
+
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.postsToday).toBe(1);
+    expect(listed.items[0]?.activeNow).toBe(true);
+  });
+
+  it('keeps the post in postsToday but drops activeNow once it ages past the 3h window', async () => {
+    communityActivities = createFakeCommunityActivityRepository([
+      {
+        communityId: 'community-1',
+        row: {
+          communityActivityId: 'ca-1',
+          activityItem: makeActivityItem({
+            id: 'activity-1',
+            kind: 'post',
+            occurredAt: new Date('2026-01-02T06:00:00.000Z'), // 4h ago, still today (UTC)
+          }),
+          actor: null,
+        },
+      },
+    ]);
+    service = buildService();
+
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.postsToday).toBe(1);
+    expect(listed.items[0]?.activeNow).toBe(false);
+  });
+
+  it('resets postsToday at UTC midnight, not a rolling 24h window', async () => {
+    communityActivities = createFakeCommunityActivityRepository([
+      {
+        communityId: 'community-1',
+        row: {
+          communityActivityId: 'ca-1',
+          activityItem: makeActivityItem({
+            id: 'activity-1',
+            kind: 'post',
+            occurredAt: new Date('2026-01-01T23:00:00.000Z'), // 11h ago, yesterday (UTC)
+          }),
+          actor: null,
+        },
+      },
+    ]);
+    service = buildService();
+
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.postsToday).toBe(0);
+    expect(listed.items[0]?.activeNow).toBe(false);
+  });
+
+  it('ignores non-post activity kinds', async () => {
+    communityActivities = createFakeCommunityActivityRepository([
+      {
+        communityId: 'community-1',
+        row: {
+          communityActivityId: 'ca-1',
+          activityItem: makeActivityItem({
+            id: 'activity-1',
+            kind: 'community', // a role/badge-style event, not a member post
+            occurredAt: new Date('2026-01-02T09:30:00.000Z'),
+          }),
+          actor: null,
+        },
+      },
+    ]);
+    service = buildService();
+
+    const listed = await service.listCommunities(guest);
+    expect(listed.items[0]?.postsToday).toBe(0);
+    expect(listed.items[0]?.activeNow).toBe(false);
   });
 });
 

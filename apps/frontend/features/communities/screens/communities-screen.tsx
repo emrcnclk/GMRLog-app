@@ -1,5 +1,6 @@
 import {
   Button,
+  Chip,
   Loading,
   SCREEN_GUTTER,
   Screen,
@@ -9,17 +10,21 @@ import {
   useTheme,
 } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, RefreshControl, ScrollView, View } from 'react-native';
 
 import { useConnectivityStore } from '../../../src/state/stores';
+import { ActiveNowRail } from '../components/active-now-rail';
 import { CommunityCard } from '../components/community-card';
 import { CommunityErrorState } from '../components/community-error-state';
 import { CommunitySkeleton } from '../components/community-skeleton';
 import { EmptyCommunities } from '../components/empty-communities';
 import {
+  CIRCLE_KIND_FILTERS,
+  activeNowCommunities,
   communityDirectoryMeta,
   splitCommunityDirectory,
+  type CircleKindFilterValue,
 } from '../hooks/community-directory-model';
 import { useCommunities } from '../hooks/use-communities';
 
@@ -30,19 +35,21 @@ import { useCommunities } from '../hooks/use-communities';
  * so `ScreenTitle` replaces `ScreenHeader` — the same swap 3.1–3.4 made, and the
  * reason `NavHeader` stays reserved for pushed detail screens.
  *
- * **Two of §13's four pieces are not built, because no field feeds them.** The
- * filter pills need a circle *kind* (the prototype's All · Games · Board games ·
- * Cosplay · Live events) and `CommunityResponse` carries none; the "Active now"
- * rail needs an activity signal and `CommunityCounts` is members-only by its own
- * doc comment. Both are recorded as follow-ups on 3b.1 with the field each would
- * need. Rendering an empty rail, or pills that filter on nothing, would have
- * been worse than leaving the space to the two sections that are real.
+ * **All four of §13's pieces are built.** The filter pills and the "Active now"
+ * rail were withheld on 3b.1 because `CommunityResponse` carried neither a
+ * circle `kind` nor an activity signal; both landed additively in 3b.1e
+ * (`BACKEND_CHANGES.md` §6) — the filter is a server-side `kind` query param
+ * (§13's kind applies across a whole paginated page, so filtering client-side
+ * over one loaded page would have silently hidden real rows), and the rail is
+ * a highlight over the same page, the same relationship "Your circles" and
+ * "Suggested" already have to it.
  */
 export function CommunitiesScreen() {
   const theme = useTheme();
   const router = useRouter();
   const isOnline = useConnectivityStore((s) => s.isOnline);
-  const list = useCommunities();
+  const [kindFilter, setKindFilter] = useState<CircleKindFilterValue>('all');
+  const list = useCommunities(kindFilter === 'all' ? undefined : kindFilter);
 
   const openCreate = useCallback(() => {
     router.push('/(app)/communities/create');
@@ -60,6 +67,7 @@ export function CommunitiesScreen() {
   );
 
   const sections = useMemo(() => splitCommunityDirectory(list.items), [list.items]);
+  const active = useMemo(() => activeNowCommunities(list.items), [list.items]);
 
   // The scroll container owns the gutter (below), so the title block must not
   // add its own — `ScreenTitle` carries `SCREEN_GUTTER` by default and two
@@ -86,10 +94,35 @@ export function CommunitiesScreen() {
     />
   );
 
+  // §13's filter pills. A row, not a `Rail` — pills are chrome for the whole
+  // screen, not a shelf of content, so they stay inside the ambient gutter
+  // rather than bleeding.
+  const filterPills = (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={{ flexDirection: 'row', gap: theme.space('space.2') }}>
+        {CIRCLE_KIND_FILTERS.map((filter) => (
+          <Chip
+            key={filter.value}
+            selected={kindFilter === filter.value}
+            accessibilityLabel={`Filter: ${filter.label}`}
+            onPress={() => {
+              setKindFilter(filter.value);
+            }}
+          >
+            {filter.label}
+          </Chip>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
   // The three non-list states have no scroll container to inherit the gutter
   // from, so they carry it themselves — one inset either way, never two.
   const gutteredTitle = (
-    <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER) }}>{title}</View>
+    <View style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.3') }}>
+      {title}
+      {filterPills}
+    </View>
   );
 
   return (
@@ -136,6 +169,7 @@ export function CommunitiesScreen() {
           ListHeaderComponent={
             <View style={{ gap: theme.space('space.6'), paddingBottom: theme.space('space.3') }}>
               {title}
+              {filterPills}
               {sections.joined.length === 0 ? null : (
                 <Section title="Your circles" counter={String(sections.joined.length)}>
                   <View style={{ gap: theme.space('space.3') }}>
@@ -144,6 +178,15 @@ export function CommunitiesScreen() {
                     ))}
                   </View>
                 </Section>
+              )}
+              {/* §13's second section. `Rail` bleeds against its own gutter, but this
+                  header already sits inside the `FlatList`'s `paddingHorizontal` — the
+                  negative margin cancels that ambient padding so the rail can bleed
+                  the way it does everywhere else it is used. */}
+              {active.length === 0 ? null : (
+                <View style={{ marginHorizontal: -theme.space(SCREEN_GUTTER) }}>
+                  <ActiveNowRail communities={active} onPress={openCommunity} />
+                </View>
               )}
               {/* The kicker alone, not a `Section`: this section's children are
                   the `FlatList`'s own rows, so wrapping them is not possible

@@ -1580,10 +1580,15 @@ export type CommunityFeedQueryInput = z.infer<typeof communityFeedQuerySchema>;
 export const COMMUNITY_LIST_DEFAULT_LIMIT = 20;
 export const COMMUNITY_LIST_MAX_LIMIT = 50;
 
+/** 3b.1e — BACKEND_CHANGES.md §6. The prototype's own four, no fifth catch-all. */
+export const COMMUNITY_KIND_VALUES = ['games', 'board_games', 'cosplay', 'live_events'] as const;
+
 export const communityListQuerySchema = z
   .object({
     cursor: z.string().trim().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(COMMUNITY_LIST_MAX_LIMIT).optional(),
+    /** §13's filter pills — omitted means every kind, not a fifth "all" enum value. */
+    kind: z.enum(COMMUNITY_KIND_VALUES).optional(),
   })
   .strict();
 

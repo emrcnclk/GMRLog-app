@@ -2,7 +2,9 @@ import type { CommunityResponse } from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
+  CIRCLE_KIND_FILTERS,
   COMMUNITY_DETAIL_TABS,
+  activeNowCommunities,
   communityDetailMeta,
   communityDirectoryMeta,
   communityFooterLine,
@@ -15,6 +17,7 @@ function community(
   members: number,
   joined: boolean,
   viewerFriendCount?: number,
+  activity?: { postsToday: number; activeNow: boolean },
 ): CommunityResponse {
   return {
     id,
@@ -25,6 +28,7 @@ function community(
     viewerMembership: joined ? { role: 'member', joinedAt: '2026-01-01T00:00:00.000Z' } : null,
     counts: { members },
     ...(viewerFriendCount === undefined ? {} : { viewerFriendCount }),
+    ...(activity ?? {}),
   };
 }
 
@@ -59,13 +63,56 @@ describe('community directory model', () => {
     expect(communityDirectoryMeta([])).toBe('0 circles · 0 joined');
   });
 
-  it('carries only the member count in the card footer', () => {
-    // §13 also asks for "posts today" and a live dot; neither has a field, and
-    // the line must not imply one. If a `postsToday` ever lands on the DTO this
-    // is the single place that changes.
+  it('carries only the member count when the caller has not computed activity', () => {
+    // A response that predates 3b.1e (the optional-DTO case) must not imply a
+    // count it never sent.
     expect(communityFooterLine(community('a', 1204, false))).toBe('1204 members');
     expect(communityFooterLine(community('b', 1, false))).toBe('1 member');
     expect(communityFooterLine(community('c', 0, false))).toBe('0 members');
+  });
+
+  it('appends posts today once the activity signal is present (3b.1e)', () => {
+    expect(
+      communityFooterLine(
+        community('a', 1204, false, undefined, { postsToday: 3, activeNow: true }),
+      ),
+    ).toBe('1204 members · 3 posts today');
+    expect(
+      communityFooterLine(community('b', 1, false, undefined, { postsToday: 1, activeNow: false })),
+    ).toBe('1 member · 1 post today');
+    expect(
+      communityFooterLine(community('c', 0, false, undefined, { postsToday: 0, activeNow: false })),
+    ).toBe('0 members · 0 posts today');
+  });
+
+  it('offers the prototype’s own five filter pills, "All" first', () => {
+    expect(CIRCLE_KIND_FILTERS.map((f) => f.value)).toEqual([
+      'all',
+      'games',
+      'board_games',
+      'cosplay',
+      'live_events',
+    ]);
+  });
+
+  describe('active now rail (3b.1e)', () => {
+    it('keeps only circles the server flagged active, in the same order', () => {
+      const items = [
+        community('a', 1, false, undefined, { postsToday: 4, activeNow: true }),
+        community('b', 2, false, undefined, { postsToday: 0, activeNow: false }),
+        community('c', 3, false, undefined, { postsToday: 1, activeNow: true }),
+      ];
+      expect(activeNowCommunities(items).map((c) => c.id)).toEqual(['a', 'c']);
+    });
+
+    it('is empty when nothing is active, not when nothing has been computed', () => {
+      expect(activeNowCommunities([community('a', 1, false)])).toEqual([]);
+      expect(
+        activeNowCommunities([
+          community('a', 1, false, undefined, { postsToday: 0, activeNow: false }),
+        ]),
+      ).toEqual([]);
+    });
   });
 
   describe('detail shell (§14)', () => {

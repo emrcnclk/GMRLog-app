@@ -51,6 +51,7 @@ function emptyState() {
     appliedAt: null,
     createdCommunityIds: [],
     createdOwnerUserIds: [],
+    createdActivityItemIds: [],
     softDeletedCommunityIds: [],
     accountTeardowns: [],
   };
@@ -84,6 +85,17 @@ async function revertDirectoryState(state) {
       console.warn(`  could not delete community ${id}: ${error.message}`);
     }
   }
+  // Deleting a community cascades its CommunityActivity join row but not the
+  // ActivityItem it points to — tracked and deleted separately so a fixture
+  // run never leaves an orphaned activity row behind.
+  for (const id of state.createdActivityItemIds ?? []) {
+    try {
+      await prisma.activityItem.delete({ where: { id } });
+      console.log(`  reverted: deleted activity item ${id}`);
+    } catch (error) {
+      console.warn(`  could not delete activity item ${id}: ${error.message}`);
+    }
+  }
   for (const id of state.createdOwnerUserIds) {
     try {
       await prisma.user.delete({ where: { id } });
@@ -104,11 +116,12 @@ async function revertDirectoryState(state) {
   state.appliedAt = null;
   state.createdCommunityIds = [];
   state.createdOwnerUserIds = [];
+  state.createdActivityItemIds = [];
   state.softDeletedCommunityIds = [];
   return state;
 }
 
-async function createOwnedCommunity({ name, description, avatarKey, bannerKey }) {
+async function createOwnedCommunity({ name, description, avatarKey, bannerKey, kind }) {
   const suffix = rand(4);
   const owner = await prisma.user.create({
     data: {
@@ -125,12 +138,38 @@ async function createOwnedCommunity({ name, description, avatarKey, bannerKey })
       joinType: 'public',
       avatarKey: avatarKey ?? null,
       bannerKey: bannerKey ?? null,
+      // 3b.1e — falls back to the schema default ('games') when omitted, the
+      // same backfill every pre-existing row got.
+      ...(kind ? { kind } : {}),
     },
   });
   await prisma.communityMember.create({
     data: { communityId: community.id, userId: owner.id, role: 'owner' },
   });
   return { owner, community };
+}
+
+/**
+ * 3b.1e — one post-kind activity item, right now, so `populated` demonstrates
+ * a real `postsToday: 1` / `activeNow: true` row instead of every fixture
+ * circle reading zero. Returns the created `ActivityItem` id so the caller
+ * can track it for revert (deleting a community cascades the `CommunityActivity`
+ * join row, not the `ActivityItem` it points to).
+ */
+async function postActivityNow(communityId, actorUserId) {
+  const activityItem = await prisma.activityItem.create({
+    data: {
+      kind: 'post',
+      actorId: actorUserId,
+      objectType: 'post',
+      objectId: `fixture-post-${rand(4)}`,
+      occurredAt: new Date(),
+    },
+  });
+  await prisma.communityActivity.create({
+    data: { communityId, activityItemId: activityItem.id },
+  });
+  return activityItem.id;
 }
 
 async function applyEmpty(state) {
@@ -147,10 +186,23 @@ async function applyEmpty(state) {
 }
 
 const POPULATED_ROWS = [
-  { name: 'Speedrun Society', description: 'Any% and category extension runs, weekly.' },
-  { name: 'Tactics Table', description: 'Turn-based strategy, from Fire Emblem to XCOM.' },
-  { name: 'Cosplay Guild', description: null },
-  { name: 'Retro Arcade Club', description: 'Cabinets, carts and the games that started it.' },
+  {
+    name: 'Speedrun Society',
+    description: 'Any% and category extension runs, weekly.',
+    kind: 'games',
+    postActiveNow: true,
+  },
+  {
+    name: 'Tactics Table',
+    description: 'Turn-based strategy, from Fire Emblem to XCOM.',
+    kind: 'board_games',
+  },
+  { name: 'Cosplay Guild', description: null, kind: 'cosplay' },
+  {
+    name: 'Retro Arcade Club',
+    description: 'Cabinets, carts and the games that started it.',
+    kind: 'live_events',
+  },
 ];
 
 async function applyPopulated(state) {
@@ -158,7 +210,12 @@ async function applyPopulated(state) {
     const { owner, community } = await createOwnedCommunity(row);
     state.createdOwnerUserIds.push(owner.id);
     state.createdCommunityIds.push(community.id);
-    console.log(`  created: ${community.name} (${community.id})`);
+    console.log(`  created: ${community.name} (${community.id}) — ${community.kind}`);
+    if (row.postActiveNow) {
+      const activityItemId = await postActivityNow(community.id, owner.id);
+      state.createdActivityItemIds.push(activityItemId);
+      console.log(`    + post-kind activity now — postsToday: 1, activeNow: true`);
+    }
   }
   console.log(`populated: ${POPULATED_ROWS.length} hand-written circle(s) added.`);
 }

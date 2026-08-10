@@ -248,6 +248,7 @@ export class SearchIndexService {
             bannerBlurhash: null,
             bannerVariants: null,
             joinType: 'public' as const,
+            kind: 'games' as const,
             tags: [],
             createdAt: orderedAt,
             updatedAt: orderedAt,

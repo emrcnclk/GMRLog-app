@@ -24,6 +24,17 @@ export interface CommunityActivityRepository {
     communityId: string,
     params: CommunityActivityListParams,
   ): Promise<CommunityActivityFeedRow[]>;
+  /**
+   * 3b.1e — `postsToday`/`activeNow` (BACKEND_CHANGES.md §6), one `groupBy` per
+   * page rather than a query per card, the same batching rule 3b.1a already
+   * established for member counts. The caller picks the cutoff: the current
+   * UTC day's start for `postsToday`, now minus 3 hours for `activeNow`.
+   * Communities with no matching activity are absent from the map, not zero.
+   */
+  countPostActivityByCommunityIdsSince(
+    communityIds: readonly string[],
+    since: Date,
+  ): Promise<Map<string, number>>;
 }
 
 export class PrismaCommunityActivityRepository implements CommunityActivityRepository {
@@ -79,5 +90,23 @@ export class PrismaCommunityActivityRepository implements CommunityActivityRepos
       activityItem: row.activityItem,
       actor: row.activityItem.actor,
     }));
+  }
+
+  async countPostActivityByCommunityIdsSince(
+    communityIds: readonly string[],
+    since: Date,
+  ): Promise<Map<string, number>> {
+    if (communityIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.db.communityActivity.groupBy({
+      by: ['communityId'],
+      where: {
+        communityId: { in: [...communityIds] },
+        activityItem: { kind: 'post', occurredAt: { gte: since } },
+      },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.communityId, row._count._all]));
   }
 }

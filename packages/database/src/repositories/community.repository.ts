@@ -1,4 +1,4 @@
-import type { Community, ContentVisibility, Prisma } from '@prisma/client';
+import type { Community, CommunityKind, ContentVisibility, Prisma } from '@prisma/client';
 
 import type { DatabaseClient } from './types';
 
@@ -14,6 +14,8 @@ export interface CommunityListCursor {
 export interface CommunityListOptions {
   limit: number;
   cursor?: CommunityListCursor;
+  /** 3b.1e — §13's filter pills. Omitted means every kind. */
+  kind?: CommunityKind;
 }
 
 /**
@@ -67,7 +69,12 @@ export class PrismaCommunityRepository implements CommunityRepository {
     const visibility: ContentVisibility = 'public';
     return this.db.community.findMany({
       where: {
-        AND: [{ deletedAt: null, visibility }, HAS_OWNER, ...cursorFilter(options.cursor)],
+        AND: [
+          { deletedAt: null, visibility },
+          HAS_OWNER,
+          ...cursorFilter(options.cursor),
+          ...kindFilter(options.kind),
+        ],
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       take: options.limit,
@@ -89,6 +96,7 @@ export class PrismaCommunityRepository implements CommunityRepository {
           },
           HAS_OWNER,
           ...cursorFilter(options.cursor),
+          ...kindFilter(options.kind),
         ],
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
@@ -142,4 +150,9 @@ function cursorFilter(cursor: CommunityListCursor | undefined): Prisma.Community
       ],
     },
   ];
+}
+
+/** 3b.1e — §13's filter pills. Applies across the whole page, joined circles included. */
+function kindFilter(kind: CommunityKind | undefined): Prisma.CommunityWhereInput[] {
+  return kind === undefined ? [] : [{ kind }];
 }
