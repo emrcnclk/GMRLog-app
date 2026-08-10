@@ -1,7 +1,8 @@
 import type { CommunityMemberResponse } from '@gmrlog/types';
 import { Avatar, Badge, Text, useTheme } from '@gmrlog/ui';
-import { memo } from 'react';
-import { View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { memo, useCallback } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { formatJoinedDate, initialsFromName, roleLabel } from '../hooks/community-model';
 
@@ -11,12 +12,19 @@ export interface CommunityMemberCardProps {
 
 function CommunityMemberCardComponent({ member }: CommunityMemberCardProps) {
   const theme = useTheme();
+  const router = useRouter();
   const { user, role, joinedAt } = member;
 
+  // README §2c — tapping the row or avatar opens the Player screen.
+  const openProfile = useCallback(() => {
+    router.push(`/(app)/user/${user.id}`);
+  }, [router, user.id]);
+
   return (
-    <View
-      accessibilityRole="summary"
-      accessibilityLabel={`${user.displayName}, @${user.handle}, ${roleLabel(role)}`}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${user.displayName}, @${user.handle}, ${roleLabel(role)}`}
+      onPress={openProfile}
       style={{
         flexDirection: 'row',
         gap: theme.space('space.3'),
@@ -54,7 +62,7 @@ function CommunityMemberCardComponent({ member }: CommunityMemberCardProps) {
           Joined {formatJoinedDate(joinedAt)}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

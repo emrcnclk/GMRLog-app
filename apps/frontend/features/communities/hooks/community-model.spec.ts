@@ -7,6 +7,7 @@ import {
   isCommunityMember,
   isCommunityOwner,
   isDirtyValues,
+  isModeratorRole,
   optimisticJoin,
   optimisticLeave,
   resolveListView,
@@ -100,7 +101,15 @@ describe('community model', () => {
   it('formats labels and joined dates', () => {
     expect(visibilityLabel('public')).toBe('Public');
     expect(roleLabel('moderator')).toBe('Moderator');
+    expect(roleLabel('admin')).toBe('Admin');
     expect(formatJoinedDate('2026-01-15T12:00:00.000Z')).toContain('2026');
+  });
+
+  it('ranks moderator and above at or above the moderator rail threshold', () => {
+    expect(isModeratorRole('member')).toBe(false);
+    expect(isModeratorRole('moderator')).toBe(true);
+    expect(isModeratorRole('admin')).toBe(true);
+    expect(isModeratorRole('owner')).toBe(true);
   });
 
   it('detects dirty edit values', () => {

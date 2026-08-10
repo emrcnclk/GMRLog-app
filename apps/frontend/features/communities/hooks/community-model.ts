@@ -1,4 +1,4 @@
-import type { CommunityResponse, ContentVisibilityValue } from '@gmrlog/types';
+import type { CommunityResponse, CommunityRoleValue, ContentVisibilityValue } from '@gmrlog/types';
 import {
   communityCreateSchema,
   communityPatchSchema,
@@ -78,6 +78,8 @@ export function roleLabel(role: string): string {
   switch (role) {
     case 'owner':
       return 'Owner';
+    case 'admin':
+      return 'Admin';
     case 'moderator':
       return 'Moderator';
     case 'member':
@@ -85,6 +87,22 @@ export function roleLabel(role: string): string {
     default:
       return role;
   }
+}
+
+/**
+ * `community-permissions.ts`'s rank, mirrored client-side for display only
+ * (member < moderator < admin < owner). 7.2's moderator rail reads this to
+ * decide the accent-border-and-glow plate from the plain-hairline one.
+ */
+const COMMUNITY_ROLE_RANK: Record<CommunityRoleValue, number> = {
+  member: 0,
+  moderator: 1,
+  admin: 2,
+  owner: 3,
+};
+
+export function isModeratorRole(role: CommunityRoleValue): boolean {
+  return COMMUNITY_ROLE_RANK[role] >= COMMUNITY_ROLE_RANK.moderator;
 }
 
 export function initialsFromName(name: string): string {

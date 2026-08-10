@@ -7,6 +7,8 @@ import type {
   CollectionResponse,
   CommentResponse,
   CommunityKindValue,
+  CommunityLeaderboardResponse,
+  CommunityLeaderboardWindowValue,
   CommunityMemberResponse,
   CommunityResponse,
   ConnectedAccountResponse,
@@ -611,6 +613,14 @@ export class AxiosApiClient {
   /** `GET /communities/{id}/members` — members (oldest → newest). */
   listCommunityMembers(id: string): Promise<ApiEnvelope<CommunityMemberResponse[]>> {
     return this.get<CommunityMemberResponse[]>(`/communities/${id}/members`);
+  }
+
+  /** `GET /communities/{id}/leaderboard` — 7.1, ranked contribution points. */
+  getCommunityLeaderboard(
+    id: string,
+    query?: { window?: CommunityLeaderboardWindowValue; limit?: number },
+  ): Promise<ApiEnvelope<CommunityLeaderboardResponse>> {
+    return this.get<CommunityLeaderboardResponse>(`/communities/${id}/leaderboard`, query);
   }
 
   /** `POST /communities/{id}/membership` — join (204). */

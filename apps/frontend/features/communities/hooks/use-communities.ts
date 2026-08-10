@@ -1,4 +1,8 @@
-import type { CommunityKindValue, CommunityResponse } from '@gmrlog/types';
+import type {
+  CommunityKindValue,
+  CommunityLeaderboardWindowValue,
+  CommunityResponse,
+} from '@gmrlog/types';
 import type { CommunityCreateInput, CommunityPatchInput } from '@gmrlog/validators';
 import { COMMUNITY_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -180,6 +184,40 @@ export function useCommunityMembers(communityId: string) {
   }, [communityId, queryClient]);
 
   return { ...view, refresh, refetch: query.refetch };
+}
+
+/**
+ * README §2b's Contribution board — `GET /communities/{id}/leaderboard`.
+ * Top-5, 90-day window by default; the screen reads this one query for both
+ * the board and (via `isContributor` on `useCommunityMembers`) the rail, so
+ * the two never issue their own competing leaderboard requests.
+ */
+export function useCommunityLeaderboard(
+  communityId: string,
+  window: CommunityLeaderboardWindowValue = '90d',
+  limit = 5,
+) {
+  const api = useApiClient();
+
+  const query = useQuery({
+    queryKey: queryKeys.communities.leaderboard(communityId, window),
+    enabled: communityId.length > 0,
+    queryFn: async () => {
+      const envelope = await api.getCommunityLeaderboard(communityId, { window, limit });
+      return envelope.data.entries;
+    },
+  });
+
+  const items = query.data ?? [];
+  const view = resolveListView({
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    items,
+    isRefreshing: query.isRefetching,
+  });
+
+  return { ...view, refetch: query.refetch };
 }
 
 export function useCreateCommunity() {
