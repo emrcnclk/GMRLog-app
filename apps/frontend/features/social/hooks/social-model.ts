@@ -100,17 +100,17 @@ export function filterSocialRows(
   );
 }
 
+export function createIdempotencyKey(prefix: string): string {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `${prefix}_${Date.now().toString(36)}_${rand}`;
+}
+
 /**
  * Player-facing labels for `REPORT_REASONS` (`@gmrlog/validators`). No report
  * UI exists anywhere else in the app yet — §15 is the first screen to need
  * one — so these labels have no precedent to match, only the reason
  * vocabulary itself to stay honest to.
  */
-export function createIdempotencyKey(prefix: string): string {
-  const rand = Math.random().toString(36).slice(2, 10);
-  return `${prefix}_${Date.now().toString(36)}_${rand}`;
-}
-
 export const REPORT_REASON_LABELS: Record<ReportReasonValue, string> = {
   spam: 'Spam',
   harassment: 'Harassment',
