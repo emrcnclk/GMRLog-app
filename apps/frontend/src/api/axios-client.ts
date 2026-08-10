@@ -13,7 +13,9 @@ import type {
   ConversationResponse,
   CsvImportPreviewResponse,
   DiscoverHubResponse,
+  BlockResponse,
   EventResponse,
+  FollowResponse,
   FriendRequestResponse,
   FriendshipResponse,
   BookmarkResponse,
@@ -36,9 +38,12 @@ import type {
   OnlineFriendResponse,
   PlayerArchetypeResponse,
   PostResponse,
+  MuteResponse,
   PresenceResponse,
   ReactionResponse,
   RecommendedGameResponse,
+  ReportReasonValue,
+  ReportResponse,
   ReviewResponse,
   SearchHit,
   SettingsResponse,
@@ -1012,6 +1017,49 @@ export class AxiosApiClient {
   /** `GET /users/{userId}/relationship` — follow + friend + block + mutual. */
   getRelationship(userId: string): Promise<ApiEnvelope<UserRelationshipResponse>> {
     return this.get<UserRelationshipResponse>(`/users/${userId}/relationship`);
+  }
+
+  /** `GET /me/followers` — the viewer's followers (§15, 3b.3). Not paginated. */
+  listMyFollowers(): Promise<ApiEnvelope<UserPublicResponse[]>> {
+    return this.get<UserPublicResponse[]>('/me/followers');
+  }
+
+  /** `GET /me/following` — who the viewer follows (§15, 3b.3). Not paginated. */
+  listMyFollowing(): Promise<ApiEnvelope<UserPublicResponse[]>> {
+    return this.get<UserPublicResponse[]>('/me/following');
+  }
+
+  /** `POST /follows` — follow a user (idempotent). */
+  followUser(userId: string, idempotencyKey: string): Promise<ApiEnvelope<FollowResponse>> {
+    return this.post<FollowResponse>('/follows', { userId }, idempotencyKey);
+  }
+
+  /** `DELETE /follows/{userId}` — unfollow (204). */
+  unfollowUser(userId: string): Promise<ApiEnvelope<null>> {
+    return this.delete<null>(`/follows/${userId}`);
+  }
+
+  /** `POST /mutes` — mute a user (idempotent). */
+  muteUser(userId: string, idempotencyKey: string): Promise<ApiEnvelope<MuteResponse>> {
+    return this.post<MuteResponse>('/mutes', { userId }, idempotencyKey);
+  }
+
+  /** `POST /blocks` — block a user (idempotent). */
+  blockUser(userId: string, idempotencyKey: string): Promise<ApiEnvelope<BlockResponse>> {
+    return this.post<BlockResponse>('/blocks', { userId }, idempotencyKey);
+  }
+
+  /** `POST /reports` — report a user (idempotent). §15's row overflow "Report". */
+  reportUser(
+    userId: string,
+    reason: ReportReasonValue,
+    idempotencyKey: string,
+  ): Promise<ApiEnvelope<ReportResponse>> {
+    return this.post<ReportResponse>(
+      '/reports',
+      { targetType: 'user', targetId: userId, reason },
+      idempotencyKey,
+    );
   }
 
   /** `GET /friends/online` — online/away friends, each with their presence. */

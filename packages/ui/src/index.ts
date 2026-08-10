@@ -71,7 +71,11 @@ export { SectionKicker, type SectionKickerProps } from './components/section-kic
 export { ScreenTitle, SCREEN_GUTTER, type ScreenTitleProps } from './components/screen-title';
 export { ListItem, type ListItemProps } from './components/list-item';
 export { Icon, type IconProps } from './components/icon';
-export { BottomSheet, type BottomSheetProps } from './components/bottom-sheet';
+export {
+  BottomSheet,
+  type BottomSheetAnchor,
+  type BottomSheetProps,
+} from './components/bottom-sheet';
 export { Dialog, type DialogProps } from './components/dialog';
 export {
   ToastHost,

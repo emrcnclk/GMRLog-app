@@ -18,6 +18,13 @@ export interface AvatarProps {
   style?: ViewStyle | ViewStyle[];
   /** expo-image priority — avatars default to normal. */
   priority?: 'low' | 'normal' | 'high';
+  /**
+   * Exact pixel dimension, overriding `size`'s token. For a spec size that
+   * falls between the scale's steps (e.g. a 44px tap-target row avatar, where
+   * the scale only offers 40 or 48) — `style` cannot do this because the
+   * `<Image>` inside is sized from the token, not from `style`.
+   */
+  sizeOverride?: number;
 }
 
 const SIZE_TOKEN: Record<AvatarSize, SemanticSpaceToken> = {
@@ -40,10 +47,11 @@ export function Avatar({
   accessibilityLabel,
   style,
   priority = 'normal',
+  sizeOverride,
 }: AvatarProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
-  const dimension = theme.space(SIZE_TOKEN[size]);
+  const dimension = sizeOverride ?? theme.space(SIZE_TOKEN[size]);
   const label = accessibilityLabel ?? initials ?? 'Avatar';
 
   return (

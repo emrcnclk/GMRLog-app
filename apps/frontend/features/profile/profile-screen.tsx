@@ -72,8 +72,15 @@ export function ProfileScreen() {
     router.push('/(settings)');
   }, [router]);
 
-  const openFriends = useCallback(() => {
-    router.push('/(app)/friends');
+  /** §15 — the stat tiles used to both open Friends, a placeholder for the
+   * mutual-friendship domain rather than the asymmetric follow lists §15
+   * actually specifies (3b.3). */
+  const openFollowers = useCallback(() => {
+    router.push('/(app)/followers?tab=followers');
+  }, [router]);
+
+  const openFollowing = useCallback(() => {
+    router.push('/(app)/followers?tab=following');
   }, [router]);
 
   /** §6's "tapping opens the badge case" — the Achievements screen from 3.1. */
@@ -236,8 +243,8 @@ export function ProfileScreen() {
       <ProfileStatsGrid
         statistics={data.statistics.statistics}
         isPending={data.statistics.isPending}
-        onPressFollowers={openFriends}
-        onPressFollowing={openFriends}
+        onPressFollowers={openFollowers}
+        onPressFollowing={openFollowing}
         onPressLibrary={() => {
           setTab('library');
         }}

@@ -150,6 +150,12 @@ export const queryKeys = {
     online: () => ['friends', 'online'] as const,
     relationship: (userId: string) => ['friends', 'relationship', userId] as const,
   },
+  /** §15 — asymmetric follow, distinct from the mutual `friends` domain above. */
+  social: {
+    all: ['social'] as const,
+    followers: () => ['social', 'followers'] as const,
+    following: () => ['social', 'following'] as const,
+  },
   statistics: {
     all: ['statistics'] as const,
     me: () => ['statistics', 'me'] as const,

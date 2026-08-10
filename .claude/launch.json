@@ -8,6 +8,12 @@
       "port": 8081
     },
     {
+      "name": "backend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gmrlog/backend", "run", "dev"],
+      "port": 4000
+    },
+    {
       "name": "frontend-web-clear",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
