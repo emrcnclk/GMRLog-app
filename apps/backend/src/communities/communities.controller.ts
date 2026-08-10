@@ -1,5 +1,6 @@
 import type {
   ActivityItemResponse,
+  CommunityLeaderboardResponse,
   CommunityMemberBadgeResponse,
   CommunityMemberResponse,
   CommunityPinResponse,
@@ -37,6 +38,7 @@ import {
   CommunityCreateDto,
   CommunityFeedQueryDto,
   CommunityIdParamDto,
+  CommunityLeaderboardQueryDto,
   CommunityListQueryDto,
   CommunityMemberRolePatchDto,
   CommunityMemberUserParamDto,
@@ -81,6 +83,16 @@ export class CommunitiesController {
     @CurrentUser() identity: RequestIdentity,
   ): Promise<CommunityMemberResponse[]> {
     return this.communitiesService.listMembers(params.id, identity);
+  }
+
+  @Get(':id/leaderboard')
+  @UseGuards(OptionalGuestGuard)
+  getLeaderboard(
+    @Param() params: CommunityIdParamDto,
+    @CurrentUser() identity: RequestIdentity,
+    @Query() query: CommunityLeaderboardQueryDto,
+  ): Promise<CommunityLeaderboardResponse> {
+    return this.communitiesService.getLeaderboard(params.id, identity, query);
   }
 
   @Get(':id/badges')

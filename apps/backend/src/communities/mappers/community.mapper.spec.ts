@@ -7,6 +7,7 @@ import { makeUser } from '../../users/testing/fake-repositories';
 import {
   canViewerReadCommunity,
   toCommunityFeedItemResponse,
+  toCommunityLeaderboardEntry,
   toCommunityMemberResponse,
   toCommunityMembershipSummary,
   toCommunityResponse,
@@ -48,6 +49,20 @@ describe('community.mapper', () => {
     expect(toCommunityResponse(community, 3, null)).not.toHaveProperty('postsToday');
     expect(toCommunityMemberResponse(member, user).user.handle).toBe('player');
     expect(toCommunityMemberResponse(member, user).badges).toEqual([]);
+  });
+
+  it('7.1 — isContributor is a real boolean when passed, absent when not', () => {
+    expect(toCommunityMemberResponse(member, user)).not.toHaveProperty('isContributor');
+    expect(toCommunityMemberResponse(member, user, [], true).isContributor).toBe(true);
+    expect(toCommunityMemberResponse(member, user, [], false).isContributor).toBe(false);
+  });
+
+  it('7.1 — toCommunityLeaderboardEntry projects rank, user and points', () => {
+    expect(toCommunityLeaderboardEntry(1, user, 42)).toEqual({
+      rank: 1,
+      user: toUserPublicResponse(user),
+      points: 42,
+    });
   });
 
   it('carries the activity signal only when the caller computed one (3b.1e)', () => {

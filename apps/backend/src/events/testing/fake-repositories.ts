@@ -235,6 +235,18 @@ export function createFakeEventParticipationRepository(
             return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
           }),
       ),
+    // 7.1 — communities' leaderboard "events hosted" points.
+    countByEventsGroupedByUserSince: (eventIds, state, since) => {
+      const idSet = new Set(eventIds);
+      const counts = new Map<string, number>();
+      for (const row of rows.values()) {
+        if (!idSet.has(row.eventId)) continue;
+        if (row.state !== state) continue;
+        if (row.createdAt.getTime() < since.getTime()) continue;
+        counts.set(row.userId, (counts.get(row.userId) ?? 0) + 1);
+      }
+      return Promise.resolve([...counts.entries()].map(([userId, count]) => ({ userId, count })));
+    },
     updateState: (id, state) => {
       const current = rows.get(id);
       if (!current) {

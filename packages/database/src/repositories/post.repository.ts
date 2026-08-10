@@ -1,4 +1,4 @@
-import type { Post, Prisma } from '@prisma/client';
+import type { Post, PostKind, Prisma } from '@prisma/client';
 
 import type { DatabaseClient } from './types';
 
@@ -15,6 +15,14 @@ export interface PostRepository {
   countByCommunityGroupedByAuthor(
     communityId: string,
   ): Promise<{ authorId: string; count: number }[]>;
+  /**
+   * 7.1 — BACKEND_CHANGES.md §5. Per-author, per-kind post counts within a
+   * community since a cutoff, one `groupBy` (community leaderboard points).
+   */
+  countByCommunityGroupedByAuthorAndKindSince(
+    communityId: string,
+    since: Date,
+  ): Promise<{ authorId: string; postKind: PostKind; count: number }[]>;
   /** D3.24 — at most one pinned post per author (§ SOCIAL_ACTIONS Pin Post). */
   findPinnedByAuthor(authorId: string): Promise<Post | null>;
   update(id: string, data: Prisma.PostUpdateInput): Promise<Post>;
@@ -70,6 +78,22 @@ export class PrismaPostRepository implements PostRepository {
       where: { communityId, deletedAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
+  }
+
+  async countByCommunityGroupedByAuthorAndKindSince(
+    communityId: string,
+    since: Date,
+  ): Promise<{ authorId: string; postKind: PostKind; count: number }[]> {
+    const rows = await this.db.post.groupBy({
+      by: ['authorId', 'postKind'],
+      where: { communityId, deletedAt: null, createdAt: { gte: since } },
+      _count: { _all: true },
+    });
+    return rows.map((row) => ({
+      authorId: row.authorId,
+      postKind: row.postKind,
+      count: row._count._all,
+    }));
   }
 
   findPinnedByAuthor(authorId: string): Promise<Post | null> {

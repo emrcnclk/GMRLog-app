@@ -2,6 +2,7 @@ import {
   communityCreateSchema,
   communityFeedQuerySchema,
   communityIdParamSchema,
+  communityLeaderboardQuerySchema,
   communityListQuerySchema,
   communityMemberRolePatchSchema,
   communityMemberUserParamSchema,
@@ -46,3 +47,6 @@ export class CommunityFeedQueryDto extends createZodDto(communityFeedQuerySchema
 
 /** Directory list query — cursor + limit (S1 §5). */
 export class CommunityListQueryDto extends createZodDto(communityListQuerySchema) {}
+
+/** 7.1 — leaderboard query, window + limit (BACKEND_CHANGES.md §5). */
+export class CommunityLeaderboardQueryDto extends createZodDto(communityLeaderboardQuerySchema) {}

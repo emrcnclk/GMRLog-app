@@ -25,6 +25,9 @@ import { CommunitiesService } from './communities.service';
 import { makeActivityItem } from '../activity/testing/fake-repositories';
 import {
   createFakeCommunityBadgeRepository,
+  createFakeCommunityCommentRepository,
+  createFakeCommunityEventParticipationRepository,
+  createFakeCommunityEventRepository,
   createFakeCommunityMemberRepository,
   createFakeCommunityPinRepository,
   createFakeCommunityPostRepository,
@@ -38,6 +41,9 @@ import {
   makeWikiPage,
   type FakeCommunityActivityRepository,
   type FakeCommunityBadgeRepository,
+  type FakeCommunityCommentRepository,
+  type FakeCommunityEventParticipationRepository,
+  type FakeCommunityEventRepository,
   type FakeCommunityMemberRepository,
   type FakeCommunityPinRepository,
   type FakeCommunityPostRepository,
@@ -57,6 +63,9 @@ let wiki: FakeCommunityWikiRepository;
 let pins: FakeCommunityPinRepository;
 let badges: FakeCommunityBadgeRepository;
 let posts: FakeCommunityPostRepository;
+let comments: FakeCommunityCommentRepository;
+let events: FakeCommunityEventRepository;
+let eventParticipations: FakeCommunityEventParticipationRepository;
 let notifications!: { create: (data: unknown) => Promise<{ id: string }> };
 /** 3b.1b — only `listFriendIds` is reached from the directory projection. */
 let friendships!: FriendshipRepository;
@@ -75,6 +84,11 @@ function buildService(): CommunitiesService {
     posts as unknown as PostRepository,
     notifications as never,
     friendships,
+    comments as never,
+    events as never,
+    eventParticipations as never,
+    null,
+    null,
   );
 }
 
@@ -116,6 +130,9 @@ beforeEach(() => {
   pins = createFakeCommunityPinRepository();
   badges = createFakeCommunityBadgeRepository();
   posts = createFakeCommunityPostRepository();
+  comments = createFakeCommunityCommentRepository();
+  events = createFakeCommunityEventRepository();
+  eventParticipations = createFakeCommunityEventParticipationRepository();
   service = buildService();
 });
 
@@ -510,6 +527,142 @@ describe('CommunitiesService.listMembers', () => {
     expect(listed[0]?.role).toBe('owner');
     expect(listed[1]?.role).toBe('member');
     expect(listed[0]?.badges).toEqual([]);
+  });
+
+  it('marks the top-N by leaderboard points as isContributor, everyone else false', async () => {
+    members.rows.set(
+      'member-2',
+      makeCommunityMember({ id: 'member-2', communityId: 'community-1', userId: 'user-2' }),
+    );
+    posts = createFakeCommunityPostRepository(
+      [],
+      [{ id: 'post-1', communityId: 'community-1', authorId: 'user-2', postKind: 'guide' }],
+    );
+    service = buildService();
+
+    const listed = await service.listMembers('community-1', guest);
+    expect(listed.find((row) => row.user.id === 'user-2')?.isContributor).toBe(true);
+    expect(listed.find((row) => row.user.id === 'user-1')?.isContributor).toBe(false);
+  });
+});
+
+describe('CommunitiesService.getLeaderboard (7.1 / BACKEND_CHANGES.md §5)', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // Relative to the real clock, not a fixed date — a 90d-window fixture must
+  // stay inside the window no matter when the suite actually runs.
+  const withinWindow = new Date(Date.now() - 10 * DAY_MS);
+  const outsideWindow = new Date(Date.now() - 200 * DAY_MS);
+
+  beforeEach(() => {
+    members.rows.set(
+      'member-2',
+      makeCommunityMember({ id: 'member-2', communityId: 'community-1', userId: 'user-2' }),
+    );
+  });
+
+  it('weights posts, guides, replies and hosted events per §5, highest first', async () => {
+    // user-1 (owner): one text post (1pt) + hosts one event (5pt) = 6.
+    // user-2: one guide post (3pt) + one reply (1pt) = 4.
+    posts = createFakeCommunityPostRepository(
+      [],
+      [
+        {
+          id: 'post-1',
+          communityId: 'community-1',
+          authorId: 'user-1',
+          postKind: 'text',
+          createdAt: withinWindow,
+        },
+        {
+          id: 'post-2',
+          communityId: 'community-1',
+          authorId: 'user-2',
+          postKind: 'guide',
+          createdAt: withinWindow,
+        },
+      ],
+    );
+    comments = createFakeCommunityCommentRepository([
+      { hostType: 'post', hostId: 'post-1', authorId: 'user-2', createdAt: withinWindow },
+    ]);
+    events = createFakeCommunityEventRepository([{ id: 'event-1', communityId: 'community-1' }]);
+    eventParticipations = createFakeCommunityEventParticipationRepository([
+      { eventId: 'event-1', userId: 'user-1', state: 'hosting', createdAt: withinWindow },
+    ]);
+    service = buildService();
+
+    const board = await service.getLeaderboard('community-1', guest, {});
+    expect(board.window).toBe('90d');
+    expect(board.entries).toEqual([
+      { rank: 1, user: expect.objectContaining({ id: 'user-1' }), points: 6 },
+      { rank: 2, user: expect.objectContaining({ id: 'user-2' }), points: 4 },
+    ]);
+  });
+
+  it('only counts activity inside the requested window', async () => {
+    posts = createFakeCommunityPostRepository(
+      [],
+      [
+        {
+          id: 'post-old',
+          communityId: 'community-1',
+          authorId: 'user-2',
+          postKind: 'text',
+          createdAt: outsideWindow,
+        },
+      ],
+    );
+    service = buildService();
+
+    const board = await service.getLeaderboard('community-1', guest, { window: '7d' });
+    expect(board.entries).toEqual([]);
+  });
+
+  it('excludes deleted members and closes the rank gap', async () => {
+    users.rows.set('user-1', makeUser({ id: 'user-1', deletedAt: new Date('2026-02-01') }));
+    posts = createFakeCommunityPostRepository(
+      [],
+      [
+        {
+          id: 'post-1',
+          communityId: 'community-1',
+          authorId: 'user-1',
+          postKind: 'text',
+          createdAt: withinWindow,
+        },
+        {
+          id: 'post-2',
+          communityId: 'community-1',
+          authorId: 'user-2',
+          postKind: 'text',
+          createdAt: withinWindow,
+        },
+      ],
+    );
+    service = buildService();
+
+    const board = await service.getLeaderboard('community-1', guest, {});
+    expect(board.entries).toHaveLength(1);
+    expect(board.entries[0]).toEqual({
+      rank: 1,
+      user: expect.objectContaining({ id: 'user-2' }),
+      points: 1,
+    });
+  });
+
+  it('rejects a viewer who cannot read the community', async () => {
+    communities.rows.set(
+      'community-private',
+      makeCommunity({
+        id: 'community-private',
+        name: 'Hidden Room',
+        slug: 'hidden-room',
+        visibility: 'private',
+      }),
+    );
+    await expect(service.getLeaderboard('community-private', guest, {})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
 

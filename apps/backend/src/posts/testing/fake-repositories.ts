@@ -164,6 +164,25 @@ export function createFakePostRepository(seed: Post[] = []): FakePostRepository 
         [...counts.entries()].map(([authorId, count]) => ({ authorId, count })),
       );
     },
+    // 7.1 — communities' leaderboard.
+    countByCommunityGroupedByAuthorAndKindSince: (communityId, since) => {
+      const grouped = new Map<
+        string,
+        { authorId: string; postKind: Post['postKind']; count: number }
+      >();
+      for (const post of active()) {
+        if (post.communityId !== communityId) continue;
+        if (post.createdAt.getTime() < since.getTime()) continue;
+        const key = `${post.authorId}:${post.postKind}`;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          grouped.set(key, { authorId: post.authorId, postKind: post.postKind, count: 1 });
+        }
+      }
+      return Promise.resolve([...grouped.values()]);
+    },
     findPinnedByAuthor: (authorId) =>
       Promise.resolve(active().find((p) => p.authorId === authorId && p.pinnedAt !== null) ?? null),
     update: (id, data: Prisma.PostUpdateInput) => {

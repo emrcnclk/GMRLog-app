@@ -150,6 +150,10 @@ export function createFakeCommentRepository(seed: Comment[] = []): FakeCommentRe
           .filter((c) => c.parentCommentId === parentCommentId)
           .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()),
       ),
+    // 7.1 — communities' own leaderboard tests fake this repository directly
+    // (communities/testing/fake-repositories.ts); nothing in this domain's
+    // suites exercises it.
+    countByHostsGroupedByAuthorSince: notSupported,
     update: (id, data: Prisma.CommentUpdateInput) => {
       const current = rows.get(id);
       if (!current) {
@@ -213,6 +217,8 @@ export function createFakePostRepository(seed: Post[] = []): FakePostRepository 
     listByGame: notSupported,
     listByCommunity: notSupported,
     countByCommunityGroupedByAuthor: () => Promise.resolve([]),
+    // 7.1 — same as countByHostsGroupedByAuthorSince above.
+    countByCommunityGroupedByAuthorAndKindSince: notSupported,
     findPinnedByAuthor: () => Promise.resolve(null),
     update: notSupported,
     softDelete: notSupported,

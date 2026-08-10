@@ -1,4 +1,5 @@
 import type {
+  CommentRepository,
   Community,
   CommunityActivity,
   CommunityActivityFeedRow,
@@ -13,6 +14,8 @@ import type {
   CommunityRepository,
   CommunityWikiPage,
   CommunityWikiRepository,
+  EventParticipationRepository,
+  EventRepository,
   PostRepository,
   Prisma,
   User,
@@ -675,14 +678,26 @@ export function createFakeCommunityBadgeRepository(
 
 export interface FakeCommunityPostRepository extends Pick<
   PostRepository,
-  'countByCommunityGroupedByAuthor' | 'findActiveById'
+  | 'countByCommunityGroupedByAuthor'
+  | 'findActiveById'
+  | 'listByCommunity'
+  | 'countByCommunityGroupedByAuthorAndKindSince'
 > {
   counts: Map<string, { authorId: string; count: number }[]>;
   activeById: Map<string, { id: string; authorId: string; deletedAt: Date | null }>;
+  /** 7.1 — leaderboard fixtures: full post rows, kind + createdAt included. */
+  posts: { id: string; communityId: string; authorId: string; postKind: string; createdAt: Date }[];
 }
 
 export function createFakeCommunityPostRepository(
   seed: { communityId: string; authorId: string; count: number }[] = [],
+  postSeed: {
+    id: string;
+    communityId: string;
+    authorId: string;
+    postKind?: string;
+    createdAt?: Date;
+  }[] = [],
 ): FakeCommunityPostRepository {
   const counts = new Map<string, { authorId: string; count: number }[]>();
   const activeById = new Map<string, { id: string; authorId: string; deletedAt: Date | null }>();
@@ -691,14 +706,122 @@ export function createFakeCommunityPostRepository(
     list.push({ authorId: row.authorId, count: row.count });
     counts.set(row.communityId, list);
   }
+  const posts = postSeed.map((row) => ({
+    id: row.id,
+    communityId: row.communityId,
+    authorId: row.authorId,
+    postKind: row.postKind ?? 'text',
+    // "now", not a fixed literal — a fixture that doesn't care about
+    // windowing must stay inside every window regardless of when the suite runs.
+    createdAt: row.createdAt ?? new Date(),
+  }));
   return {
     counts,
     activeById,
+    posts,
     countByCommunityGroupedByAuthor: (communityId) =>
       Promise.resolve(counts.get(communityId) ?? []),
     findActiveById: (id) => {
       const row = activeById.get(id);
       return Promise.resolve(row != null && row.deletedAt == null ? (row as never) : null);
+    },
+    listByCommunity: (communityId) =>
+      Promise.resolve(posts.filter((row) => row.communityId === communityId) as never),
+    countByCommunityGroupedByAuthorAndKindSince: (communityId, since) => {
+      const grouped = new Map<string, { authorId: string; postKind: string; count: number }>();
+      for (const row of posts) {
+        if (row.communityId !== communityId) continue;
+        if (row.createdAt.getTime() < since.getTime()) continue;
+        const key = `${row.authorId}:${row.postKind}`;
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          grouped.set(key, { authorId: row.authorId, postKind: row.postKind, count: 1 });
+        }
+      }
+      return Promise.resolve([...grouped.values()] as never);
+    },
+  };
+}
+
+export interface FakeCommunityCommentRepository extends Pick<
+  CommentRepository,
+  'countByHostsGroupedByAuthorSince'
+> {
+  rows: { hostType: string; hostId: string; authorId: string; createdAt: Date }[];
+}
+
+/** 7.1 — leaderboard "replies" points. Only the one method the engine reads. */
+export function createFakeCommunityCommentRepository(
+  seed: { hostType: string; hostId: string; authorId: string; createdAt?: Date }[] = [],
+): FakeCommunityCommentRepository {
+  const rows = seed.map((row) => ({
+    ...row,
+    createdAt: row.createdAt ?? new Date(),
+  }));
+  return {
+    rows,
+    countByHostsGroupedByAuthorSince: (hostType, hostIds, since) => {
+      const idSet = new Set(hostIds);
+      const grouped = new Map<string, number>();
+      for (const row of rows) {
+        if (row.hostType !== hostType) continue;
+        if (!idSet.has(row.hostId)) continue;
+        if (row.createdAt.getTime() < since.getTime()) continue;
+        grouped.set(row.authorId, (grouped.get(row.authorId) ?? 0) + 1);
+      }
+      return Promise.resolve(
+        [...grouped.entries()].map(([authorId, count]) => ({ authorId, count })) as never,
+      );
+    },
+  };
+}
+
+export interface FakeCommunityEventRepository extends Pick<EventRepository, 'listByCommunity'> {
+  rows: { id: string; communityId: string }[];
+}
+
+/** 7.1 — supplies the event ids `computeLeaderboardPointsForCommunity` scopes "hosted" to. */
+export function createFakeCommunityEventRepository(
+  seed: { id: string; communityId: string }[] = [],
+): FakeCommunityEventRepository {
+  return {
+    rows: seed,
+    listByCommunity: (communityId) =>
+      Promise.resolve(seed.filter((row) => row.communityId === communityId) as never),
+  };
+}
+
+export interface FakeCommunityEventParticipationRepository extends Pick<
+  EventParticipationRepository,
+  'countByEventsGroupedByUserSince'
+> {
+  rows: { eventId: string; userId: string; state: string; createdAt: Date }[];
+}
+
+/** 7.1 — leaderboard "events hosted" points. */
+export function createFakeCommunityEventParticipationRepository(
+  seed: { eventId: string; userId: string; state: string; createdAt?: Date }[] = [],
+): FakeCommunityEventParticipationRepository {
+  const rows = seed.map((row) => ({
+    ...row,
+    createdAt: row.createdAt ?? new Date(),
+  }));
+  return {
+    rows,
+    countByEventsGroupedByUserSince: (eventIds, state, since) => {
+      const idSet = new Set(eventIds);
+      const grouped = new Map<string, number>();
+      for (const row of rows) {
+        if (!idSet.has(row.eventId)) continue;
+        if (row.state !== state) continue;
+        if (row.createdAt.getTime() < since.getTime()) continue;
+        grouped.set(row.userId, (grouped.get(row.userId) ?? 0) + 1);
+      }
+      return Promise.resolve(
+        [...grouped.entries()].map(([userId, count]) => ({ userId, count })) as never,
+      );
     },
   };
 }

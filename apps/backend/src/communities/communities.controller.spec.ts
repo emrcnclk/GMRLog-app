@@ -1,6 +1,7 @@
 import type {
   ApiEnvelope,
   ApiErrorEnvelope,
+  CommunityLeaderboardResponse,
   CommunityMemberResponse,
   CommunityResponse,
 } from '@gmrlog/types';
@@ -22,6 +23,9 @@ import { CommunitiesModule } from './communities.module';
 import {
   COMMUNITY_ACTIVITY_REPOSITORY,
   COMMUNITY_BADGE_REPOSITORY,
+  COMMUNITY_COMMENT_REPOSITORY,
+  COMMUNITY_EVENT_PARTICIPATION_REPOSITORY,
+  COMMUNITY_EVENT_REPOSITORY,
   COMMUNITY_MEMBER_REPOSITORY,
   COMMUNITY_NOTIFICATION_REPOSITORY,
   COMMUNITY_PIN_REPOSITORY,
@@ -33,6 +37,9 @@ import {
 import {
   createFakeCommunityActivityRepository,
   createFakeCommunityBadgeRepository,
+  createFakeCommunityCommentRepository,
+  createFakeCommunityEventParticipationRepository,
+  createFakeCommunityEventRepository,
   createFakeCommunityMemberRepository,
   createFakeCommunityPinRepository,
   createFakeCommunityPostRepository,
@@ -64,6 +71,9 @@ const wiki = createFakeCommunityWikiRepository();
 const pins = createFakeCommunityPinRepository();
 const badges = createFakeCommunityBadgeRepository();
 const posts = createFakeCommunityPostRepository();
+const comments = createFakeCommunityCommentRepository();
+const events = createFakeCommunityEventRepository();
+const eventParticipations = createFakeCommunityEventParticipationRepository();
 
 let app: NestFastifyApplication;
 let accessToken: string;
@@ -103,6 +113,12 @@ beforeAll(async () => {
     .useValue({
       create: async () => ({ id: 'n1' }),
     })
+    .overrideProvider(COMMUNITY_COMMENT_REPOSITORY)
+    .useValue(comments)
+    .overrideProvider(COMMUNITY_EVENT_REPOSITORY)
+    .useValue(events)
+    .overrideProvider(COMMUNITY_EVENT_PARTICIPATION_REPOSITORY)
+    .useValue(eventParticipations)
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -269,6 +285,28 @@ describe('GET /communities/{id}/members', () => {
       role: 'owner',
       user: { id: 'user-1', handle: 'gamer' },
     });
+    expect(body.data[0]?.isContributor).toBe(false);
+  });
+});
+
+describe('GET /communities/{id}/leaderboard (7.1)', () => {
+  it('serves a ranked, windowed leaderboard for guests', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/communities/community-1/leaderboard?window=30d',
+    });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload) as ApiEnvelope<CommunityLeaderboardResponse>;
+    expect(body.data.window).toBe('30d');
+    expect(Array.isArray(body.data.entries)).toBe(true);
+  });
+
+  it('rejects an invalid window value', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/communities/community-1/leaderboard?window=1d',
+    });
+    expect(response.statusCode).toBe(400);
   });
 });
 

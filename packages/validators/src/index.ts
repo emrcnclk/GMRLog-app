@@ -1598,6 +1598,25 @@ export type CommunityListQueryInput = z.infer<typeof communityListQuerySchema>;
 export const COMMUNITY_PIN_CAP = 10;
 export const COMMUNITY_TOP_CONTRIBUTOR_MIN_SCORE = 3;
 
+/**
+ * 7.1 — BACKEND_CHANGES.md §5 `GET /communities/:id/leaderboard?window=90d`.
+ * Only the window §5 names as its own example, plus the two other common
+ * report windows.
+ */
+export const COMMUNITY_LEADERBOARD_WINDOW_VALUES = ['7d', '30d', '90d'] as const;
+export const COMMUNITY_LEADERBOARD_DEFAULT_WINDOW = '90d';
+export const COMMUNITY_LEADERBOARD_DEFAULT_LIMIT = 20;
+export const COMMUNITY_LEADERBOARD_MAX_LIMIT = 50;
+
+export const communityLeaderboardQuerySchema = z
+  .object({
+    window: z.enum(COMMUNITY_LEADERBOARD_WINDOW_VALUES).optional(),
+    limit: z.coerce.number().int().min(1).max(COMMUNITY_LEADERBOARD_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+export type CommunityLeaderboardQueryInput = z.infer<typeof communityLeaderboardQuerySchema>;
+
 // ---------------------------------------------------------------------------
 // D3.24 — Collection Hub (COLLECTION_HUB.md) · GET /collections/discover
 // ---------------------------------------------------------------------------

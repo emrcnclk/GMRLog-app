@@ -223,6 +223,8 @@ export function createFakePostRepository(seed: Post[] = []): FakePostRepository 
     listByGame: notSupported,
     listByCommunity: notSupported,
     countByCommunityGroupedByAuthor: () => Promise.resolve([]),
+    // 7.1 — communities' own leaderboard tests fake this repository directly.
+    countByCommunityGroupedByAuthorAndKindSince: notSupported,
     findPinnedByAuthor: () => Promise.resolve(null),
     update: notSupported,
     softDelete: notSupported,
@@ -270,6 +272,8 @@ export function createFakeCommentRepository(seed: Comment[] = []): FakeCommentRe
     },
     listByHost: () => Promise.resolve([]),
     listReplies: notSupported,
+    // 7.1 — communities' own leaderboard tests fake this repository directly.
+    countByHostsGroupedByAuthorSince: notSupported,
     update: notSupported,
     softDelete: notSupported,
     delete: notSupported,

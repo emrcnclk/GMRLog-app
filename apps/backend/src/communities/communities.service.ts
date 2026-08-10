@@ -9,6 +9,9 @@ import type {
   CommunityPinRepository,
   CommunityRepository,
   CommunityWikiRepository,
+  CommentRepository,
+  EventParticipationRepository,
+  EventRepository,
   FollowRepository,
   FriendshipRepository,
   NotificationRepository,
@@ -19,6 +22,9 @@ import type {
 } from '@gmrlog/database';
 import type {
   ActivityItemResponse,
+  CommunityLeaderboardEntry,
+  CommunityLeaderboardResponse,
+  CommunityLeaderboardWindowValue,
   CommunityMemberBadgeResponse,
   CommunityMemberResponse,
   CommunityPinResponse,
@@ -30,6 +36,7 @@ import type {
   ActivityQueryInput,
   CommunityCreateInput,
   CommunityFeedQueryInput,
+  CommunityLeaderboardQueryInput,
   CommunityListQueryInput,
   CommunityMemberRolePatchInput,
   CommunityPatchInput,
@@ -38,6 +45,8 @@ import type {
 } from '@gmrlog/validators';
 import {
   ACTIVITY_LIST_DEFAULT_LIMIT,
+  COMMUNITY_LEADERBOARD_DEFAULT_LIMIT,
+  COMMUNITY_LEADERBOARD_DEFAULT_WINDOW,
   COMMUNITY_LIST_DEFAULT_LIMIT,
   COMMUNITY_PIN_CAP,
 } from '@gmrlog/validators';
@@ -50,16 +59,21 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import type { Redis } from 'ioredis';
 
 import { toActivityItemResponse } from '../activity/mappers/activity.mapper';
 import { isAuthenticatedIdentity, type RequestIdentity } from '../auth/interfaces/identity';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 import { FeedCacheService } from '../infrastructure/redis/feed-cache.service';
+import { PLATFORM_REDIS } from '../infrastructure/redis/redis.constants';
 
 import {
   COMMUNITY_ACTIVITY_REPOSITORY,
   COMMUNITY_BADGE_REPOSITORY,
+  COMMUNITY_COMMENT_REPOSITORY,
+  COMMUNITY_EVENT_PARTICIPATION_REPOSITORY,
+  COMMUNITY_EVENT_REPOSITORY,
   COMMUNITY_FRIENDSHIP_REPOSITORY,
   COMMUNITY_MEMBER_REPOSITORY,
   COMMUNITY_NOTIFICATION_REPOSITORY,
@@ -80,6 +94,7 @@ import {
 import {
   canViewerReadCommunity,
   toCommunityFeedItemResponse,
+  toCommunityLeaderboardEntry,
   toCommunityMemberBadgeResponse,
   toCommunityMemberResponse,
   toCommunityMembershipSummary,
@@ -88,6 +103,15 @@ import {
   toCommunityWikiPageResponse,
 } from './mappers/community.mapper';
 import type { CommunityActivitySignal } from './mappers/community.mapper';
+import {
+  COMMUNITY_LEADERBOARD_CONTRIBUTOR_TOP_N,
+  computeLeaderboardPoints,
+  leaderboardWindowStart,
+  rankLeaderboard,
+} from './scoring/leaderboard.engine';
+
+/** 7.1 — §5: "read-heavy, slow-changing figure." One hour, same order as `FEED_CACHE_TTL_SECONDS`'s role for feed pages. */
+const COMMUNITY_LEADERBOARD_CACHE_TTL_SECONDS = 60 * 60;
 
 /**
  * Community domain service (F6.3 / D2.12 · S1.1 · D3.24 Communities 2.0).
@@ -111,7 +135,12 @@ export class CommunitiesService {
     private readonly notifications: NotificationRepository,
     @Inject(COMMUNITY_FRIENDSHIP_REPOSITORY)
     private readonly friendships: FriendshipRepository,
+    @Inject(COMMUNITY_COMMENT_REPOSITORY) private readonly comments: CommentRepository,
+    @Inject(COMMUNITY_EVENT_REPOSITORY) private readonly events: EventRepository,
+    @Inject(COMMUNITY_EVENT_PARTICIPATION_REPOSITORY)
+    private readonly eventParticipations: EventParticipationRepository,
     @Optional() private readonly feedCache: FeedCacheService | null = null,
+    @Optional() @Inject(PLATFORM_REDIS) private readonly redis: Redis | null = null,
   ) {}
 
   /**
@@ -248,6 +277,21 @@ export class CommunitiesService {
     const community = await this.requireActiveCommunity(communityId);
     await this.assertReadable(community, identity);
     return this.projectMembers(community.id);
+  }
+
+  /** 7.1 — BACKEND_CHANGES.md §5 `GET /communities/:id/leaderboard`. */
+  async getLeaderboard(
+    communityId: string,
+    identity: RequestIdentity,
+    query: CommunityLeaderboardQueryInput,
+  ): Promise<CommunityLeaderboardResponse> {
+    const community = await this.requireActiveCommunity(communityId);
+    await this.assertReadable(community, identity);
+    const window: CommunityLeaderboardWindowValue =
+      query.window ?? COMMUNITY_LEADERBOARD_DEFAULT_WINDOW;
+    const limit = query.limit ?? COMMUNITY_LEADERBOARD_DEFAULT_LIMIT;
+    const entries = await this.getOrComputeLeaderboardEntries(community.id, window);
+    return { window, entries: entries.slice(0, limit) };
   }
 
   async listBadges(
@@ -697,13 +741,131 @@ export class CommunitiesService {
       list.push(badge);
       badgesByMember.set(badge.memberId, list);
     }
+    // 7.1 — the default window's leaderboard, same cache every getLeaderboard()
+    // call reads, so listing members costs nothing beyond it on a warm cache.
+    const leaderboardEntries = await this.getOrComputeLeaderboardEntries(
+      communityId,
+      COMMUNITY_LEADERBOARD_DEFAULT_WINDOW,
+    );
+    const contributorUserIds = new Set(
+      leaderboardEntries.slice(0, COMMUNITY_LEADERBOARD_CONTRIBUTOR_TOP_N).map((e) => e.user.id),
+    );
     return rows.flatMap((row) => {
       const user = byId.get(row.userId);
       if (user == null || user.deletedAt != null) {
         return [];
       }
-      return [toCommunityMemberResponse(row, user, badgesByMember.get(row.id) ?? [])];
+      return [
+        toCommunityMemberResponse(
+          row,
+          user,
+          badgesByMember.get(row.id) ?? [],
+          contributorUserIds.has(row.userId),
+        ),
+      ];
     });
+  }
+
+  /**
+   * 7.1 — the four raw point sources for one community since a cutoff, one
+   * query each (post/kind, replies via the community's own post ids, event
+   * hosting via the community's own event ids). Not windowed at the
+   * post/event-listing step — a reply or a hosting row can be recent even
+   * when its post/event is not — only at the comment/participation step.
+   */
+  private async computeLeaderboardPointsForCommunity(
+    communityId: string,
+    since: Date,
+  ): Promise<Map<string, number>> {
+    const postCounts = await this.posts.countByCommunityGroupedByAuthorAndKindSince(
+      communityId,
+      since,
+    );
+
+    const communityPosts = await this.posts.listByCommunity(communityId);
+    const replyCounts = await this.comments.countByHostsGroupedByAuthorSince(
+      'post',
+      communityPosts.map((post) => post.id),
+      since,
+    );
+
+    const communityEvents = await this.events.listByCommunity(communityId);
+    const eventHostCounts = await this.eventParticipations.countByEventsGroupedByUserSince(
+      communityEvents.map((event) => event.id),
+      'hosting',
+      since,
+    );
+
+    return computeLeaderboardPoints({ postCounts, replyCounts, eventHostCounts });
+  }
+
+  /**
+   * 7.1 — cached per community per window (§5: "read-heavy, slow-changing
+   * figure. Do not compute it per request"). Full ranked list, uncapped by
+   * any caller's `limit` — `getLeaderboard` and `projectMembers`'s
+   * contributor derivation both read the same cache entry.
+   */
+  private async getOrComputeLeaderboardEntries(
+    communityId: string,
+    window: CommunityLeaderboardWindowValue,
+  ): Promise<CommunityLeaderboardEntry[]> {
+    const cacheKey = `community:leaderboard:${communityId}:${window}`;
+    const cached = await this.getLeaderboardCache(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const since = leaderboardWindowStart(window);
+    const points = await this.computeLeaderboardPointsForCommunity(communityId, since);
+
+    const memberRows = await this.members.listByCommunity(communityId);
+    const users = await this.users.findManyByIds(memberRows.map((row) => row.userId));
+    // §5: "Deleted and blocked users are excluded." This schema has no
+    // separate platform-level "blocked" state — only `deletedAt` — so the
+    // two collapse into one check, the same class of doc-vs-code gap as
+    // 3.1's `holderPercent`.
+    const activeUserIds = users.filter((user) => user.deletedAt == null).map((user) => user.id);
+    const byId = new Map(users.map((user) => [user.id, user]));
+
+    const ranked = rankLeaderboard(points, activeUserIds);
+    const entries = ranked.flatMap((row) => {
+      const user = byId.get(row.userId);
+      return user === undefined ? [] : [toCommunityLeaderboardEntry(row.rank, user, row.points)];
+    });
+
+    await this.setLeaderboardCache(cacheKey, entries);
+    return entries;
+  }
+
+  private async getLeaderboardCache(key: string): Promise<CommunityLeaderboardEntry[] | null> {
+    try {
+      if (this.redis?.status === 'ready') {
+        const raw = await this.redis.get(key);
+        return raw === null ? null : (JSON.parse(raw) as CommunityLeaderboardEntry[]);
+      }
+    } catch {
+      // Cache is an optimization, not a source of truth — fall through to a
+      // fresh computation the same way FeedCacheService degrades.
+    }
+    return null;
+  }
+
+  private async setLeaderboardCache(
+    key: string,
+    entries: CommunityLeaderboardEntry[],
+  ): Promise<void> {
+    try {
+      if (this.redis?.status === 'ready') {
+        await this.redis.set(
+          key,
+          JSON.stringify(entries),
+          'EX',
+          COMMUNITY_LEADERBOARD_CACHE_TTL_SECONDS,
+        );
+      }
+    } catch {
+      // Best-effort — a failed cache write just means the next read recomputes.
+    }
   }
 
   private async projectWikiPages(

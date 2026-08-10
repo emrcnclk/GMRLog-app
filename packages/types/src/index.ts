@@ -519,6 +519,31 @@ export interface CommunityMemberResponse {
   joinedAt: string;
   /** D3.24 community flair badges (founder · moderator · top_contributor · verified_creator). */
   badges: CommunityMemberBadgeResponse[];
+  /**
+   * 7.1 — BACKEND_CHANGES.md §5. Derived from the leaderboard window, not a
+   * role: top-N by contribution points. A real `true`/`false` wherever the
+   * endpoint computes it (every `listMembers` row); optional per CLAUDE.md's
+   * additive-DTO rule only because a handful of member-shaped responses
+   * (e.g. a role-patch reply) don't recompute the whole leaderboard just to
+   * answer — those omit the field rather than guessing at `false`.
+   */
+  isContributor?: boolean;
+}
+
+/** 7.1 — BACKEND_CHANGES.md §5. The only window the endpoint accepts today. */
+export type CommunityLeaderboardWindowValue = '7d' | '30d' | '90d';
+
+/** 7.1 — one ranked row of `GET /communities/:id/leaderboard`. */
+export interface CommunityLeaderboardEntry {
+  rank: number;
+  user: UserPublicResponse;
+  points: number;
+}
+
+/** 7.1 — BACKEND_CHANGES.md §5 `GET /communities/:id/leaderboard?window=90d`. */
+export interface CommunityLeaderboardResponse {
+  window: CommunityLeaderboardWindowValue;
+  entries: CommunityLeaderboardEntry[];
 }
 
 /** S1 §13.5 Discover Hub — module registry (no ranking payloads). */

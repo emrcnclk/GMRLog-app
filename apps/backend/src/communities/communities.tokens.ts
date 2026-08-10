@@ -9,3 +9,10 @@ export const COMMUNITY_POST_REPOSITORY = Symbol('COMMUNITY_POST_REPOSITORY');
 export const COMMUNITY_NOTIFICATION_REPOSITORY = Symbol('COMMUNITY_NOTIFICATION_REPOSITORY');
 /** 3b.1b — §13's "N friends here" on a suggested circle. */
 export const COMMUNITY_FRIENDSHIP_REPOSITORY = Symbol('COMMUNITY_FRIENDSHIP_REPOSITORY');
+/** 7.1 — leaderboard "replies" points (comments on a community's posts). */
+export const COMMUNITY_COMMENT_REPOSITORY = Symbol('COMMUNITY_COMMENT_REPOSITORY');
+/** 7.1 — leaderboard "events hosted" points. */
+export const COMMUNITY_EVENT_REPOSITORY = Symbol('COMMUNITY_EVENT_REPOSITORY');
+export const COMMUNITY_EVENT_PARTICIPATION_REPOSITORY = Symbol(
+  'COMMUNITY_EVENT_PARTICIPATION_REPOSITORY',
+);

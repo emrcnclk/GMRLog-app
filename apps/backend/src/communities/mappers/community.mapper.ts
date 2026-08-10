@@ -8,6 +8,7 @@ import type {
   User,
 } from '@gmrlog/database';
 import type {
+  CommunityLeaderboardEntry,
   CommunityMemberBadgeResponse,
   CommunityMemberResponse,
   CommunityMembershipSummary,
@@ -81,13 +82,24 @@ export function toCommunityMemberResponse(
   member: CommunityMember,
   user: User,
   badges: readonly CommunityMemberBadge[] = [],
+  isContributor?: boolean,
 ): CommunityMemberResponse {
   return {
     user: toUserPublicResponse(user),
     role: member.role,
     joinedAt: member.joinedAt.toISOString(),
     badges: badges.map(toCommunityMemberBadgeResponse),
+    ...(isContributor === undefined ? {} : { isContributor }),
   };
+}
+
+/** 7.1 — one row of `GET /communities/:id/leaderboard`. */
+export function toCommunityLeaderboardEntry(
+  rank: number,
+  user: User,
+  points: number,
+): CommunityLeaderboardEntry {
+  return { rank, user: toUserPublicResponse(user), points };
 }
 
 export function toCommunityWikiPageResponse(
