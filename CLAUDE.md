@@ -79,6 +79,8 @@ Do not skip ahead, do not batch several tasks into one diff, and do not start a 
 
 If a task turns out to be wrong or already done, say so and tick it with a note rather than inventing work.
 
+A branch counts as "measured" only when the write-up names the state, the screen, and the fault it was seen under — "verified end to end" alone is not a closure (3b.1c closed on a real but non-generalizing pass; reopened when 3b.1f hit the same acceptance test and it failed).
+
 ## Commands
 
 ```bash

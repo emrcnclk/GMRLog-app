@@ -13,12 +13,19 @@ export function createAppQueryClient(): QueryClient {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         networkMode: 'offlineFirst',
-        retry: (failureCount, error) => {
-          if (error instanceof FrontendApiError && error.status >= 400 && error.status < 500) {
-            return false;
-          }
-          return failureCount < 1;
-        },
+        // No automatic retry (3b.1c, corrected). A scheduled retry only
+        // resumes once `@tanstack/query-core`'s retryer sees the *document*
+        // focused (`focusManager.isFocused()`, `retryer.ts`'s `canContinue`) —
+        // that gate sits below `resolveListView` entirely, so a query that
+        // fails while the tab is backgrounded parks in `fetchStatus: 'paused'`
+        // with no error and no way for the viewer to retry until focus
+        // returns. Every list/detail screen already has its own explicit
+        // Retry action (`CommunityErrorState` and its siblings), so the
+        // automatic retry bought nothing an unfocused failure couldn't lose
+        // silently. `initialPageParam`'s own first attempt is untouched by
+        // this — `canStart` (unlike `canContinue`) never checks focus, only
+        // a *retry* does — so nothing here changes how a fresh fetch begins.
+        retry: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: true,
       },
