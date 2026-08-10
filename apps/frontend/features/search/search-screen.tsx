@@ -98,7 +98,7 @@ export function SearchScreen() {
     search.status === 'results' && search.normalizedQuery !== search.debouncedQuery;
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Screen edges={[]}>
       <SearchBar
         value={query}
         onChangeText={setQuery}

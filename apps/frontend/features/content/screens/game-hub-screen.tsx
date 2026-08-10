@@ -390,7 +390,7 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
 
   if (detail.isError && game === null) {
     return (
-      <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <Screen edges={[]}>
         <HeroBackButton
           topInset={insets.top}
           onPress={() => {
@@ -409,7 +409,7 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
   }
 
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Screen edges={[]}>
       <HeroBackButton
         topInset={insets.top}
         onPress={() => {
