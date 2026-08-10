@@ -154,12 +154,39 @@ Reuse the archetype engine — `apps/backend/src/archetypes/archetype-engine.ser
 - Cache per community per window; this is a read-heavy, slow-changing figure. Do not compute it per request.
 - Deleted and blocked users are excluded, and ranks close up — no gaps in the numbering.
 
-## 6. Order of work
+## 6. Community: circle `kind` and an activity signal
+
+Raised as **3b.1e**: `SCREEN_REDESIGNS_2.md` §13 needs a circle `kind` for its filter pills and an activity signal (`postsToday`, a live "active now" indicator) for its card footer and its own "Active now" rail. Neither exists in this doc, in `README.md`, or in the schema — the only source is the prototype's `COMM_FILTERS` array (`Games`, `Board games`, `Cosplay`, `Live events`) and one design note ("Circles carry four kinds ... the kicker and icon do the sorting, so nothing needs a bespoke layout"). Decided here, in the design-authority doc, not invented inside a screen task.
+
+### `kind`
+
+- **One value, not several.** Every entry in the prototype's own mock data (`COMMUNITIES`) carries exactly one `kind`; nothing in the design docs shows a circle belonging to more than one filter pill at once. `enum CommunityKind { games, board_games, cosplay, live_events }` — the prototype's own four, no fifth "general" bucket. A catch-all would let every future circle land there by default instead of an owner choosing, which defeats the filter pills' purpose.
+- **Required, not optional.** An optional field means the filter pills always have a circle they can't place. The migration backfills every existing community to `games` — the app's own default domain (`CLAUDE.md`: "GMRLog is a gaming identity product"), and the same value the create form defaults to, so a fresh circle and a backfilled one start identically.
+- **Set at creation, editable after, by the owner/admin** — the same place `name`/`description`/`visibility` are already edited. **The create and edit screen changes are not part of this decision.** They are a screen task of their own, downstream of this section, the same way §13/§14's own screens were split into their own tasks.
+
+### Activity signal
+
+Two fields, both derived at read time, neither stored:
+
+```ts
+postsToday: number; // this community's post-kind activity items since the current UTC day's start
+activeNow: boolean; // at least one post-kind activity item in the last 3 hours
+```
+
+- **Source is `CommunityActivity` → `ActivityItem` filtered to `kind: 'post'`, not a raw `Post.communityId` count.** `CommunityActivity`/`ActivityItem` is already the Feed tab's own source (`listFeed`/`paginateCommunityActivity`, 3b.2), keyed on `occurredAt` with an existing `kinds` filter (`feedTabToActivityKinds`). Counting the same rows the Feed tab itself would show keeps "posts today" honest with what a viewer scrolling that tab actually sees, instead of a second, slightly different definition read straight off `Post`.
+- **`postsToday` resets at UTC midnight, not the viewer's.** Scores and counts are server-side precisely so two devices never disagree (`CLAUDE.md`); a per-viewer "today" would make the same circle show two different counts to two viewers in two time zones at the same instant. One boundary, UTC, for every viewer, every time.
+- **`activeNow` is a rolling window, independent of the calendar day.** A community with one post at 00:05 and silence since would read `postsToday > 0` for the next 24 hours — not what a pulsing "active now" dot should promise. `activeNow` is **at least one post-kind activity item in the last 3 hours.** Three hours is picked to survive a normal quiet stretch inside an active circle without flickering off between two people posting an hour apart; revisit against real usage once this ships, the same way `USER_SIMILARITY_WEIGHTS` is tunable rather than load-bearing on its first guess.
+- **Batched, not per-row — the same rule 3b.1a fixed the directory endpoint against.** Both fields come from one grouped count per page (`communityId`, `kind: 'post'`, `occurredAt >= <cutoff>`), the same shape `listOwnersByCommunityIds`/`countByCommunityIds` already use for the same endpoint, never a query per card.
+
+Both fields are additive on `CommunityResponse` per `CLAUDE.md`'s DTO rule; existing consumers are unaffected until the directory screen reads them. Building the directory's filter pills against real `kind`, the card footer's `postsToday`/live dot, and the "Active now" rail is a screen task that reads this section — not part of it.
+
+## 7. Order of work
 
 1. Engine breakdown + test (no API surface change) — safe to ship alone
 2. Prisma columns + service write path
 3. `SimilarUserResponse.match` — unlocks every list token in the UI at once
 4. `GET /users/:id/dna-match` — unlocks the panel
 5. Community role + leaderboard — independent of everything above, can run in parallel
+6. Community `kind` + activity signal (§6) — independent of everything above, can run in parallel
 
 Steps 1–3 are worth shipping before any UI work; the frontend can then build against real data instead of fixtures.
