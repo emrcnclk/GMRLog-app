@@ -38,6 +38,9 @@ Thumbs.db
 npm-debug.log*
 pnpm-debug.log*
 
+# Measurement fixtures (3b.1f) — local, per-machine state
+scripts/dev/.fixture-state.json
+
 # Local database dumps (D3.20)
 backups/
 

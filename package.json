@@ -23,6 +23,7 @@
     "db:backup": "sh infrastructure/docker/scripts/backup-postgres.sh",
     "db:restore": "sh infrastructure/docker/scripts/restore-postgres.sh",
     "db:migrate:deploy": "node scripts/db-migrate-deploy.mjs",
+    "fixture": "node scripts/dev/fixture.mjs",
     "db:validate:pg": "pnpm --filter @gmrlog/database run test:pg",
     "repair:index": "pnpm --filter @gmrlog/backend run repair:index",
     "release:smoke": "node scripts/release/smoke-infra.mjs && node scripts/release/smoke-health.mjs && node scripts/release/smoke-upload.mjs && node scripts/release/smoke-password.mjs && node scripts/release/smoke-search.mjs && node scripts/release/smoke-queue.mjs && node scripts/release/smoke-security.mjs",
