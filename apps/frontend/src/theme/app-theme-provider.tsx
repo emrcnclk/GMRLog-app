@@ -23,6 +23,11 @@ export interface AppThemeProviderProps {
  *
  * `NavigationThemeBridge` sits inside, so React Navigation's own theme resolves
  * to the same tokens instead of its light `DefaultTheme` (task 1.5).
+ *
+ * No `key` here (3b.6a removed one keyed on `preference:accent`): `ThemeProvider`
+ * now syncs `initialPreference`/`initialAccent` prop changes into its own state
+ * itself, so a store write updates tokens in place instead of remounting the
+ * navigator tree underneath whatever screen made the write.
  */
 export function AppThemeProvider({ children }: AppThemeProviderProps) {
   const preference = useThemeStore((s) => s.preference);
@@ -36,7 +41,6 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
 
   return (
     <ThemeProvider
-      key={`${preference}:${accent}`}
       initialPreference={preference}
       onPreferenceChange={(next) => {
         setPreference(next);

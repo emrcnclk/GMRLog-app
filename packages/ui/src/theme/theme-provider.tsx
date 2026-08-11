@@ -74,6 +74,23 @@ export function ThemeProvider({
   const [accent, setAccentState] = useState<AccentKey>(initialAccent);
   const [systemScheme, setSystemScheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
 
+  // `initialPreference`/`initialAccent` only seed state on mount by default,
+  // but a caller with an external source of truth (a store one level up, or
+  // a sibling draft value) needs a change in that prop to actually take —
+  // without this, the only way to pick up a new value was a full remount via
+  // `key`, which took the entire subtree down with it (3b.6a). Setting state
+  // to a value it already holds is a no-op re-render, so this doesn't fight
+  // a change that originated from this provider's own `setPreference`/
+  // `setAccent` and round-tripped back through `onPreferenceChange`/
+  // `onAccentChange`.
+  useEffect(() => {
+    setPreferenceState(initialPreference);
+  }, [initialPreference]);
+
+  useEffect(() => {
+    setAccentState(initialAccent);
+  }, [initialAccent]);
+
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       setSystemScheme(colorScheme);

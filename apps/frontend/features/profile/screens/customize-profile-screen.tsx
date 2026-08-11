@@ -153,23 +153,12 @@ export function CustomizeProfileScreen() {
     };
     try {
       const result = await patchTheme.mutateAsync(body);
-      // Navigate *before* touching the local store: `AppThemeProvider`
-      // (`src/theme/app-theme-provider.tsx`) keys its root `ThemeProvider` on
-      // `accent`, so an accent write remounts the *entire navigator tree*,
-      // not just the theme — the only way `ThemeProvider`'s uncontrolled
-      // `initialAccent` picks up a change at all. Every earlier consumer of
-      // this store (`useProfileCustomization`) was a modal sheet floating
-      // over an already-mounted screen, so the remount was invisible; this
-      // is the first *routed* screen to change accent, and it exposes the
-      // cost: `router.replace('/profile')` before this write, after it, and
-      // `router.back()` in either position all land on the tab navigator's
-      // default (Home) instead of Profile once the accent write fires —
-      // measured live, each combination tried. Root-caused, not fixed here:
-      // the fix is in `AppThemeProvider`'s remount strategy, a root-level
-      // change out of one screen's scope. The write itself is always
-      // correct (confirmed via network response and a hard reload); only
-      // the post-save landing screen is wrong, recoverable with one tap on
-      // the Profile tab.
+      // Writing accent here used to bounce the player to Home instead of
+      // Profile — `AppThemeProvider` remounted the whole navigator tree on
+      // every accent change. Fixed at the root in 3b.6a (`ThemeProvider` now
+      // syncs `initialAccent`/`initialPreference` prop changes into its own
+      // state instead of requiring a remount), so navigate/store-write order
+      // no longer matters here.
       useCustomizationStore.getState().patch({
         accent: result.value.accent,
         cardStyle: result.value.cardStyle,
