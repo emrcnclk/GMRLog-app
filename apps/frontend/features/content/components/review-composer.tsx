@@ -1,9 +1,17 @@
 import type { ReviewResponse } from '@gmrlog/types';
-import { ErrorBanner, Screen, Text, TextField, useTheme } from '@gmrlog/ui';
+import { Button, Chip, ErrorBanner, Screen, Text, useTheme } from '@gmrlog/ui';
 import { reviewCreateSchema, reviewPatchSchema } from '@gmrlog/validators';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TextInput,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputContentSizeChangeEventData,
+} from 'react-native';
 
 import { useAppForm } from '../../../src/forms/use-app-form';
 import { useConnectivityStore } from '../../../src/state/stores';
@@ -17,11 +25,11 @@ import {
 import { mapContentError } from '../hooks/map-content-error';
 import { useCreateReview, useDeleteReview, useUpdateReview } from '../hooks/use-reviews';
 
-import { ComposerFooter } from './composer-footer';
-import { ComposerHeader } from './composer-header';
 import { ConfirmDialog } from './confirm-dialog';
-import { RatingSelector } from './rating-selector';
-import { SpoilerBadge } from './spoiler-badge';
+import { ReviewAttachmentsRow } from './review-attachments-row';
+import { ReviewComposerBar } from './review-composer-bar';
+import { ReviewGameStrip } from './review-game-strip';
+import { StarRating } from './star-rating';
 import { VisibilitySelector } from './visibility-selector';
 
 export interface ReviewComposerProps {
@@ -32,6 +40,8 @@ export interface ReviewComposerProps {
   onSaved?: (review: ReviewResponse) => void;
   onDeleted?: () => void;
 }
+
+const BODY_MIN_HEIGHT = 180;
 
 export function ReviewComposer({
   mode,
@@ -49,10 +59,16 @@ export function ReviewComposer({
   const [banner, setBanner] = useState<ReturnType<typeof mapContentError> | null>(null);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [bodyHeight, setBodyHeight] = useState(BODY_MIN_HEIGHT);
+  // Not backed by ReviewCreateInput/ReviewPatchInput — no such fields exist on
+  // the schema yet. Shown per §16, but local-only and never submitted, same
+  // gap `post-composer.tsx` already flags for "Attach media".
+  const [finishedIt, setFinishedIt] = useState(false);
+  const [replay, setReplay] = useState(false);
 
   const defaults: ReviewComposerFormValues = useMemo(
     () => ({
-      rating: review?.rating ?? 7,
+      rating: review?.rating ?? null,
       body: review?.body ?? '',
       containsSpoilers: review?.containsSpoilers ?? false,
       visibility: review?.visibility ?? 'public',
@@ -89,7 +105,8 @@ export function ReviewComposer({
 
   const saving = isSubmitting || createMutation.isPending || updateMutation.isPending;
   const deleting = deleteMutation.isPending;
-  const canSave = isValid && !saving && !deleting && (mode === 'create' || dirty);
+  const ratingSet = watched.rating !== null && watched.rating !== undefined;
+  const canSave = isValid && ratingSet && !saving && !deleting && (mode === 'create' || dirty);
 
   const requestClose = () => {
     if (dirty && !saving) {
@@ -100,6 +117,9 @@ export function ReviewComposer({
   };
 
   const onSubmit = handleSubmit(async (values: ReviewComposerFormValues) => {
+    if (values.rating === null) {
+      return;
+    }
     setBanner(null);
     const body = normalizeReviewBody(values.body);
     try {
@@ -147,13 +167,18 @@ export function ReviewComposer({
   };
 
   const bodyLength = typeof watched.body === 'string' ? watched.body.length : 0;
+  const bodyType = theme.typography('body');
 
   return (
     <Screen edges={[]} style={{ paddingTop: 0, paddingBottom: 0 }}>
-      <ComposerHeader
-        title={mode === 'create' ? 'Create Review' : 'Edit Review'}
-        onClose={requestClose}
-        closeLabel="Close"
+      <ReviewComposerBar
+        onCancel={requestClose}
+        publishLabel={mode === 'create' ? 'Publish' : 'Save'}
+        onPublish={() => {
+          void onSubmit();
+        }}
+        publishDisabled={!canSave}
+        publishing={saving}
       />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -162,18 +187,20 @@ export function ReviewComposer({
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
-            padding: theme.space('space.4'),
+            padding: theme.space('space.5'),
             gap: theme.space('space.5'),
             paddingBottom: theme.space('space.8'),
           }}
         >
           {banner ? <ErrorBanner title={banner.title} description={banner.description} /> : null}
 
+          <ReviewGameStrip gameId={gameId} />
+
           <Controller
             control={control}
             name="rating"
             render={({ field: { value, onChange } }) => (
-              <RatingSelector
+              <StarRating
                 value={value}
                 onChange={onChange}
                 disabled={saving || deleting}
@@ -186,36 +213,98 @@ export function ReviewComposer({
             control={control}
             name="body"
             render={({ field: { value, onChange, onBlur } }) => (
-              <View style={{ gap: theme.space('space.1') }}>
-                <Text role="label" color="color.text.secondary">
-                  Review
-                </Text>
-                <TextField
+              <View style={{ gap: theme.space('space.2') }}>
+                <TextInput
                   value={value}
                   onBlur={onBlur}
                   onChangeText={onChange}
                   editable={!saving && !deleting}
                   multiline
-                  numberOfLines={8}
                   textAlignVertical="top"
                   maxLength={REVIEW_BODY_MAX}
-                  placeholder="Share your take…"
-                  error={errors.body?.message}
-                  style={{ minHeight: theme.space('space.24') }}
+                  placeholder="What stayed with you?"
+                  placeholderTextColor={theme.color('color.text.tertiary')}
+                  onContentSizeChange={(
+                    event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
+                  ) => {
+                    setBodyHeight(Math.max(BODY_MIN_HEIGHT, event.nativeEvent.contentSize.height));
+                  }}
                   accessibilityLabel="Review text"
                   autoFocus
+                  style={{
+                    color: theme.color('color.text.primary'),
+                    fontSize: bodyType.fontSize,
+                    lineHeight: bodyType.lineHeight,
+                    fontWeight: bodyType.fontWeight,
+                    letterSpacing: bodyType.letterSpacing,
+                    ...(bodyType.fontFamily === undefined
+                      ? null
+                      : { fontFamily: bodyType.fontFamily }),
+                    backgroundColor: 'transparent',
+                    borderWidth: 0,
+                    padding: 0,
+                    minHeight: BODY_MIN_HEIGHT,
+                    height: bodyHeight,
+                  }}
                 />
+                {errors.body ? (
+                  <Text role="caption" color="color.status.error">
+                    {errors.body.message}
+                  </Text>
+                ) : null}
               </View>
             )}
           />
 
-          <Controller
-            control={control}
-            name="containsSpoilers"
-            render={({ field: { value, onChange } }) => (
-              <SpoilerBadge active={value} onChange={onChange} disabled={saving || deleting} />
-            )}
-          />
+          <Text role="meta" color="color.text.tertiary">
+            {bodyLength} / {REVIEW_BODY_MAX}
+          </Text>
+
+          <View style={{ gap: theme.space('space.2') }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
+              <Controller
+                control={control}
+                name="containsSpoilers"
+                render={({ field: { value, onChange } }) => (
+                  <Chip
+                    selected={value}
+                    disabled={saving || deleting}
+                    accessibilityLabel="Contains spoilers"
+                    onPress={() => {
+                      onChange(!value);
+                    }}
+                  >
+                    Contains spoilers
+                  </Chip>
+                )}
+              />
+              <Chip
+                selected={finishedIt}
+                disabled={saving || deleting}
+                accessibilityLabel="Finished it"
+                onPress={() => {
+                  setFinishedIt((current) => !current);
+                }}
+              >
+                Finished it
+              </Chip>
+              <Chip
+                selected={replay}
+                disabled={saving || deleting}
+                accessibilityLabel="Replay"
+                onPress={() => {
+                  setReplay((current) => !current);
+                }}
+              >
+                Replay
+              </Chip>
+            </View>
+            <Text role="caption" color="color.text.tertiary">
+              Finished it and Replay aren't saved with the review yet.
+            </Text>
+          </View>
+
+          <ReviewAttachmentsRow />
 
           <Controller
             control={control}
@@ -224,26 +313,22 @@ export function ReviewComposer({
               <VisibilitySelector value={value} onChange={onChange} disabled={saving || deleting} />
             )}
           />
-        </ScrollView>
 
-        <ComposerFooter
-          onSave={() => {
-            void onSubmit();
-          }}
-          saveLabel={mode === 'create' ? 'Publish' : 'Save'}
-          disabled={!canSave}
-          loading={saving}
-          characterCount={bodyLength}
-          characterMax={REVIEW_BODY_MAX}
-          onDelete={
-            mode === 'edit'
-              ? () => {
-                  setDeleteOpen(true);
-                }
-              : undefined
-          }
-          deleteLoading={deleting}
-        />
+          {mode === 'edit' ? (
+            <Button
+              variant="danger"
+              size="sm"
+              accessibilityLabel="Delete review"
+              loading={deleting}
+              disabled={saving}
+              onPress={() => {
+                setDeleteOpen(true);
+              }}
+            >
+              Delete review
+            </Button>
+          ) : null}
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <ConfirmDialog

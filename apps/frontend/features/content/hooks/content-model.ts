@@ -30,10 +30,15 @@ export function visibilityLabel(visibility: string): string {
   }
 }
 
-/** Composer form — rating required · body string (empty → null on submit). */
+/**
+ * Composer form — rating starts unset (§16: "the numeric value appears
+ * beside them … never before" implies no default), body string (empty →
+ * null on submit). `reviewCreateSchema`/`reviewPatchSchema` still require a
+ * real 1–10 number; the Publish/Save action stays disabled until it is set.
+ */
 export const reviewComposerFormSchema = z
   .object({
-    rating: reviewRatingSchema,
+    rating: reviewRatingSchema.nullable(),
     body: z.string().max(REVIEW_BODY_MAX),
     containsSpoilers: z.boolean(),
     visibility: contentVisibilitySchema,
@@ -41,6 +46,18 @@ export const reviewComposerFormSchema = z
   .strict();
 
 export type ReviewComposerFormValues = z.infer<typeof reviewComposerFormSchema>;
+
+/** §16: five stars over the constitutional 1–10 scale — each star is worth two points. */
+export const REVIEW_STAR_COUNT = 5;
+
+export function ratingForStar(star: number): number {
+  return star * 2;
+}
+
+/** Rounds up so a rating from the old 1–10 picker (e.g. an odd value) still lights a whole star. */
+export function starsForRating(rating: number | null): number {
+  return rating === null ? 0 : Math.ceil(rating / 2);
+}
 
 export const postComposerFormSchema = z
   .object({

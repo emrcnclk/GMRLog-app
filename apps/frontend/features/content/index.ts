@@ -1,6 +1,6 @@
 export { ReviewComposer } from './components/review-composer';
 export { PostComposer } from './components/post-composer';
-export { RatingSelector } from './components/rating-selector';
+export { StarRating } from './components/star-rating';
 export { SpoilerBadge } from './components/spoiler-badge';
 export { VisibilitySelector } from './components/visibility-selector';
 export { ReviewCard } from './components/review-card';

@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   Compass,
   Folder,
+  Image,
   LayoutGrid,
   Library,
   Link,
@@ -22,6 +23,7 @@ import {
   Trophy,
   UserPlus,
   Users,
+  Video,
   X,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -53,6 +55,7 @@ const ICONS: Record<string, LucideIcon> = {
   'chevron-left': ChevronLeft,
   compass: Compass,
   folder: Folder,
+  image: Image,
   'layout-grid': LayoutGrid,
   library: Library,
   link: Link,
@@ -69,6 +72,7 @@ const ICONS: Record<string, LucideIcon> = {
   trophy: Trophy,
   'user-plus': UserPlus,
   users: Users,
+  video: Video,
   x: X,
 };
 
