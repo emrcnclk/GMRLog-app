@@ -2042,12 +2042,17 @@ model GameSimilarity {
 }
 
 model UserSimilarity {
-  id        String   @id @default(cuid())
-  userAId   String   @map("user_a_id")
-  userBId   String   @map("user_b_id")
-  score     Float
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(cuid())
+  userAId      String   @map("user_a_id")
+  userBId      String   @map("user_b_id")
+  score        Float
+  library      Float    @default(0)
+  genre        Float    @default(0)
+  reviewRating Float    @default(0) @map("review_rating")
+  wishlist     Float    @default(0)
+  completion   Float    @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   userA User @relation("UserSimilarityLow", fields: [userAId], references: [id], onDelete: Cascade)
   userB User @relation("UserSimilarityHigh", fields: [userBId], references: [id], onDelete: Cascade)

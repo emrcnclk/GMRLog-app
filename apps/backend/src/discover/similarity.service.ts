@@ -8,8 +8,9 @@ import { toGameCardResponse } from './mappers/game-card.mapper';
 import { loadDiscoverGameRecords } from './mappers/load-discover-games';
 import {
   computeGameSimilarityScore,
-  computeUserSimilarityScore,
+  computeUserSimilarityBreakdown,
   type GameSimilaritySignals,
+  type UserSimilarityBreakdown,
   type UserSimilaritySignals,
 } from './scoring/similarity.engine';
 
@@ -198,17 +199,17 @@ export class SimilarityService {
       }
     }
 
-    const scored: { otherId: string; score: number }[] = [];
+    const scored: { otherId: string; score: number; breakdown: UserSimilarityBreakdown }[] = [];
     for (const otherId of [...candidateIds].slice(0, CANDIDATE_CAP)) {
       const signals = await this.loadUserSignals(otherId);
       if (signals === null) {
         continue;
       }
-      const score = computeUserSimilarityScore(source, signals);
-      if (score <= 0) {
+      const breakdown = computeUserSimilarityBreakdown(source, signals);
+      if (breakdown.total <= 0) {
         continue;
       }
-      scored.push({ otherId, score });
+      scored.push({ otherId, score: breakdown.total, breakdown });
     }
 
     scored.sort((a, b) => b.score - a.score || a.otherId.localeCompare(b.otherId));
@@ -218,15 +219,22 @@ export class SimilarityService {
       top.map((pair) => {
         const [userAId, userBId] =
           userId < pair.otherId ? [userId, pair.otherId] : [pair.otherId, userId];
+        const components = {
+          library: pair.breakdown.library,
+          genre: pair.breakdown.genre,
+          reviewRating: pair.breakdown.reviewRating,
+          wishlist: pair.breakdown.wishlist,
+          completion: pair.breakdown.completion,
+        };
         return this.prisma.userSimilarity.upsert({
           where: { userAId_userBId: { userAId, userBId } },
-          create: { userAId, userBId, score: pair.score },
-          update: { score: pair.score },
+          create: { userAId, userBId, score: pair.score, ...components },
+          update: { score: pair.score, ...components },
         });
       }),
     );
 
-    return top;
+    return top.map(({ otherId, score }) => ({ otherId, score }));
   }
 
   private async loadGameSignals(gameId: string): Promise<GameSimilaritySignals | null> {
