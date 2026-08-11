@@ -87,6 +87,10 @@ Adding `match` as optional means `similar-users-section.tsx`, the Discover rail 
 **Band thresholds** (server-owned, so every surface agrees):
 `>= 85` near-identical · `70–84` strong · `55–69` partial · `< 55` different.
 
+> **6.2 confirmation, 2026-08-11 — `score` is the DNA match score, not a second Discover-only number.** Raised as the one question 6.2 had to settle before touching code: is `UserSimilarity.score` (served today as `SimilarUserResponse.score`) the same value the DNA match panel will show, or a separate similarity metric that happens to share a table? It is the **same** value — traced the whole path: `computeUserSimilarityScore` (§1's engine, one weighted total) → `UserSimilarity.score` (§2's cache) → `SimilarUserResponse.score` (§3, already served to `useSimilarUsers`) → and `match.percent` above is defined as nothing more than `Math.round(score * 100)` of that identical total, formalized with a server-owned `band` once 5.1–5.3 land. There is no second pipeline anywhere in `similarity.engine.ts` or `similarity.service.ts` — one weighted sum, three shapes it's served in.
+>
+> Practically: the "Plays like you" rail (6.2) renders `Math.round(score * 100)` as its headline percentage today — that is formatting an existing server-computed float, not deriving a second score, and it is the exact number `match.percent` will carry once 5.3 ships (optional field, additive, the rail's render call does not change). What the rail does **not** have yet, and does not need per its own spec, is `band`/`dimensions` — the card has no colour-by-threshold requirement (unlike the friends-list and community-member match _token_, which do read "accent when ≥70%"), so nothing here computes a band client-side. This does not change TASKS.md's Phase 6 dependency note — 6.1/6.3/6.4 still wait on Phase 5 for the token's band-styling and the panel's breakdown — it only confirms, in writing, the assumption that note was already making correctly.
+
 ## 4. The full match endpoint
 
 **Files:** `discover.controller.ts` + `similarity.service.ts`, or a new `dna-match` module if you prefer it beside `archetypes/`.

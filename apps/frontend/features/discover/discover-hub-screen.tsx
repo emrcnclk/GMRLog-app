@@ -10,12 +10,13 @@ import {
 } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { FlatList, Pressable, RefreshControl } from 'react-native';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
 import { useConnectivityStore } from '../../src/state/stores';
 
 import { DiscoverErrorState } from './components/discover-error-state';
 import { DiscoverHubSkeleton } from './components/discover-skeleton';
+import { DnaPeersRail } from './components/dna-peers-rail';
 import { EmptyDiscover } from './components/empty-discover';
 import { GamePosterCard } from './components/game-poster-card';
 import { GenreChipsRow } from './components/genre-chips-row';
@@ -37,10 +38,17 @@ const EAGER_TILES = 3;
  * read as compatible with, not a replacement for, the existing rails: every
  * rail here is a real, working query (`useDiscoverRails`), and nothing about
  * this task's "layout only" scope justifies deleting six of them to match a
- * flatter mock. The "Plays like you" rail is explicitly deferred to 6.2 and
- * is not built here. The sponsored card has no data behind it anywhere in
- * this API — not even a reserved field — so it is not built either; see
- * `TASKS.md` 3.7 for the backend follow-up this needs before it can be real.
+ * flatter mock. The sponsored card has no data behind it anywhere in this
+ * API — not even a reserved field — so it is not built; see `TASKS.md` 3.7
+ * for the backend follow-up this needs before it can be real.
+ *
+ * **"Plays like you" (6.2) sits above the game rails, not inside the
+ * `FlatList`.** It is "the first content on the screen, deliberately: people
+ * before games" (§7), which means it has to render before the games query
+ * even resolves — `useDiscoverRails`' loading/error/empty branches replace
+ * the `FlatList` entirely, and a rail nested inside that list would vanish
+ * along with it. `DnaPeersRail` runs its own independent query and owns its
+ * own three states.
  *
  * The search field is a navigation trigger, not an inline filter: there is no
  * free-text search parameter on `GET /discover/games`, and the app already
@@ -61,6 +69,13 @@ export function DiscoverHubScreen() {
   const openGame = useCallback(
     (gameId: string) => {
       router.push(`/(app)/game/${gameId}`);
+    },
+    [router],
+  );
+
+  const openUser = useCallback(
+    (userId: string) => {
+      router.push(`/(app)/user/${userId}`);
     },
     [router],
   );
@@ -143,6 +158,10 @@ export function DiscoverHubScreen() {
           Search games, communities, people
         </Text>
       </Pressable>
+
+      <View style={{ marginBottom: theme.space('space.6') }}>
+        <DnaPeersRail onPressUser={openUser} />
+      </View>
 
       {discover.status === 'loading' ? <DiscoverHubSkeleton /> : null}
 
