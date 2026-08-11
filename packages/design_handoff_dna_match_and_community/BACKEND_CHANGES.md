@@ -203,4 +203,23 @@ Both fields are additive on `CommunityResponse` per `CLAUDE.md`'s DTO rule; exis
 5. Community role + leaderboard — independent of everything above, can run in parallel
 6. Community `kind` + activity signal (§6) — independent of everything above, can run in parallel
 
+## 8. Subscription — no billing backend anywhere
+
+**Confirmed gap, not yet scoped.** 3b.5's Subscription screen (§17) grepped `apps/backend`, `packages/database`, `packages/validators` and `packages/types` for `subscription`/`billing`/`stripe`/`iap` before writing `subscription-model.ts` — nothing matches. There is no schema model, no DTO, no route, no payment-provider integration of any kind.
+
+The screen is real and honest as far as it goes: `SUBSCRIPTION_PLANS` and `SUBSCRIPTION_FEATURES` are pure content and arithmetic (§17's pricing and "2 months free" math), and the screen renders exactly one state — **not subscribed** — because that is the only state any data source can back. It does not fabricate a "subscribed" view, a purchase flow, or a fault state for a request it never makes. But it is **permanently half** until this section is built: a player can select a plan and see the price, and nothing happens when they would expect to pay.
+
+Needed before the screen can do anything past display:
+
+| Need                                                    | Shape                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A subscription/entitlement model                        | who is Pro, which plan, renewal date — `UserSettings` is the wrong place; this wants its own table, mirroring how `ProfilePin`/`ConnectedAccount` each got their own rather than growing `UserSettings` further          |
+| A payment provider integration                          | Stripe or platform IAP (App Store/Play Billing) — not decided; changes the shape of everything below it                                                                                                                  |
+| `GET /me/subscription`                                  | current plan, status, renewal date                                                                                                                                                                                       |
+| `POST /me/subscription` (or provider webhook + confirm) | start a subscription; exact shape depends on the provider chosen                                                                                                                                                         |
+| `DELETE /me/subscription`                               | cancel                                                                                                                                                                                                                   |
+| The "Pro-only" gate itself                              | §18's card styles/banners this session found have **no ownership concept at all** in `ProfileCardStyle`/`ProfileBannerStyle` — ungating a "Pro" feature needs a real entitlement check somewhere, not a client-side flag |
+
+This is its own scoping pass, not a one-line follow-up — payment-provider choice alone has legal/compliance weight (see `CLAUDE.md`'s prohibition on financial actions without explicit user confirmation, which would apply to any future purchase flow this unlocks). Flagging here so the next session that greps for "subscription" finds this instead of re-deriving the same "no backend anywhere" finding from scratch.
+
 Steps 1–3 are worth shipping before any UI work; the frontend can then build against real data instead of fixtures.
