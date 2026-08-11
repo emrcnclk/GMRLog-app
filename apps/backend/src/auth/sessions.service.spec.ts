@@ -252,6 +252,15 @@ function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
         theme: data.theme === undefined ? (existing?.theme ?? null) : data.theme,
         reduceMotion:
           data.reduceMotion === undefined ? (existing?.reduceMotion ?? false) : data.reduceMotion,
+        profileVisibility: existing?.profileVisibility ?? 'public',
+        accent: existing?.accent ?? 'neutral',
+        cardStyle: existing?.cardStyle ?? 'elevated',
+        bannerStyle: existing?.bannerStyle ?? 'artwork',
+        favoritePlatform: existing?.favoritePlatform ?? null,
+        consoleGeneration: existing?.consoleGeneration ?? null,
+        widgetOrder: existing?.widgetOrder ?? [],
+        pinnedWidgets: existing?.pinnedWidgets ?? [],
+        hiddenWidgets: existing?.hiddenWidgets ?? [],
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       };

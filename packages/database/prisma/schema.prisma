@@ -221,6 +221,8 @@ enum ProfilePinKind {
   game
   review
   collection
+  /// D3.29 — badge (Achievement) equip/pin on the profile showcase.
+  achievement
 
   @@map("profile_pin_kind")
 }
@@ -580,6 +582,49 @@ enum ThemePreference {
   @@map("theme_preference")
 }
 
+// D3.29 — profile theme vocabulary, closed sets locked by
+// docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md, mirrored by @gmrlog/ui AccentKey.
+enum ProfileAccent {
+  neutral
+  ember
+  plasma
+  toxic
+  cobalt
+  magma
+  orchid
+  gold
+
+  @@map("profile_accent")
+}
+
+enum ProfileCardStyle {
+  elevated
+  flat
+  outlined
+
+  @@map("profile_card_style")
+}
+
+enum ProfileBannerStyle {
+  artwork
+  gradient
+  solid
+
+  @@map("profile_banner_style")
+}
+
+enum ConsoleGeneration {
+  retro
+  gen6
+  gen7
+  gen8
+  gen9
+  pc
+  handheld
+
+  @@map("console_generation")
+}
+
 // =============================================================================
 // IDENTITY & SETTINGS (S2 §10.1)
 // =============================================================================
@@ -720,8 +765,21 @@ model UserSettings {
   locale       String?
   theme        ThemePreference? @map("theme")
   reduceMotion Boolean          @default(false) @map("reduce_motion")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+  /// D3.29 — profile theme (docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md "Backend
+  /// follow-ups"). Public projection is gated by profileVisibility below.
+  profileVisibility ContentVisibility  @default(public) @map("profile_visibility")
+  accent            ProfileAccent      @default(neutral)
+  cardStyle         ProfileCardStyle   @default(elevated) @map("card_style")
+  bannerStyle       ProfileBannerStyle @default(artwork) @map("banner_style")
+  favoritePlatform  String?            @map("favorite_platform")
+  consoleGeneration ConsoleGeneration? @map("console_generation")
+  /// Closed widget-id vocabulary owned by the client (PROFILE_CUSTOMIZATION.md);
+  /// stored as text so a newly shipped widget never requires a migration.
+  widgetOrder   String[] @default([]) @map("widget_order")
+  pinnedWidgets String[] @default([]) @map("pinned_widgets")
+  hiddenWidgets String[] @default([]) @map("hidden_widgets")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
