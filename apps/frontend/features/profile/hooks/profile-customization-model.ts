@@ -3,12 +3,16 @@ import type { AccentKey } from '@gmrlog/ui';
 /**
  * D3.27 Phase 5 — Profile customization model.
  *
- * **Storage scope:** device-local. GMRLOG has no customization columns and the
- * backend is under FEATURE FREEZE (CHANGELOG "Known limitations"), so these
- * preferences persist through AsyncStorage rather than syncing across devices.
- * The shape below is deliberately the shape a future `GET/PATCH /me/profile-theme`
- * would return, so wiring it to the server later is a swap of the persistence
- * adapter, not a redesign. See `docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md`.
+ * **Storage scope:** this store is the device-local mirror. D3.29 (3b.6, the
+ * Customize Profile screen) added `GET/PATCH /me/profile-theme`, so `accent`,
+ * `cardStyle`, `bannerStyle`, `favoritePlatform`, `consoleGeneration` and the
+ * widget-layout fields now round-trip through the server — the shape below
+ * was deliberately kept identical to that DTO for exactly this swap. This
+ * store is written through only after a confirmed save (`use-profile-theme.ts`),
+ * so the rest of the app keeps reading it synchronously rather than every
+ * consumer switching to the query. `heroStyle` has no server column — it
+ * shipped in §6, after `PROFILE_CUSTOMIZATION.md`'s stored shape was written —
+ * and stays device-local only. See `docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md`.
  *
  * Covered by `profile-customization-model.spec.ts`.
  */

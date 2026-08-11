@@ -2,6 +2,7 @@ import type {
   ApiEnvelope,
   ApiErrorEnvelope,
   ConnectedAccountResponse,
+  ProfileThemeResponse,
   SettingsResponse,
   UserSelfResponse,
 } from '@gmrlog/types';
@@ -11,6 +12,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
 import { TokenService } from '../auth/jwt/token.service';
+import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
+import {
+  createFakeFollowRepository,
+  type FakeFollowRepository,
+} from '../follows/testing/fake-repositories';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -51,10 +57,12 @@ const accountsRepo = createFakeConnectedAccountRepository([
   }),
 ]);
 const uploadRepo = createFakeUploadRepository();
+const followRepo: FakeFollowRepository = createFakeFollowRepository();
 
 let app: NestFastifyApplication;
 let accessToken: string;
 let staleToken: string;
+let otherAccessToken: string;
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
@@ -70,6 +78,8 @@ beforeAll(async () => {
     .useValue(accountsRepo)
     .overrideProvider(UPLOAD_REPOSITORY)
     .useValue(uploadRepo)
+    .overrideProvider(FOLLOW_REPOSITORY)
+    .useValue(followRepo)
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -79,6 +89,7 @@ beforeAll(async () => {
   const tokens = moduleRef.get(TokenService);
   accessToken = await tokens.signAccessToken('user-1');
   staleToken = await tokens.signAccessToken('ghost');
+  otherAccessToken = await tokens.signAccessToken('user-2');
 });
 
 afterAll(async () => {
@@ -88,7 +99,9 @@ afterAll(async () => {
 beforeEach(() => {
   userRepo.rows.clear();
   userRepo.rows.set('user-1', makeUser());
+  userRepo.rows.set('user-2', makeUser({ id: 'user-2', handle: 'other' }));
   settingsRepo.rows.clear();
+  followRepo.rows.clear();
 });
 
 function authHeaders(): Record<string, string> {
@@ -267,5 +280,196 @@ describe('GET /connected-accounts', () => {
       },
       { provider: 'discord', status: 'disconnected', linkedAt: null, scopes: [] },
     ]);
+  });
+});
+
+describe('GET/PATCH /me/profile-theme (D3.29)', () => {
+  it('returns client defaults before any row exists', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+    });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload) as ApiEnvelope<ProfileThemeResponse>;
+    expect(body.data).toEqual({
+      accent: 'neutral',
+      cardStyle: 'elevated',
+      bannerStyle: 'artwork',
+      favoritePlatform: null,
+      consoleGeneration: null,
+      widgetOrder: [
+        'archetypes',
+        'currently-playing',
+        'insights',
+        'achievements',
+        'recently-finished',
+        'heatmap',
+        'collections',
+        'wishlist',
+        'backlog',
+        'activity',
+      ],
+      pinnedWidgets: [],
+      hiddenWidgets: [],
+      profileVisibility: 'public',
+    });
+  });
+
+  it('persists a patch and returns the merged theme', async () => {
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: {
+        accent: 'plasma',
+        favoritePlatform: 'PC',
+        pinnedWidgets: ['achievements'],
+        hiddenWidgets: ['backlog'],
+        profileVisibility: 'followers',
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+    const body = JSON.parse(patched.payload) as ApiEnvelope<ProfileThemeResponse>;
+    expect(body.data).toMatchObject({
+      accent: 'plasma',
+      cardStyle: 'elevated',
+      favoritePlatform: 'PC',
+      pinnedWidgets: ['achievements'],
+      hiddenWidgets: ['backlog'],
+      profileVisibility: 'followers',
+    });
+
+    // A second, unrelated patch must not clobber the first (partial merge).
+    const second = await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { cardStyle: 'flat' },
+    });
+    const secondBody = JSON.parse(second.payload) as ApiEnvelope<ProfileThemeResponse>;
+    expect(secondBody.data).toMatchObject({ accent: 'plasma', cardStyle: 'flat' });
+  });
+
+  it('clears favoritePlatform and consoleGeneration with null', async () => {
+    await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { favoritePlatform: 'Xbox', consoleGeneration: 'gen9' },
+    });
+    const cleared = await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { favoritePlatform: null, consoleGeneration: null },
+    });
+    const body = JSON.parse(cleared.payload) as ApiEnvelope<ProfileThemeResponse>;
+    expect(body.data.favoritePlatform).toBeNull();
+    expect(body.data.consoleGeneration).toBeNull();
+  });
+
+  it('rejects an accent outside the closed vocabulary', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { accent: 'rainbow' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect((JSON.parse(response.payload) as ApiErrorEnvelope).error.category).toBe('validation');
+  });
+
+  it('rejects an unknown widget id in widgetOrder', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { widgetOrder: ['archetypes', 'not-a-widget'] },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('requires authentication', async () => {
+    const response = await app.inject({ method: 'GET', url: '/me/profile-theme' });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('GET /users/{id}/profile-theme (D3.29 public projection)', () => {
+  it('never exposes profileVisibility to visitors', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users/user-1/profile-theme',
+      headers: authHeaders(),
+    });
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload) as ApiEnvelope<ProfileThemeResponse>;
+    expect(body.data.profileVisibility).toBeUndefined();
+  });
+
+  it('is readable by guests when public (the default)', async () => {
+    const response = await app.inject({ method: 'GET', url: '/users/user-1/profile-theme' });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('404s for a private theme viewed by a non-owner, 200s for the owner', async () => {
+    await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { profileVisibility: 'private' },
+    });
+
+    const asOther = await app.inject({
+      method: 'GET',
+      url: '/users/user-1/profile-theme',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(asOther.statusCode).toBe(404);
+
+    const asOwner = await app.inject({
+      method: 'GET',
+      url: '/users/user-1/profile-theme',
+      headers: authHeaders(),
+    });
+    expect(asOwner.statusCode).toBe(200);
+  });
+
+  it('gates followers-only visibility on an actual follow relationship', async () => {
+    await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { profileVisibility: 'followers' },
+    });
+
+    const beforeFollow = await app.inject({
+      method: 'GET',
+      url: '/users/user-1/profile-theme',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(beforeFollow.statusCode).toBe(404);
+
+    await followRepo.create({
+      follower: { connect: { id: 'user-2' } },
+      followee: { connect: { id: 'user-1' } },
+    });
+
+    const afterFollow = await app.inject({
+      method: 'GET',
+      url: '/users/user-1/profile-theme',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(afterFollow.statusCode).toBe(200);
+  });
+
+  it('404s for a nonexistent user', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/users/ghost/profile-theme',
+      headers: authHeaders(),
+    });
+    expect(response.statusCode).toBe(404);
   });
 });

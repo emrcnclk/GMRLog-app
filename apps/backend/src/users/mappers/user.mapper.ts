@@ -1,6 +1,7 @@
 import type { ConnectedAccount, User, UserSettings } from '@gmrlog/database';
 import type {
   ConnectedAccountResponse,
+  ProfileThemeResponse,
   SettingsResponse,
   UserPublicResponse,
   UserSelfResponse,
@@ -67,4 +68,74 @@ export function toSettingsResponse(settings: UserSettings | null): SettingsRespo
       reduceMotion: settings?.reduceMotion ?? false,
     },
   };
+}
+
+/**
+ * D3.29 — mirrors the client's `DEFAULT_WIDGET_ORDER`
+ * (profile-customization-model.ts). A row with an empty `widgetOrder` (never
+ * customized) resolves to this rather than an empty list.
+ */
+const DEFAULT_PROFILE_WIDGET_ORDER = [
+  'archetypes',
+  'currently-playing',
+  'insights',
+  'achievements',
+  'recently-finished',
+  'heatmap',
+  'collections',
+  'wishlist',
+  'backlog',
+  'activity',
+];
+
+/**
+ * S1-style — `profileVisibility` is owner-only (`includeVisibility=false` for
+ * the public projection, matching how `/users/{id}/profile-theme` never
+ * exposes it to visitors).
+ */
+export function toProfileThemeResponse(
+  settings: UserSettings | null,
+  includeVisibility: boolean,
+): ProfileThemeResponse {
+  const response: ProfileThemeResponse = {
+    accent: settings?.accent ?? 'neutral',
+    cardStyle: settings?.cardStyle ?? 'elevated',
+    bannerStyle: settings?.bannerStyle ?? 'artwork',
+    favoritePlatform: settings?.favoritePlatform ?? null,
+    consoleGeneration: settings?.consoleGeneration ?? null,
+    widgetOrder:
+      settings != null && settings.widgetOrder.length > 0
+        ? settings.widgetOrder
+        : DEFAULT_PROFILE_WIDGET_ORDER,
+    pinnedWidgets: settings?.pinnedWidgets ?? [],
+    hiddenWidgets: settings?.hiddenWidgets ?? [],
+  };
+  if (includeVisibility) {
+    response.profileVisibility = settings?.profileVisibility ?? 'public';
+  }
+  return response;
+}
+
+/**
+ * D3.29 visibility gate — same shape as `canViewerReadCollection`
+ * (collections/mappers/collection.mapper.ts): public always passes, private
+ * requires ownership, followers requires an authenticated follower.
+ */
+export function canViewerReadProfileTheme(
+  visibility: UserSettings['profileVisibility'] | undefined,
+  ownerId: string,
+  viewerId: string | null,
+  viewerFollowsOwner = false,
+): boolean {
+  const effective = visibility ?? 'public';
+  if (effective === 'public') {
+    return true;
+  }
+  if (viewerId === null) {
+    return false;
+  }
+  if (viewerId === ownerId) {
+    return true;
+  }
+  return effective === 'followers' && viewerFollowsOwner;
 }

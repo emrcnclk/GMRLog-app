@@ -24,9 +24,12 @@ interface CustomizationStore {
 }
 
 /**
- * Device-local customization state. Kept in a store rather than component state
- * so the accent can drive `ThemeProvider` at the app root while the editor lives
- * deep inside the profile screen.
+ * Device-local mirror of the customization state. Kept in a store rather than
+ * component state so the accent can drive `ThemeProvider` at the app root
+ * while the editor lives deep inside the profile screen. Since D3.29, the
+ * synced fields are written here only after a confirmed
+ * `/me/profile-theme` save (`customize-profile-screen.tsx`) — this store is
+ * a read cache for the rest of the app, not the field's editor.
  */
 export const useCustomizationStore = create<CustomizationStore>((set) => ({
   customization: { ...DEFAULT_CUSTOMIZATION, widgetOrder: [...DEFAULT_WIDGET_ORDER] },

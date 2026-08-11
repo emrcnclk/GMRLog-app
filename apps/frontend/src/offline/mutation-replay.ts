@@ -97,6 +97,10 @@ async function executeKind(
       await api.patchSettingsAccessibility(payload);
       return;
     }
+    case 'profile.theme': {
+      await api.patchProfileTheme(payload);
+      return;
+    }
     default: {
       const _exhaustive: never = kind;
       throw new Error(`unsupported offline kind: ${String(_exhaustive)}`);

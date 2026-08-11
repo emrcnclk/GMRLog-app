@@ -26,5 +26,6 @@ export { useCollections } from './hooks/use-collections';
 export { useTierLists } from './hooks/use-tier-lists';
 export { PublicProfileScreen } from './screens/public-profile-screen';
 export { AchievementsScreen } from './screens/achievements-screen';
+export { CustomizeProfileScreen } from './screens/customize-profile-screen';
 export { AchievementPlate } from './components/achievement-plate';
 export { usePublicProfile, useSendFriendRequest } from './hooks/use-public-profile';

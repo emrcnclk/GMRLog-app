@@ -32,6 +32,7 @@ import type {
   GameRelatedGameResponse,
   GameResponse,
   ProfileHeroResponse,
+  ProfileThemeResponse,
   IntegrationProviderInfo,
   LibraryEntryResponse,
   LibraryHubResponse,
@@ -67,7 +68,7 @@ import type {
   UserSelfResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
-import type { PostCreateInput, QuoteCreateInput } from '@gmrlog/validators';
+import type { PostCreateInput, ProfileThemePatchInput, QuoteCreateInput } from '@gmrlog/validators';
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -658,6 +659,16 @@ export class AxiosApiClient {
     reduceMotion?: boolean;
   }): Promise<ApiEnvelope<SettingsResponse>> {
     return this.patch<SettingsResponse>('/settings/accessibility', body);
+  }
+
+  /** `GET /me/profile-theme` — D3.29 synced profile customization (owner view). */
+  getProfileTheme(): Promise<ApiEnvelope<ProfileThemeResponse>> {
+    return this.get<ProfileThemeResponse>('/me/profile-theme');
+  }
+
+  /** `PATCH /me/profile-theme` — D3.29 partial update. */
+  patchProfileTheme(body: ProfileThemePatchInput): Promise<ApiEnvelope<ProfileThemeResponse>> {
+    return this.patch<ProfileThemeResponse>('/me/profile-theme', body);
   }
 
   /** `GET /connected-accounts` — linked providers (no secrets). */

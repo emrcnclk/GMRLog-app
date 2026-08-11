@@ -1128,6 +1128,37 @@ export interface ProfilePinResponse {
   position: number;
 }
 
+// ---------------------------------------------------------------------------
+// D3.29 — Profile Theme (docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md "Backend
+// follow-ups"). Wire shape matches the client's ProfileCustomization exactly
+// so promoting device-local storage to sync is a persistence-adapter swap.
+// ---------------------------------------------------------------------------
+
+/** Mirrors `@gmrlog/ui` `AccentKey` — duplicated here so the backend never
+ *  depends on the UI package; kept in lockstep by `profile-theme.spec.ts`. */
+export type ProfileAccentValue =
+  'neutral' | 'ember' | 'plasma' | 'toxic' | 'cobalt' | 'magma' | 'orchid' | 'gold';
+
+export type ProfileCardStyleValue = 'elevated' | 'flat' | 'outlined';
+
+export type ProfileBannerStyleValue = 'artwork' | 'gradient' | 'solid';
+
+export type ConsoleGenerationValue =
+  'retro' | 'gen6' | 'gen7' | 'gen8' | 'gen9' | 'pc' | 'handheld';
+
+export interface ProfileThemeResponse {
+  accent: ProfileAccentValue;
+  cardStyle: ProfileCardStyleValue;
+  bannerStyle: ProfileBannerStyleValue;
+  favoritePlatform: string | null;
+  consoleGeneration: ConsoleGenerationValue | null;
+  widgetOrder: string[];
+  pinnedWidgets: string[];
+  hiddenWidgets: string[];
+  /** Owner-only visibility control; omitted from the public projection. */
+  profileVisibility?: ContentVisibilityValue;
+}
+
 export interface AchievementProgressSummary {
   current: number;
   target: number;

@@ -2,6 +2,10 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  createFakeFollowRepository,
+  type FakeFollowRepository,
+} from '../follows/testing/fake-repositories';
+import {
   createFakeUploadRepository,
   makeUpload,
   type FakeUploadRepository,
@@ -23,6 +27,7 @@ let userRepo: FakeUserRepository;
 let settingsRepo: FakeUserSettingsRepository;
 let accountsRepo: FakeConnectedAccountRepository;
 let uploadRepo: FakeUploadRepository;
+let followRepo: FakeFollowRepository;
 let service: UsersService;
 
 beforeEach(() => {
@@ -39,7 +44,8 @@ beforeEach(() => {
     }),
   ]);
   uploadRepo = createFakeUploadRepository();
-  service = new UsersService(userRepo, settingsRepo, accountsRepo, uploadRepo);
+  followRepo = createFakeFollowRepository();
+  service = new UsersService(userRepo, settingsRepo, accountsRepo, uploadRepo, followRepo);
 });
 
 describe('UsersService.getMe', () => {

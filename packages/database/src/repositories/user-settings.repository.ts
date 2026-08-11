@@ -1,4 +1,12 @@
-import type { ThemePreference, UserSettings } from '@prisma/client';
+import type {
+  ConsoleGeneration,
+  ContentVisibility,
+  ProfileAccent,
+  ProfileBannerStyle,
+  ProfileCardStyle,
+  ThemePreference,
+  UserSettings,
+} from '@prisma/client';
 
 import type { DatabaseClient } from './types';
 
@@ -7,6 +15,16 @@ export interface UserSettingsUpsertData {
   locale?: string | null;
   theme?: ThemePreference | null;
   reduceMotion?: boolean;
+  /** D3.29 — profile theme (docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md). */
+  profileVisibility?: ContentVisibility;
+  accent?: ProfileAccent;
+  cardStyle?: ProfileCardStyle;
+  bannerStyle?: ProfileBannerStyle;
+  favoritePlatform?: string | null;
+  consoleGeneration?: ConsoleGeneration | null;
+  widgetOrder?: string[];
+  pinnedWidgets?: string[];
+  hiddenWidgets?: string[];
 }
 
 /**

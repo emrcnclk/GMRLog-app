@@ -131,6 +131,17 @@ export function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
         locale: data.locale !== undefined ? data.locale : current.locale,
         theme: data.theme !== undefined ? data.theme : current.theme,
         reduceMotion: data.reduceMotion ?? current.reduceMotion,
+        profileVisibility: data.profileVisibility ?? current.profileVisibility,
+        accent: data.accent ?? current.accent,
+        cardStyle: data.cardStyle ?? current.cardStyle,
+        bannerStyle: data.bannerStyle ?? current.bannerStyle,
+        favoritePlatform:
+          data.favoritePlatform !== undefined ? data.favoritePlatform : current.favoritePlatform,
+        consoleGeneration:
+          data.consoleGeneration !== undefined ? data.consoleGeneration : current.consoleGeneration,
+        widgetOrder: data.widgetOrder ?? current.widgetOrder,
+        pinnedWidgets: data.pinnedWidgets ?? current.pinnedWidgets,
+        hiddenWidgets: data.hiddenWidgets ?? current.hiddenWidgets,
         updatedAt: new Date(),
       };
       rows.set(userId, next);

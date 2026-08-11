@@ -1,7 +1,7 @@
-# Profile Customization (D3.27)
+# Profile Customization (D3.27 · D3.29)
 
 **Document:** `docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md`
-**Status:** **SHIPPED (device-local)** — server sync pending backend unfreeze
+**Status:** **SHIPPED, synced** — `accent`/`cardStyle`/`bannerStyle`/`favoritePlatform`/`consoleGeneration`/widget layout round-trip through `/me/profile-theme` (3b.6, `packages/design_handoff_dna_match_and_community/SCREEN_REDESIGNS_2.md` §18). `heroStyle` is the one field that stays device-local — see "Scope" below for why.
 **Authority:** F2.5 · [`PROFILE_V2.md`](./PROFILE_V2.md) · [`NORTH_STAR.md`](../00_PROJECT/NORTH_STAR.md) "Digital Home"
 
 ---
@@ -14,18 +14,32 @@
 
 ## Scope of this release
 
-Customization ships **device-local**. GMRLOG has no customization columns, and
-the backend is under FEATURE FREEZE (`CHANGELOG.md` → Known limitations), so
-preferences persist through `AsyncStorage` under `gmrlog.profile.customization.v1`.
+Every field in the stored shape below except `heroStyle` is synced through
+`GET|PATCH /me/profile-theme` (3b.6's Customize Profile screen,
+`apps/frontend/features/profile/screens/customize-profile-screen.tsx`), backed
+by `UserSettings` columns added in D3.29. Consequences, stated plainly:
 
-Consequences, stated plainly:
+- Preferences **do** follow a player to another device.
+- Preferences are **not yet** visible to other players viewing the profile —
+  `GET /users/{id}/profile-theme` exists and is tested
+  (`apps/backend/src/users/user-profile-theme.controller.ts`), but no frontend
+  screen reads it yet. Real, working backend surface with no caller yet, not a
+  placeholder — flagged so a future dead-route sweep doesn't need to
+  rediscover why it exists.
+- `heroStyle` (§6's record-card / monolith / banner switch) has no server
+  column: it was added after this doc's stored shape was written, still lives
+  only in `AsyncStorage` under `gmrlog.profile.customization.v1`
+  (`use-profile-customization.ts`), and is edited on the same Customize
+  Profile screen without being part of the PATCH body.
+- Device-local storage is still the *read* path the rest of the app uses
+  (`useCustomizationStore`) — the Customize screen writes through to it only
+  after a confirmed server save, so profile-screen.tsx and friends keep
+  reading synchronously rather than every consumer switching to the query.
 
-- Preferences do **not** follow a player to another device.
-- Preferences are **not** visible to other players viewing the profile.
-- Clearing app storage resets them.
-
-The stored shape is deliberately the shape a server resource would return, so
-enabling sync is a persistence-adapter swap rather than a redesign.
+The stored shape below was written to match the server resource before the
+resource existed, which is exactly why wiring it up (3b.6) was a
+persistence-adapter swap rather than a redesign — the intent that motivated
+writing it that way held up.
 
 ---
 
@@ -96,14 +110,13 @@ carries an explicit `accessibilityLabel` naming the widget it acts on.
 
 ## Backend follow-ups
 
-To promote this to a synced, publicly-visible profile theme:
+| Need | Status |
+|------|--------|
+| `GET /me/profile-theme` | **Shipped, D3.29.** Owner view, includes `profileVisibility`. |
+| `PATCH /me/profile-theme` | **Shipped, D3.29.** Partial patch, `null` clears nullable fields. |
+| `GET /users/{id}/profile-theme` | **Shipped, D3.29**, but no frontend consumer — see "Scope" above. |
+| A screen that reads the public projection | **Open.** `PublicProfileScreen` doesn't show another player's theme yet. |
+| `User.country` | **Open**, unrelated to this section — required before the PROFILE_V2 hero can show country at all. |
 
-| Need | Shape |
-|------|-------|
-| `GET /me/profile-theme` | returns the stored shape above |
-| `PATCH /me/profile-theme` | accepts a partial of the same shape |
-| `GET /users/{id}/profile-theme` | public projection, so visitors see the player's theme |
-| `User.country` | required before the PROFILE_V2 hero can show country at all |
-
-Until those exist the client is the source of truth, and the profile hero
-deliberately omits country rather than fabricating one.
+The profile hero deliberately omits country rather than fabricating one until
+that last row exists.

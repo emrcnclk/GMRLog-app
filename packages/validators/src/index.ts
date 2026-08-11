@@ -1180,6 +1180,70 @@ export const profilePinDeleteSchema = z
 
 export type ProfilePinDeleteInput = z.infer<typeof profilePinDeleteSchema>;
 
+// ---------------------------------------------------------------------------
+// D3.29 — Profile Theme (docs/07_SOCIAL/PROFILE_CUSTOMIZATION.md). Closed sets
+// mirror the client's profile-customization-model.ts exactly; an unknown
+// widget id is rejected here rather than silently dropped, since the client
+// already normalizes before it ever reaches the wire.
+// ---------------------------------------------------------------------------
+
+export const profileAccentSchema = z.enum([
+  'neutral',
+  'ember',
+  'plasma',
+  'toxic',
+  'cobalt',
+  'magma',
+  'orchid',
+  'gold',
+]);
+
+export const profileCardStyleSchema = z.enum(['elevated', 'flat', 'outlined']);
+
+export const profileBannerStyleSchema = z.enum(['artwork', 'gradient', 'solid']);
+
+export const consoleGenerationSchema = z.enum([
+  'retro',
+  'gen6',
+  'gen7',
+  'gen8',
+  'gen9',
+  'pc',
+  'handheld',
+]);
+
+export const profileWidgetIdSchema = z.enum([
+  'archetypes',
+  'insights',
+  'heatmap',
+  'achievements',
+  'currently-playing',
+  'recently-finished',
+  'wishlist',
+  'backlog',
+  'collections',
+  'activity',
+]);
+
+const profileWidgetIdListSchema = z.array(profileWidgetIdSchema).max(20);
+
+/** S1-style patch — every field optional, `null` clears where nullable. */
+export const profileThemePatchSchema = z
+  .object({
+    accent: profileAccentSchema.optional(),
+    cardStyle: profileCardStyleSchema.optional(),
+    bannerStyle: profileBannerStyleSchema.optional(),
+    favoritePlatform: z.string().trim().min(1).max(40).nullable().optional(),
+    consoleGeneration: consoleGenerationSchema.nullable().optional(),
+    widgetOrder: profileWidgetIdListSchema.optional(),
+    pinnedWidgets: profileWidgetIdListSchema.optional(),
+    hiddenWidgets: profileWidgetIdListSchema.optional(),
+    profileVisibility: contentVisibilitySchema.optional(),
+  })
+  .strict();
+
+export type ProfileThemePatchInput = z.infer<typeof profileThemePatchSchema>;
+
 export const achievementIdParamSchema = z
   .object({
     id: opaqueIdSchema,

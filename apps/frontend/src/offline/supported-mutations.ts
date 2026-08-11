@@ -10,7 +10,8 @@ export type OfflineMutationKind =
   | 'notifications.markRead'
   | 'notifications.markAllRead'
   | 'settings.appearance'
-  | 'settings.accessibility';
+  | 'settings.accessibility'
+  | 'profile.theme';
 
 export const OFFLINE_MUTATION_KINDS: readonly OfflineMutationKind[] = [
   'community.join',
@@ -21,6 +22,7 @@ export const OFFLINE_MUTATION_KINDS: readonly OfflineMutationKind[] = [
   'notifications.markAllRead',
   'settings.appearance',
   'settings.accessibility',
+  'profile.theme',
 ] as const;
 
 export function isOfflineMutationKind(value: string): value is OfflineMutationKind {

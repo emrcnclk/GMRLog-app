@@ -13,7 +13,6 @@ import { EmptyCollections } from './components/empty-collections';
 import { EmptyReviews } from './components/empty-reviews';
 import { EmptyTierLists } from './components/empty-tier-lists';
 import { LibrarySkeleton } from './components/library-skeleton';
-import { CustomizationSheet } from './components/premium/customization-sheet';
 import { GameShelves } from './components/premium/game-shelves';
 import { PlayerRecordCard } from './components/premium/player-record-card';
 import { ProfilePremiumHero } from './components/premium/profile-hero';
@@ -24,7 +23,6 @@ import { ProfileErrorState } from './components/profile-error-state';
 import { ProfileRefreshContainer } from './components/profile-refresh-container';
 import { ProfileSkeleton } from './components/profile-skeleton';
 import { TierListCard } from './components/tier-list-card';
-import { FAVORITE_PLATFORM_OPTIONS } from './hooks/profile-customization-model';
 import { PROFILE_TAB_LABELS, PROFILE_TABS, type ProfileTabId } from './hooks/profile-model';
 import { useProfileScreenData, useProfileTab } from './hooks/use-profile';
 import { useProfileCustomization } from './hooks/use-profile-customization';
@@ -54,7 +52,6 @@ export function ProfileScreen() {
   const { customization } = useProfileCustomization();
 
   const [editOpen, setEditOpen] = useState(false);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const goDiscover = useCallback(() => {
     router.push('/(app)/(tabs)/discover');
@@ -198,7 +195,7 @@ export function ProfileScreen() {
       <IconButton
         accessibilityLabel="Customize profile"
         onPress={() => {
-          setCustomizeOpen(true);
+          router.push('/(app)/profile/customize');
         }}
       >
         <Sparkles size={18} color={theme.color('color.text.primary')} />
@@ -395,14 +392,6 @@ export function ProfileScreen() {
         user={user}
         onClose={() => {
           setEditOpen(false);
-        }}
-      />
-
-      <CustomizationSheet
-        visible={customizeOpen}
-        platformOptions={FAVORITE_PLATFORM_OPTIONS}
-        onClose={() => {
-          setCustomizeOpen(false);
         }}
       />
     </Screen>

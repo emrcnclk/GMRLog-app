@@ -7,12 +7,15 @@ import {
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { FollowsModule } from '../follows/follows.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
 import { ConnectedAccountsController } from './connected-accounts.controller';
+import { MeProfileThemeController } from './me-profile-theme.controller';
 import { MeController } from './me.controller';
 import { SettingsController } from './settings.controller';
+import { UserProfileThemeController } from './user-profile-theme.controller';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import {
@@ -24,11 +27,19 @@ import {
 
 /**
  * User domain (D2.2). Controllers → UsersService → repositories.
- * Profile Hero lives in ProfileHeroModule (D3.24).
+ * Profile Hero lives in ProfileHeroModule (D3.24). Profile Theme (D3.29)
+ * reuses UserSettings persistence and FollowsModule's follow-check.
  */
 @Module({
-  imports: [AuthModule, PrismaModule],
-  controllers: [MeController, SettingsController, ConnectedAccountsController, UsersController],
+  imports: [AuthModule, PrismaModule, FollowsModule],
+  controllers: [
+    MeController,
+    SettingsController,
+    ConnectedAccountsController,
+    UsersController,
+    MeProfileThemeController,
+    UserProfileThemeController,
+  ],
   providers: [
     {
       provide: USER_REPOSITORY,
