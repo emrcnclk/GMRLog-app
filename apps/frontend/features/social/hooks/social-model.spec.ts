@@ -1,10 +1,11 @@
-import type { UserPublicResponse } from '@gmrlog/types';
+import type { BlockResponse, UserPublicResponse } from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
   filterSocialRows,
   followingIdSet,
   isFollowingUser,
+  removeBlockedUser,
   REPORT_REASON_LABELS,
   resolveListView,
   SOCIAL_TABS,
@@ -12,6 +13,14 @@ import {
 
 function user(id: string, displayName: string, handle: string): UserPublicResponse {
   return { id, displayName, handle, avatarUrl: null };
+}
+
+function block(blockedId: string, blockedName: string): BlockResponse {
+  return {
+    blocker: user('viewer', 'Viewer', 'viewer'),
+    blocked: user(blockedId, blockedName, blockedId),
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
 }
 
 describe('social model (§15, 3b.3)', () => {
@@ -95,6 +104,24 @@ describe('social model (§15, 3b.3)', () => {
 
   it('offers §15’s three tabs, Blocked last', () => {
     expect(SOCIAL_TABS.map((t) => t.id)).toEqual(['followers', 'following', 'blocked']);
+  });
+
+  describe('removeBlockedUser (3b.3a)', () => {
+    it('filters the target out of every page, leaving the rest and each page’s own meta untouched', () => {
+      const pages = [
+        { data: [block('a', 'Ada'), block('b', 'Bo')], meta: { requestId: 'r1' } },
+        { data: [block('c', 'Cy')], meta: { requestId: 'r2' } },
+      ];
+      const next = removeBlockedUser(pages, 'b');
+      expect(next[0]?.data.map((row) => row.blocked.id)).toEqual(['a']);
+      expect(next[0]?.meta).toEqual({ requestId: 'r1' });
+      expect(next[1]?.data.map((row) => row.blocked.id)).toEqual(['c']);
+    });
+
+    it('is a no-op when the id is not in any page', () => {
+      const pages = [{ data: [block('a', 'Ada')], meta: { requestId: 'r1' } }];
+      expect(removeBlockedUser(pages, 'zzz')[0]?.data).toHaveLength(1);
+    });
   });
 
   it('labels every REPORT_REASONS value — none silently falls back', () => {

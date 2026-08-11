@@ -176,6 +176,8 @@ export const queryKeys = {
     all: ['social'] as const,
     followers: () => ['social', 'followers'] as const,
     following: () => ['social', 'following'] as const,
+    /** 3b.3a — `GET /blocks`, cursor-paginated (unlike followers/following). */
+    blocked: () => ['social', 'blocked'] as const,
   },
   statistics: {
     all: ['statistics'] as const,

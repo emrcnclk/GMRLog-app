@@ -2,6 +2,16 @@ import type { Block, Prisma } from '@prisma/client';
 
 import type { DatabaseClient } from './types';
 
+export interface BlockListCursor {
+  createdAt: Date;
+  id: string;
+}
+
+export interface BlockListParams {
+  limit: number;
+  cursor?: BlockListCursor;
+}
+
 /**
  * Block persistence (S2 §10.8 / S1 §13.13). Directed edge; unique per
  * (blockerId, blockedId). Relationship rows hard-delete.
@@ -15,6 +25,8 @@ export interface BlockRepository {
    * (hard exclude either direction).
    */
   listBlockedPairIds(userId: string): Promise<string[]>;
+  /** 3b.3a — `GET /blocks`, cursor-paginated, most-recently-blocked first. */
+  listByBlocker(blockerId: string, params: BlockListParams): Promise<Block[]>;
   delete(id: string): Promise<Block>;
   deleteByPair(blockerId: string, blockedId: string): Promise<Block | null>;
 }
@@ -54,6 +66,24 @@ export class PrismaBlockRepository implements BlockRepository {
         ...incoming.map((row) => row.blockerId),
       ]),
     ];
+  }
+
+  listByBlocker(blockerId: string, params: BlockListParams): Promise<Block[]> {
+    return this.db.block.findMany({
+      where: {
+        blockerId,
+        ...(params.cursor !== undefined
+          ? {
+              OR: [
+                { createdAt: { lt: params.cursor.createdAt } },
+                { createdAt: params.cursor.createdAt, id: { lt: params.cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: params.limit,
+    });
   }
 
   delete(id: string): Promise<Block> {

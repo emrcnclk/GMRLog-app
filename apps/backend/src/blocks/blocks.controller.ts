@@ -1,6 +1,16 @@
 import type { BlockResponse } from '@gmrlog/types';
 import { blockCreateSchema } from '@gmrlog/validators';
-import { Body, Controller, Delete, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -8,19 +18,29 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestIdentity } from '../auth/interfaces/identity';
 import { playerIdOf } from '../auth/player-id';
 import { Idempotent } from '../infrastructure/http/idempotency.interceptor';
+import type { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 import { ApiZodBody } from '../infrastructure/openapi/swagger.decorators';
 
 import { BlocksService } from './blocks.service';
-import { BlockCreateDto, BlockUserIdParamDto } from './dto/block.dto';
+import { BlockCreateDto, BlocksListQueryDto, BlockUserIdParamDto } from './dto/block.dto';
 
 /**
- * S1 §13.13 — Block mutations. Transport only.
+ * S1 §13.13 — Block mutations + §15's Blocked tab. Transport only.
  */
 @ApiTags('blocks')
 @ApiBearerAuth('bearer')
 @Controller('blocks')
 export class BlocksController {
   constructor(private readonly blocksService: BlocksService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  listBlocked(
+    @CurrentUser() identity: RequestIdentity,
+    @Query() query: BlocksListQueryDto,
+  ): Promise<PaginatedPayload<BlockResponse>> {
+    return this.blocksService.listBlocked(playerIdOf(identity), query);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

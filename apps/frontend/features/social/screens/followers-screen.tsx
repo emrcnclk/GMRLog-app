@@ -18,6 +18,7 @@ import { View } from 'react-native';
 import { mapAuthError } from '../../../src/auth/map-auth-error';
 import { ScreenHeader } from '../../../src/navigation/screen-header';
 import { useConnectivityStore } from '../../../src/state/stores';
+import { BlockedRow } from '../components/blocked-row';
 import { SocialActionMenu } from '../components/social-action-menu';
 import { SocialRow } from '../components/social-row';
 import { SocialSkeleton } from '../components/social-skeleton';
@@ -32,19 +33,22 @@ import {
   useBlockUser,
   useFollowUser,
   useMuteUser,
+  useMyBlocked,
   useMyFollowers,
   useMyFollowing,
   useReportUser,
+  useUnblockUser,
   useUnfollowUser,
 } from '../hooks/use-social';
 
 /**
  * §15 — Followers & following. Scoped 2026-08-10 (3b.3), built here.
+ * Blocked tab built in 3b.3a, against the new `GET /blocks`.
  *
  * Followers and Following are real, against `GET /me/followers` and
- * `GET /me/following`. Blocked has no listing endpoint (**3b.3a**) and stays
- * an `EmptyState` rather than a fake list — the same shape as §14's missing
- * Events tab (3b.2a).
+ * `GET /me/following`. Blocked is real against `GET /blocks`, cursor-
+ * paginated rather than the other two tabs' unpaginated shape — a block
+ * list has no measured small-list precedent the way followers/following did.
  */
 export function FollowersScreen() {
   const theme = useTheme();
@@ -60,10 +64,12 @@ export function FollowersScreen() {
 
   const followers = useMyFollowers();
   const following = useMyFollowing();
+  const blocked = useMyBlocked();
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
   const muteMutation = useMuteUser();
   const blockMutation = useBlockUser();
+  const unblockMutation = useUnblockUser();
   const reportMutation = useReportUser();
 
   const followingIds = useMemo(() => followingIdSet(following.items), [following.items]);
@@ -83,9 +89,9 @@ export function FollowersScreen() {
             ? followers.items.length
             : item.id === 'following'
               ? following.items.length
-              : undefined,
+              : blocked.items.length,
       })),
-    [followers.items.length, following.items.length],
+    [followers.items.length, following.items.length, blocked.items.length],
   );
 
   const openProfile = useCallback(
@@ -133,12 +139,64 @@ export function FollowersScreen() {
 
   const content = (() => {
     if (tab === 'blocked') {
+      if (blocked.status === 'loading') {
+        return <SocialSkeleton />;
+      }
+
+      if (blocked.status === 'error') {
+        const mapped = mapAuthError(blocked.error, isOnline);
+        return (
+          <ErrorState
+            style={{ flexGrow: 1 }}
+            title={mapped.title}
+            description={mapped.description}
+            action={
+              <Button
+                variant="secondary"
+                accessibilityLabel="Retry"
+                onPress={() => {
+                  void blocked.refetch();
+                }}
+              >
+                Retry
+              </Button>
+            }
+          />
+        );
+      }
+
+      if (blocked.status === 'empty') {
+        return (
+          <EmptyState
+            fill
+            icon="shield-off"
+            title="No blocked accounts"
+            description="Accounts you block will show up here."
+          />
+        );
+      }
+
       return (
-        <EmptyState
-          fill
-          icon="shield-off"
-          title="Blocked accounts aren't listable yet"
-          description="Blocking still works from an account's menu — there just isn't a way to see the list here yet (3b.3a)."
+        <EntityList
+          items={blocked.items}
+          keyExtractor={(block) => block.blocked.id}
+          renderItem={(block) => (
+            <BlockedRow
+              user={block.blocked}
+              unblockPending={
+                unblockMutation.isPending && unblockMutation.variables === block.blocked.id
+              }
+              onUnblock={(userId) => {
+                unblockMutation.mutate(userId);
+              }}
+            />
+          )}
+          refreshing={blocked.isRefreshing}
+          onRefresh={() => {
+            void blocked.refresh();
+          }}
+          onEndReached={blocked.loadMore}
+          accessibilityLabel="Blocked accounts"
         />
       );
     }

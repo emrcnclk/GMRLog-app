@@ -1,11 +1,24 @@
-import type { ReportReasonValue, UserPublicResponse } from '@gmrlog/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import type {
+  ApiEnvelope,
+  BlockResponse,
+  ReportReasonValue,
+  UserPublicResponse,
+} from '@gmrlog/types';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
 import { useApiClient } from '../../../src/api/api-provider';
-import { queryKeys } from '../../../src/query/query-client';
+import { getNextPageParam, queryKeys } from '../../../src/query/query-client';
 
-import { createIdempotencyKey, resolveListView } from './social-model';
+import { createIdempotencyKey, removeBlockedUser, resolveListView } from './social-model';
+
+type InfiniteBlocksData = InfiniteData<ApiEnvelope<BlockResponse[]>>;
 
 /** `GET /me/followers` — not paginated (3b.3's own measurement of the endpoint). */
 export function useMyFollowers() {
@@ -177,6 +190,91 @@ export function useBlockUser() {
     },
     onSuccess: async () => {
       await invalidateSocial(queryClient);
+    },
+  });
+}
+
+/**
+ * `GET /blocks` — the viewer's blocked users (§15, 3b.3a). Cursor-paginated,
+ * unlike `useMyFollowers`/`useMyFollowing`: a block list has no measured
+ * small-and-unpaginated precedent, so it follows the app's one cursor
+ * dialect (`useCommunityEvents`, `useEvents`) instead.
+ */
+export function useMyBlocked() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.social.blocked(),
+    queryFn: ({ pageParam }) =>
+      api.listBlocks({
+        ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => getNextPageParam(lastPage.meta),
+  });
+
+  const items = useMemo(
+    () => query.data?.pages.flatMap((page) => page.data) ?? [],
+    [query.data?.pages],
+  );
+
+  const view = resolveListView({
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    items,
+    isRefreshing: query.isRefetching && !query.isFetchingNextPage,
+  });
+
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.social.blocked() });
+  }, [queryClient]);
+
+  const loadMore = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query]);
+
+  return {
+    ...view,
+    refresh,
+    loadMore,
+    isFetchingNextPage: query.isFetchingNextPage,
+    refetch: query.refetch,
+  };
+}
+
+/** `DELETE /blocks/{userId}` — unblock. Removes the row from the Blocked page optimistically. */
+export function useUnblockUser() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await api.unblockUser(userId);
+      return userId;
+    },
+    onMutate: async (userId: string) => {
+      const key = queryKeys.social.blocked();
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<InfiniteBlocksData>(key);
+      if (previous) {
+        queryClient.setQueryData(key, {
+          ...previous,
+          pages: removeBlockedUser(previous.pages, userId),
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _userId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.social.blocked(), context.previous);
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.social.blocked() });
     },
   });
 }

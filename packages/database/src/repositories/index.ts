@@ -11,7 +11,12 @@ export {
   PrismaAuthCredentialRepository,
   type AuthCredentialRepository,
 } from './auth-credential.repository';
-export { PrismaBlockRepository, type BlockRepository } from './block.repository';
+export {
+  PrismaBlockRepository,
+  type BlockListCursor,
+  type BlockListParams,
+  type BlockRepository,
+} from './block.repository';
 export { PrismaMuteRepository, type MuteRepository } from './mute.repository';
 export {
   PrismaPostBookmarkRepository,

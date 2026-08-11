@@ -8,7 +8,11 @@ import {
 } from '../users/testing/fake-repositories';
 
 import { BlocksService } from './blocks.service';
-import { createFakeBlockRepository, type FakeBlockRepository } from './testing/fake-repositories';
+import {
+  createFakeBlockRepository,
+  makeBlock,
+  type FakeBlockRepository,
+} from './testing/fake-repositories';
 
 let blocks: FakeBlockRepository;
 let users: FakeUserRepository;
@@ -63,5 +67,73 @@ describe('BlocksService.unblockUser', () => {
 
   it('returns 404 when the relationship is missing', async () => {
     await expect(service.unblockUser('user-1', 'user-2')).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('BlocksService.listBlocked (3b.3a)', () => {
+  it('returns an empty paginated list when nothing is blocked', async () => {
+    const page = await service.listBlocked('user-1');
+    expect(page.items).toEqual([]);
+    expect(page.hasMore).toBe(false);
+    expect(page.cursor.next).toBeNull();
+  });
+
+  it('paginates most-recently-blocked first and rejects invalid cursors', async () => {
+    users = createFakeUserRepository([
+      makeUser({ id: 'user-1', handle: 'gamer', displayName: 'Gamer' }),
+      makeUser({ id: 'user-2', handle: 'older-block', displayName: 'Older Block' }),
+      makeUser({ id: 'user-3', handle: 'newer-block', displayName: 'Newer Block' }),
+    ]);
+    blocks = createFakeBlockRepository([
+      makeBlock({
+        id: 'block-old',
+        blockerId: 'user-1',
+        blockedId: 'user-2',
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+      makeBlock({
+        id: 'block-new',
+        blockerId: 'user-1',
+        blockedId: 'user-3',
+        createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    ]);
+    service = new BlocksService(blocks, users);
+
+    const page1 = await service.listBlocked('user-1', { limit: 1 });
+    expect(page1.items[0]?.blocked.id).toBe('user-3');
+    expect(page1.hasMore).toBe(true);
+    expect(page1.cursor.next).toEqual(expect.any(String));
+
+    const page2 = await service.listBlocked('user-1', {
+      limit: 1,
+      cursor: page1.cursor.next!,
+    });
+    expect(page2.items[0]?.blocked.id).toBe('user-2');
+    expect(page2.hasMore).toBe(false);
+
+    await expect(service.listBlocked('user-1', { cursor: 'bad' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('drops a row whose blocked user has since been deleted, rather than rendering it', async () => {
+    users = createFakeUserRepository([
+      makeUser({ id: 'user-1', handle: 'gamer', displayName: 'Gamer' }),
+      makeUser({
+        id: 'user-2',
+        handle: 'gone',
+        displayName: 'Gone',
+        deletedAt: new Date('2026-01-02T00:00:00.000Z'),
+      }),
+    ]);
+    blocks = createFakeBlockRepository([
+      makeBlock({ id: 'block-1', blockerId: 'user-1', blockedId: 'user-2' }),
+    ]);
+    service = new BlocksService(blocks, users);
+
+    const page = await service.listBlocked('user-1');
+    expect(page.items).toEqual([]);
+    expect(page.hasMore).toBe(false);
   });
 });

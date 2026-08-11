@@ -1,4 +1,4 @@
-import type { ReportReasonValue, UserPublicResponse } from '@gmrlog/types';
+import type { BlockResponse, ReportReasonValue, UserPublicResponse } from '@gmrlog/types';
 
 /**
  * `SCREEN_REDESIGNS_2.md` §15 — Followers & following.
@@ -98,6 +98,23 @@ export function filterSocialRows(
       user.displayName.toLowerCase().includes(normalized) ||
       user.handle.toLowerCase().includes(normalized),
   );
+}
+
+/**
+ * 3b.3a — `useUnblockUser`'s optimistic update. `GET /blocks` is paginated
+ * (unlike followers/following), so the cache is `InfiniteData`, one page's
+ * worth of rows to filter per page rather than a single flat array. Generic
+ * over the page envelope (mirrors `patchEventInDiscoverPages`) so the real
+ * `meta` on each page survives the round trip untouched.
+ */
+export function removeBlockedUser<T extends { data: BlockResponse[] }>(
+  pages: T[],
+  userId: string,
+): T[] {
+  return pages.map((page) => ({
+    ...page,
+    data: page.data.filter((block) => block.blocked.id !== userId),
+  }));
 }
 
 export function createIdempotencyKey(prefix: string): string {

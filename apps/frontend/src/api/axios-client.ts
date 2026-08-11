@@ -1070,6 +1070,16 @@ export class AxiosApiClient {
     return this.post<BlockResponse>('/blocks', { userId }, idempotencyKey);
   }
 
+  /** `GET /blocks` — the viewer's blocked users (§15, 3b.3a). Cursor-paginated. */
+  listBlocks(query?: { cursor?: string; limit?: number }): Promise<ApiEnvelope<BlockResponse[]>> {
+    return this.get<BlockResponse[]>('/blocks', query);
+  }
+
+  /** `DELETE /blocks/{userId}` — unblock (204). */
+  unblockUser(userId: string): Promise<ApiEnvelope<null>> {
+    return this.delete<null>(`/blocks/${userId}`);
+  }
+
   /** `POST /reports` — report a user (idempotent). §15's row overflow "Report". */
   reportUser(
     userId: string,

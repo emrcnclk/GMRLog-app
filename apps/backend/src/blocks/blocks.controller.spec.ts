@@ -8,6 +8,7 @@ describe('BlocksController', () => {
     const blocksService = {
       blockUser: vi.fn().mockResolvedValue({ id: 'block-1' }),
       unblockUser: vi.fn().mockResolvedValue(undefined),
+      listBlocked: vi.fn().mockResolvedValue({ items: [] }),
     } as unknown as BlocksService;
     const controller = new BlocksController(blocksService);
 
@@ -17,8 +18,10 @@ describe('BlocksController', () => {
     await controller.unblockUser({ class: 'player', userId: 'user-1' }, {
       userId: 'user-2',
     } as never);
+    await controller.listBlocked({ class: 'player', userId: 'user-1' }, { limit: 20 } as never);
 
     expect(blocksService.blockUser).toHaveBeenCalledWith('user-1', { userId: 'user-2' });
     expect(blocksService.unblockUser).toHaveBeenCalledWith('user-1', 'user-2');
+    expect(blocksService.listBlocked).toHaveBeenCalledWith('user-1', { limit: 20 });
   });
 });

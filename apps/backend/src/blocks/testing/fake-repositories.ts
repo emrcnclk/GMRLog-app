@@ -75,6 +75,23 @@ export function createFakeBlockRepository(seed: Block[] = []): FakeBlockReposito
       }
       return Promise.resolve([...ids]);
     },
+    listByBlocker: (blockerId, params) => {
+      let list = [...rows.values()]
+        .filter((row) => row.blockerId === blockerId)
+        .sort((a, b) => {
+          const byTime = b.createdAt.getTime() - a.createdAt.getTime();
+          return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
+        });
+      if (params.cursor !== undefined) {
+        const cursor = params.cursor;
+        const cursorTime = cursor.createdAt.getTime();
+        list = list.filter((row) => {
+          const time = row.createdAt.getTime();
+          return time < cursorTime || (time === cursorTime && row.id < cursor.id);
+        });
+      }
+      return Promise.resolve(list.slice(0, params.limit));
+    },
     delete: (id) => {
       const existing = rows.get(id);
       if (!existing) {

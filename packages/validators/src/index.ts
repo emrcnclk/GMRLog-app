@@ -739,6 +739,20 @@ export const discoverListQuerySchema = z
 
 export type DiscoverListQueryInput = z.infer<typeof discoverListQuerySchema>;
 
+/**
+ * `GET /blocks` cursor pagination (3b.3a). Same cursor/limit shape as
+ * `GET /communities/{id}/events` — the app's one cursor-pagination dialect,
+ * not a second one invented for this list.
+ */
+export const blocksListQuerySchema = z
+  .object({
+    cursor: z.string().trim().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(DISCOVER_LIST_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+export type BlocksListQueryInput = z.infer<typeof blocksListQuerySchema>;
+
 export const discoverGamesSortSchema = z.enum([
   'popular',
   'recent',
