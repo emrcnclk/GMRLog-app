@@ -26,6 +26,8 @@ export interface EventRepository {
   listByGame(gameId: string): Promise<Event[]>;
   /** D3.24 Communities 2.0 — active events for a community, soonest first. */
   listByCommunity(communityId: string): Promise<Event[]>;
+  /** 3b.2a — `GET /communities/{id}/events`, cursor-paginated, soonest first. */
+  listByCommunityPaginated(communityId: string, params: EventListParams): Promise<Event[]>;
   update(id: string, data: Prisma.EventUpdateInput): Promise<Event>;
   softDelete(id: string): Promise<Event>;
 }
@@ -74,6 +76,25 @@ export class PrismaEventRepository implements EventRepository {
     return this.db.event.findMany({
       where: { communityId, deletedAt: null },
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  listByCommunityPaginated(communityId: string, params: EventListParams): Promise<Event[]> {
+    return this.db.event.findMany({
+      where: {
+        communityId,
+        deletedAt: null,
+        ...(params.cursor !== undefined
+          ? {
+              OR: [
+                { startsAt: { gt: params.cursor.startsAt } },
+                { startsAt: params.cursor.startsAt, id: { gt: params.cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+      take: params.limit,
     });
   }
 

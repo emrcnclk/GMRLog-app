@@ -14,12 +14,15 @@ import type {
   CommunityRepository,
   CommunityWikiPage,
   CommunityWikiRepository,
+  Event,
   EventParticipationRepository,
   EventRepository,
   PostRepository,
   Prisma,
   User,
 } from '@gmrlog/database';
+
+import { makeEvent } from '../../events/testing/fake-repositories';
 
 /**
  * In-memory repository fakes — test support only (build-excluded).
@@ -778,18 +781,45 @@ export function createFakeCommunityCommentRepository(
   };
 }
 
-export interface FakeCommunityEventRepository extends Pick<EventRepository, 'listByCommunity'> {
-  rows: { id: string; communityId: string }[];
+export interface FakeCommunityEventRepository extends Pick<
+  EventRepository,
+  'listByCommunity' | 'listByCommunityPaginated'
+> {
+  rows: Event[];
 }
 
-/** 7.1 — supplies the event ids `computeLeaderboardPointsForCommunity` scopes "hosted" to. */
+/**
+ * 7.1 — supplies the event ids `computeLeaderboardPointsForCommunity` scopes
+ * "hosted" to. 3b.2a — also backs `listEvents`'s cursor pagination, so the
+ * seed takes any `Event` override, not just `id`/`communityId`.
+ */
 export function createFakeCommunityEventRepository(
-  seed: { id: string; communityId: string }[] = [],
+  seed: (Partial<Event> & { id: string; communityId: string })[] = [],
 ): FakeCommunityEventRepository {
+  const rows = seed.map((row) => makeEvent(row));
+  const active = (): Event[] => rows.filter((row) => row.deletedAt === null);
+
   return {
-    rows: seed,
+    rows,
     listByCommunity: (communityId) =>
-      Promise.resolve(seed.filter((row) => row.communityId === communityId) as never),
+      Promise.resolve(active().filter((row) => row.communityId === communityId) as never),
+    listByCommunityPaginated: (communityId, params) => {
+      let list = active()
+        .filter((row) => row.communityId === communityId)
+        .sort((a, b) => {
+          const byTime = a.startsAt.getTime() - b.startsAt.getTime();
+          return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+        });
+      if (params.cursor !== undefined) {
+        const cursor = params.cursor;
+        const cursorTime = cursor.startsAt.getTime();
+        list = list.filter((row) => {
+          const time = row.startsAt.getTime();
+          return time > cursorTime || (time === cursorTime && row.id > cursor.id);
+        });
+      }
+      return Promise.resolve(list.slice(0, params.limit));
+    },
   };
 }
 

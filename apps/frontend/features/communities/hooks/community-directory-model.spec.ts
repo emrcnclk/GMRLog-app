@@ -125,11 +125,21 @@ describe('community directory model', () => {
       expect(communityDetailMeta(community('c', 0, false))).not.toContain('·');
     });
 
-    it('offers the three tabs that have an endpoint, in §14’s order', () => {
-      // §14 lists Feed / Members / Events / About; nothing under
-      // `/communities/{id}` returns events, so that tab is not offered.
-      expect(COMMUNITY_DETAIL_TABS.map((t) => t.id)).toEqual(['feed', 'members', 'about']);
-      expect(COMMUNITY_DETAIL_TABS.map((t) => t.label)).toEqual(['Feed', 'Members', 'About']);
+    it('offers all four §14 tabs, in §14’s order', () => {
+      // 3b.2a built the missing `GET /communities/{id}/events` route, so
+      // Events now has a source the same as the other three.
+      expect(COMMUNITY_DETAIL_TABS.map((t) => t.id)).toEqual([
+        'feed',
+        'members',
+        'events',
+        'about',
+      ]);
+      expect(COMMUNITY_DETAIL_TABS.map((t) => t.label)).toEqual([
+        'Feed',
+        'Members',
+        'Events',
+        'About',
+      ]);
     });
   });
 

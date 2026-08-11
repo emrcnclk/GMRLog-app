@@ -615,6 +615,14 @@ export class AxiosApiClient {
     return this.get<CommunityMemberResponse[]>(`/communities/${id}/members`);
   }
 
+  /** `GET /communities/{id}/events` — §14's Events tab (cursor-paginated, 3b.2a). */
+  listCommunityEvents(
+    id: string,
+    query?: { cursor?: string; limit?: number },
+  ): Promise<ApiEnvelope<EventResponse[]>> {
+    return this.get<EventResponse[]>(`/communities/${id}/events`, query);
+  }
+
   /** `GET /communities/{id}/leaderboard` — 7.1, ranked contribution points. */
   getCommunityLeaderboard(
     id: string,

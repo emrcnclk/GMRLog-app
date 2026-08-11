@@ -155,6 +155,59 @@ export function useCommunityFeed(communityId: string) {
   };
 }
 
+/**
+ * §14's Events tab — `GET /communities/{id}/events` (3b.2a).
+ *
+ * Same cursor-paginated shape as `useCommunityFeed`, the events resource's own
+ * dialect (`useEvents`) scoped to one community.
+ */
+export function useCommunityEvents(communityId: string) {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  const query = useInfiniteQuery({
+    queryKey: queryKeys.communities.events(communityId),
+    enabled: communityId.length > 0,
+    queryFn: ({ pageParam }) =>
+      api.listCommunityEvents(communityId, {
+        ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => getNextPageParam(lastPage.meta),
+  });
+
+  const items = useMemo(
+    () => query.data?.pages.flatMap((page) => page.data) ?? [],
+    [query.data?.pages],
+  );
+
+  const view = resolveListView({
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    items,
+    isRefreshing: query.isRefetching && !query.isFetchingNextPage,
+  });
+
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.communities.events(communityId) });
+  }, [communityId, queryClient]);
+
+  const loadMore = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query]);
+
+  return {
+    ...view,
+    refresh,
+    loadMore,
+    isFetchingNextPage: query.isFetchingNextPage,
+    refetch: query.refetch,
+  };
+}
+
 export function useCommunityMembers(communityId: string) {
   const api = useApiClient();
   const queryClient = useQueryClient();

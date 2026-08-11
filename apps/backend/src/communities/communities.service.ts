@@ -30,11 +30,13 @@ import type {
   CommunityPinResponse,
   CommunityResponse,
   CommunityWikiPageResponse,
+  EventResponse,
   FeedItemResponse,
 } from '@gmrlog/types';
 import type {
   ActivityQueryInput,
   CommunityCreateInput,
+  CommunityEventsQueryInput,
   CommunityFeedQueryInput,
   CommunityLeaderboardQueryInput,
   CommunityListQueryInput,
@@ -49,6 +51,7 @@ import {
   COMMUNITY_LEADERBOARD_DEFAULT_WINDOW,
   COMMUNITY_LIST_DEFAULT_LIMIT,
   COMMUNITY_PIN_CAP,
+  DISCOVER_LIST_DEFAULT_LIMIT,
 } from '@gmrlog/validators';
 import {
   BadRequestException,
@@ -63,6 +66,7 @@ import type { Redis } from 'ioredis';
 
 import { toActivityItemResponse } from '../activity/mappers/activity.mapper';
 import { isAuthenticatedIdentity, type RequestIdentity } from '../auth/interfaces/identity';
+import { toEventResponse } from '../events/mappers/event.mapper';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 import { FeedCacheService } from '../infrastructure/redis/feed-cache.service';
@@ -409,6 +413,43 @@ export class CommunitiesService {
     const community = await this.requireActiveCommunity(communityId);
     await this.assertReadable(community, identity);
     return this.paginateCommunityActivity(communityId, query, (row) => toActivityItemResponse(row));
+  }
+
+  /**
+   * 3b.2a — §14's Events tab. `Event.communityId` and `Community.events` both
+   * existed; only the route was missing. Cursor-paginated the same way
+   * `/discover/events` is, scoped to this community, soonest-`startsAt` first.
+   */
+  async listEvents(
+    communityId: string,
+    identity: RequestIdentity,
+    query: CommunityEventsQueryInput = {},
+  ): Promise<PaginatedPayload<EventResponse>> {
+    const community = await this.requireActiveCommunity(communityId);
+    await this.assertReadable(community, identity);
+
+    const limit = query.limit ?? DISCOVER_LIST_DEFAULT_LIMIT;
+    const cursor = query.cursor !== undefined ? decodeEventsCursor(query.cursor) : undefined;
+
+    const rows = await this.events.listByCommunityPaginated(communityId, {
+      limit: limit + 1,
+      ...(cursor !== undefined ? { cursor } : {}),
+    });
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    const next =
+      hasMore && last !== undefined
+        ? encodeEventsCursor({ startsAt: last.startsAt, id: last.id })
+        : null;
+
+    return new PaginatedPayload(
+      page.map((event) => toEventResponse(event)),
+      { next },
+      hasMore,
+      limit,
+    );
   }
 
   async joinCommunity(communityId: string, actorId: string): Promise<void> {
@@ -1051,6 +1092,31 @@ function feedTabToActivityKinds(
       return _exhaustive;
     }
   }
+}
+
+function encodeEventsCursor(cursor: { startsAt: Date; id: string }): string {
+  const payload = `${cursor.startsAt.toISOString()}|${cursor.id}`;
+  return Buffer.from(payload, 'utf8').toString('base64url');
+}
+
+function decodeEventsCursor(raw: string): { startsAt: Date; id: string } {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(raw, 'base64url').toString('utf8');
+  } catch {
+    throw new BadRequestException('Invalid cursor');
+  }
+  const separator = decoded.indexOf('|');
+  if (separator <= 0) {
+    throw new BadRequestException('Invalid cursor');
+  }
+  const startsAtRaw = decoded.slice(0, separator);
+  const id = decoded.slice(separator + 1);
+  const startsAt = new Date(startsAtRaw);
+  if (Number.isNaN(startsAt.getTime()) || id.length === 0) {
+    throw new BadRequestException('Invalid cursor');
+  }
+  return { startsAt, id };
 }
 
 function encodeActivityCursor(cursor: { occurredAt: Date; id: string }): string {

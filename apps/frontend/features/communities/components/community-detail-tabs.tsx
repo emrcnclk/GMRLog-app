@@ -1,7 +1,7 @@
 import type { CommunityResponse, FeedItemResponse } from '@gmrlog/types';
 import { Button, EmptyState, Loading, Text, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 
 import { TimelineCard } from '../../../shared/timeline/timeline-card';
@@ -9,7 +9,12 @@ import {
   feedItemToTimelineCard,
   timelineObjectRoute,
 } from '../../../shared/timeline/timeline-model';
-import { useCommunityFeed, useCommunityMembers } from '../hooks/use-communities';
+import { EventCard } from '../../events/components/event-card';
+import {
+  useCommunityEvents,
+  useCommunityFeed,
+  useCommunityMembers,
+} from '../hooks/use-communities';
 
 import { CommunityMemberCard } from './community-member-card';
 
@@ -95,6 +100,52 @@ export function CommunityMembersTab({
           See all members
         </Button>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * §14's Events tab — `GET /communities/{id}/events` (3b.2a), rendered with
+ * the same `EventCard` Discover and the game hub already use, soonest first.
+ */
+export function CommunityEventsTab({ communityId }: { communityId: string }) {
+  const theme = useTheme();
+  const router = useRouter();
+  const events = useCommunityEvents(communityId);
+
+  const openEvent = useCallback(
+    (eventId: string) => {
+      router.push(`/(app)/event/${eventId}`);
+    },
+    [router],
+  );
+
+  if (events.status === 'loading') {
+    return <Loading label="Loading events" />;
+  }
+  if (events.status === 'error') {
+    return (
+      <Text role="body" color="color.text.tertiary">
+        Events could not be loaded.
+      </Text>
+    );
+  }
+  if (events.status === 'empty') {
+    return (
+      <EmptyState
+        icon="calendar"
+        title="No events yet"
+        description="Events hosted by this circle will show up here."
+      />
+    );
+  }
+
+  return (
+    <View style={{ gap: theme.space('space.3') }}>
+      {events.items.map((event) => (
+        <EventCard key={event.id} event={event} onPress={openEvent} />
+      ))}
+      {events.isFetchingNextPage ? <Loading label="Loading more" /> : null}
     </View>
   );
 }

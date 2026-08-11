@@ -92,16 +92,16 @@ export function activeNowCommunities(items: CommunityResponse[]): CommunityRespo
 }
 
 /**
- * `SCREEN_REDESIGNS_2.md` §14's tab set, minus the one with no endpoint.
+ * `SCREEN_REDESIGNS_2.md` §14's full tab set, in its own order.
  *
- * §14 lists Feed / Members / Events / About. There is no route under
- * `/communities/{id}` that returns events — the `Event` model carries a
- * `communityId`, but nothing exposes it — so an Events tab could only ever
- * render an empty panel. Tracked on 3b.2 rather than shipped as furniture.
+ * Events was missing a route (`GET /communities/{id}/events` — tracked on
+ * 3b.2, built in 3b.2a) even though the `Event` model always carried a
+ * `communityId`; all four tabs now have an endpoint behind them.
  */
 export const COMMUNITY_DETAIL_TABS = [
   { id: 'feed', label: 'Feed' },
   { id: 'members', label: 'Members' },
+  { id: 'events', label: 'Events' },
   { id: 'about', label: 'About' },
 ] as const;
 

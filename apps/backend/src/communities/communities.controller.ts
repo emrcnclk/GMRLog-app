@@ -6,6 +6,7 @@ import type {
   CommunityPinResponse,
   CommunityResponse,
   CommunityWikiPageResponse,
+  EventResponse,
   FeedItemResponse,
 } from '@gmrlog/types';
 import { communityPinCreateSchema, communityWikiUpsertSchema } from '@gmrlog/validators';
@@ -36,6 +37,7 @@ import { ApiZodBody } from '../infrastructure/openapi/swagger.decorators';
 import { CommunitiesService } from './communities.service';
 import {
   CommunityCreateDto,
+  CommunityEventsQueryDto,
   CommunityFeedQueryDto,
   CommunityIdParamDto,
   CommunityLeaderboardQueryDto,
@@ -137,6 +139,16 @@ export class CommunitiesController {
     @Query() query: ActivityQueryDto,
   ): Promise<PaginatedPayload<ActivityItemResponse>> {
     return this.communitiesService.listActivity(params.id, identity, query);
+  }
+
+  @Get(':id/events')
+  @UseGuards(OptionalGuestGuard)
+  listEvents(
+    @Param() params: CommunityIdParamDto,
+    @CurrentUser() identity: RequestIdentity,
+    @Query() query: CommunityEventsQueryDto,
+  ): Promise<PaginatedPayload<EventResponse>> {
+    return this.communitiesService.listEvents(params.id, identity, query);
   }
 
   @Get(':id/wiki')

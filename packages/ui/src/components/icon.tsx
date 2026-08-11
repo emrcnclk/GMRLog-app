@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Calendar,
   Check,
   ChevronLeft,
   Compass,
@@ -47,6 +48,7 @@ import type { SemanticColorToken } from '../theme/tokens';
 const ICONS: Record<string, LucideIcon> = {
   activity: Activity,
   bell: Bell,
+  calendar: Calendar,
   check: Check,
   'chevron-left': ChevronLeft,
   compass: Compass,

@@ -169,6 +169,23 @@ export function createFakeEventRepository(seed: Event[] = []): FakeEventReposito
             return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
           }),
       ),
+    listByCommunityPaginated: (communityId, params: EventListParams) => {
+      let list = active()
+        .filter((row) => row.communityId === communityId)
+        .sort((a, b) => {
+          const byTime = a.startsAt.getTime() - b.startsAt.getTime();
+          return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+        });
+      if (params.cursor !== undefined) {
+        const cursor = params.cursor;
+        const cursorTime = cursor.startsAt.getTime();
+        list = list.filter((row) => {
+          const time = row.startsAt.getTime();
+          return time > cursorTime || (time === cursorTime && row.id > cursor.id);
+        });
+      }
+      return Promise.resolve(list.slice(0, params.limit));
+    },
     update: (id, data: Prisma.EventUpdateInput) => {
       const current = rows.get(id);
       if (!current) {

@@ -1,5 +1,6 @@
 import {
   communityCreateSchema,
+  communityEventsQuerySchema,
   communityFeedQuerySchema,
   communityIdParamSchema,
   communityLeaderboardQuerySchema,
@@ -44,6 +45,9 @@ export class CommunityMemberRolePatchDto extends createZodDto(communityMemberRol
 
 /** Community feed query (+ optional tab). */
 export class CommunityFeedQueryDto extends createZodDto(communityFeedQuerySchema) {}
+
+/** 3b.2a — events tab query, cursor + limit. */
+export class CommunityEventsQueryDto extends createZodDto(communityEventsQuerySchema) {}
 
 /** Directory list query — cursor + limit (S1 §5). */
 export class CommunityListQueryDto extends createZodDto(communityListQuerySchema) {}

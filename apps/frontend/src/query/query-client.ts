@@ -150,6 +150,8 @@ export const queryKeys = {
     members: (id: string) => ['communities', 'members', id] as const,
     /** §14's Feed tab — `GET /communities/{id}/feed`, cursor-paginated. */
     feed: (id: string) => ['communities', 'feed', id] as const,
+    /** 3b.2a — §14's Events tab, `GET /communities/{id}/events`, cursor-paginated. */
+    events: (id: string) => ['communities', 'events', id] as const,
     /** 7.2–7.4 — README §2b's Contribution board, `GET /communities/{id}/leaderboard`. */
     leaderboard: (id: string, window: string) =>
       ['communities', 'leaderboard', id, window] as const,

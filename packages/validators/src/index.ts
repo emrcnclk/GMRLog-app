@@ -1570,6 +1570,21 @@ export const communityFeedQuerySchema = activityQuerySchema
 export type CommunityFeedQueryInput = z.infer<typeof communityFeedQuerySchema>;
 
 /**
+ * `GET /communities/{id}/events` cursor pagination (3b.2a).
+ *
+ * Same cursor/limit shape as `GET /discover/events` — the events resource's
+ * own dialect, not a new one, just scoped to one community.
+ */
+export const communityEventsQuerySchema = z
+  .object({
+    cursor: z.string().trim().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(DISCOVER_LIST_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+export type CommunityEventsQueryInput = z.infer<typeof communityEventsQuerySchema>;
+
+/**
  * `GET /communities` cursor pagination (S1 §5).
  *
  * The directory used to return every discoverable community in one array. That

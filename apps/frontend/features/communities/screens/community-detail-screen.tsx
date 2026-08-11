@@ -15,6 +15,7 @@ import { useConnectivityStore } from '../../../src/state/stores';
 import { ConfirmDialog } from '../../content/components/confirm-dialog';
 import {
   CommunityAboutTab,
+  CommunityEventsTab,
   CommunityFeedTab,
   CommunityMembersTab,
 } from '../components/community-detail-tabs';
@@ -156,6 +157,8 @@ export function CommunityDetailScreen() {
             <CommunityAboutTab community={community} />
           ) : tab === 'members' ? (
             <CommunityMembersTab communityId={community.id} onSeeAll={openMembers} />
+          ) : tab === 'events' ? (
+            <CommunityEventsTab communityId={community.id} />
           ) : (
             <CommunityFeedTab communityId={community.id} />
           )}

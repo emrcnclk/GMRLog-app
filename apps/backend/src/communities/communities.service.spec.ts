@@ -1221,6 +1221,61 @@ describe('CommunitiesService.listActivity', () => {
   });
 });
 
+describe('CommunitiesService.listEvents (3b.2a)', () => {
+  it('returns an empty paginated list for a community with no events', async () => {
+    const page = await service.listEvents('community-1', guest);
+    expect(page.items).toEqual([]);
+    expect(page.hasMore).toBe(false);
+    expect(page.cursor.next).toBeNull();
+  });
+
+  it('paginates a community-scoped, soonest-first list and rejects invalid cursors', async () => {
+    events = createFakeCommunityEventRepository([
+      {
+        id: 'event-soon',
+        communityId: 'community-1',
+        title: 'Culture Cup',
+        startsAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+      {
+        id: 'event-later',
+        communityId: 'community-1',
+        title: 'Culture Cup 2',
+        startsAt: new Date('2026-02-01T00:00:00.000Z'),
+      },
+      {
+        id: 'event-other-community',
+        communityId: 'community-private',
+        title: 'Not this circle',
+        startsAt: new Date('2026-01-15T00:00:00.000Z'),
+      },
+    ]);
+    service = buildService();
+
+    const page1 = await service.listEvents('community-1', guest, { limit: 1 });
+    expect(page1.items[0]?.id).toBe('event-soon');
+    expect(page1.hasMore).toBe(true);
+    expect(page1.cursor.next).toEqual(expect.any(String));
+
+    const page2 = await service.listEvents('community-1', guest, {
+      limit: 1,
+      cursor: page1.cursor.next!,
+    });
+    expect(page2.items[0]?.id).toBe('event-later');
+    expect(page2.hasMore).toBe(false);
+
+    await expect(
+      service.listEvents('community-1', guest, { cursor: 'bad' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns 404 when the community is not readable', async () => {
+    await expect(service.listEvents('community-private', guest)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});
+
 describe('CommunitiesService followers visibility', () => {
   it('allows followers-only communities when viewer follows the owner', async () => {
     communities.rows.set(
