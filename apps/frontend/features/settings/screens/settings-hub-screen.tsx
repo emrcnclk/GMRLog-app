@@ -14,7 +14,7 @@ import { useDiagnostics } from '../hooks/use-diagnostics';
 import { SETTINGS_HUB_NAV, type SettingsRouteKey } from '../navigation/settings-routes';
 
 const HUB_ICONS: Record<
-  Exclude<SettingsRouteKey, 'hub' | 'appearance' | 'accessibility'>,
+  Exclude<SettingsRouteKey, 'hub' | 'appearance' | 'accessibility' | 'subscription'>,
   SettingsRowIcon
 > = {
   general: Settings,

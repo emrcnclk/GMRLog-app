@@ -10,12 +10,13 @@ export const SETTINGS_ROUTES = {
   storage: '/(settings)/storage',
   diagnostics: '/(settings)/diagnostics',
   about: '/(settings)/about',
+  subscription: '/(settings)/subscription',
 } as const;
 
 export type SettingsRouteKey = keyof typeof SETTINGS_ROUTES;
 
 export const SETTINGS_HUB_NAV: readonly {
-  key: Exclude<SettingsRouteKey, 'hub' | 'appearance' | 'accessibility'>;
+  key: Exclude<SettingsRouteKey, 'hub' | 'appearance' | 'accessibility' | 'subscription'>;
   title: string;
   subtitle: string;
   href: string;

@@ -19,6 +19,7 @@ describe('settings navigation', () => {
     expect(SETTINGS_ROUTES.storage).toBe('/(settings)/storage');
     expect(SETTINGS_ROUTES.diagnostics).toBe('/(settings)/diagnostics');
     expect(SETTINGS_ROUTES.about).toBe('/(settings)/about');
+    expect(SETTINGS_ROUTES.subscription).toBe('/(settings)/subscription');
   });
 
   it('hub nav covers all top-level sections', () => {

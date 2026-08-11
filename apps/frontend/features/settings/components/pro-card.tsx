@@ -1,7 +1,10 @@
 import { CornerNotch, MIN_TOUCH_TARGET, SCREEN_GUTTER, Text, useTheme } from '@gmrlog/ui';
+import { useRouter } from 'expo-router';
 import { Diamond } from 'lucide-react-native';
-import { memo } from 'react';
-import { View } from 'react-native';
+import { memo, useCallback } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { SETTINGS_ROUTES } from '../navigation/settings-routes';
 
 /**
  * The Pro card (SCREEN_REDESIGNS.md §9): "gradient surface, accent notch,
@@ -15,15 +18,23 @@ import { View } from 'react-native';
  * `color.accent.muted` ring, with the notch and the diamond carrying the one
  * note of accent colour the screen allows itself.
  *
- * Not yet pressable — there is no subscription screen or route for it to open
- * (§9 doesn't specify one, and none is on TASKS.md). The chevron is the
- * spec's visual composition, not a promise of navigation yet.
+ * Pressable since 3b.5: the Subscription screen (§17) now exists at
+ * `SETTINGS_ROUTES.subscription`. The chevron was always this card's promise
+ * of navigation; it just had nowhere to go until this screen was built.
  */
 function ProCardComponent() {
   const theme = useTheme();
+  const router = useRouter();
+
+  const onPress = useCallback(() => {
+    router.push(SETTINGS_ROUTES.subscription);
+  }, [router]);
 
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="GMRLOG Pro"
+      onPress={onPress}
       style={{
         marginHorizontal: theme.space(SCREEN_GUTTER),
         marginBottom: theme.space(SCREEN_GUTTER),
@@ -51,7 +62,7 @@ function ProCardComponent() {
           ›
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

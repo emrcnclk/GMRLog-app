@@ -7,6 +7,7 @@ export { NotificationsSettingsScreen } from './screens/notifications-settings-sc
 export { StorageSettingsScreen } from './screens/storage-settings-screen';
 export { DiagnosticsSettingsScreen } from './screens/diagnostics-settings-screen';
 export { AboutSettingsScreen } from './screens/about-settings-screen';
+export { SubscriptionScreen } from './screens/subscription-screen';
 
 export { SETTINGS_ROUTES, SETTINGS_HUB_NAV, GENERAL_SUBNAV } from './navigation/settings-routes';
 export {
