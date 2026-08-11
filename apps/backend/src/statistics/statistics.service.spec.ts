@@ -172,10 +172,25 @@ describe('StatisticsService.build', () => {
   });
 
   it('filters library/review counts by weekly period', async () => {
-    const stats = await service.build('user-1', 'weekly');
-    expect(stats.period).toBe('weekly');
-    expect(stats.gamesLogged).toBeLessThan(4);
-    expect(stats.hoursPlayed).toBeGreaterThanOrEqual(1);
+    // `periodWindowStart` computes the cutoff from live `Date.now()`; this
+    // fixture's dates are fixed (2026-07-01..28), so the "last 7 days" window
+    // silently emptied out the day the wall clock crossed 2026-08-04 — the
+    // test then failed for real, not flakily, every session since. Pin `now`
+    // to a date inside the fixture's own range instead of chasing it with a
+    // relative fixture: the assertions describe the fixture's shape (some
+    // entries inside the window, some outside), which only makes sense
+    // relative to a fixed "now", not to whenever the suite happens to run.
+    const nowSpy = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-07-29T00:00:00.000Z').getTime());
+    try {
+      const stats = await service.build('user-1', 'weekly');
+      expect(stats.period).toBe('weekly');
+      expect(stats.gamesLogged).toBeLessThan(4);
+      expect(stats.hoursPlayed).toBeGreaterThanOrEqual(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('supports daily period and empty review / library edge cases', async () => {
