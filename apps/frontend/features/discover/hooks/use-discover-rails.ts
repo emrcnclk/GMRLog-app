@@ -1,4 +1,4 @@
-import { DISCOVER_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
+import { DISCOVER_LIST_DEFAULT_LIMIT, DISCOVER_LIST_MAX_LIMIT } from '@gmrlog/validators';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
@@ -24,11 +24,19 @@ export interface DiscoverRailsViewModel {
  * cannot blank the screen: the hub is in `error` only when *nothing* resolved.
  * A dead recommendation service should cost you that shelf, not Discover.
  *
- * The catalog page is fetched at a larger limit than a rail shows because four
- * rails are projections over it — asking for twelve games and then filtering to
- * "released in the last 90 days" would usually yield nothing.
+ * The catalog page is fetched at a larger limit than a rail shows (`RAIL_LIMIT`,
+ * 12) because four rails are projections over it — asking for twelve games and
+ * then filtering to "released in the last 90 days" would usually yield nothing.
+ *
+ * The ceiling here is `DISCOVER_LIST_MAX_LIMIT` (50), not a number chosen for
+ * this rail specifically — that constant is the shared pagination cap across
+ * every discover/blocks list route (`packages/validators/src/index.ts`), and
+ * no doc asks for a wider page just for this projection. Requesting past it
+ * fails validation before this request goes anywhere near the rails it
+ * feeds, which is why Highest Rated / Upcoming Releases / Recently Released /
+ * Indie Spotlight had never rendered for anyone.
  */
-const CATALOG_PAGE_LIMIT = 60;
+const CATALOG_PAGE_LIMIT = DISCOVER_LIST_MAX_LIMIT;
 
 export function useDiscoverRails(): DiscoverRailsViewModel & {
   refresh: () => Promise<void>;
