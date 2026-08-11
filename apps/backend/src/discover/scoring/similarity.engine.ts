@@ -262,24 +262,47 @@ export function reviewRatingSimilarity(
 }
 
 /**
- * Weighted user similarity in [0, 1].
+ * 5.1 (`BACKEND_CHANGES.md` §1) — the five sub-scores the DNA-match
+ * breakdown bars need. `computeUserSimilarityScore` used to compute these
+ * and discard them; now it's a thin wrapper over this so the total can never
+ * drift from the parts.
+ */
+export interface UserSimilarityBreakdown {
+  library: number;
+  genre: number;
+  reviewRating: number;
+  wishlist: number;
+  completion: number;
+  total: number;
+}
+
+export function computeUserSimilarityBreakdown(
+  left: UserSimilaritySignals,
+  right: UserSimilaritySignals,
+): UserSimilarityBreakdown {
+  const library = jaccardSimilarity(left.libraryGameIds, right.libraryGameIds);
+  const genre = jaccardSimilarity(left.genreIds, right.genreIds);
+  const wishlist = jaccardSimilarity(left.wishlistGameIds, right.wishlistGameIds);
+  const completion = jaccardSimilarity(left.completedGameIds, right.completedGameIds);
+  const reviewRating = reviewRatingSimilarity(left.reviewRatings, right.reviewRatings);
+
+  const total =
+    USER_SIMILARITY_WEIGHTS.library * library +
+    USER_SIMILARITY_WEIGHTS.genre * genre +
+    USER_SIMILARITY_WEIGHTS.reviewRating * reviewRating +
+    USER_SIMILARITY_WEIGHTS.wishlist * wishlist +
+    USER_SIMILARITY_WEIGHTS.completion * completion;
+
+  return { library, genre, reviewRating, wishlist, completion, total: clamp01(total) };
+}
+
+/**
+ * Weighted user similarity in [0, 1]. Kept for existing callers — the total
+ * alone, from the breakdown above.
  */
 export function computeUserSimilarityScore(
   left: UserSimilaritySignals,
   right: UserSimilaritySignals,
 ): number {
-  const library = jaccardSimilarity(left.libraryGameIds, right.libraryGameIds);
-  const genre = jaccardSimilarity(left.genreIds, right.genreIds);
-  const wishlist = jaccardSimilarity(left.wishlistGameIds, right.wishlistGameIds);
-  const completion = jaccardSimilarity(left.completedGameIds, right.completedGameIds);
-  const review = reviewRatingSimilarity(left.reviewRatings, right.reviewRatings);
-
-  const score =
-    USER_SIMILARITY_WEIGHTS.library * library +
-    USER_SIMILARITY_WEIGHTS.genre * genre +
-    USER_SIMILARITY_WEIGHTS.reviewRating * review +
-    USER_SIMILARITY_WEIGHTS.wishlist * wishlist +
-    USER_SIMILARITY_WEIGHTS.completion * completion;
-
-  return clamp01(score);
+  return computeUserSimilarityBreakdown(left, right).total;
 }

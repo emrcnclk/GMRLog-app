@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clamp01,
   computeGameSimilarityScore,
+  computeUserSimilarityBreakdown,
   computeUserSimilarityScore,
   equalityOverlap,
   GAME_SIMILARITY_WEIGHTS,
@@ -134,6 +135,66 @@ describe('reviewRatingSimilarity / computeUserSimilarityScore', () => {
     const score = computeUserSimilarityScore(left, right);
     expect(score).toBeGreaterThan(0.4);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+// 5.1 (BACKEND_CHANGES.md §1) — the five DNA-match breakdown bars.
+describe('computeUserSimilarityBreakdown', () => {
+  const left = {
+    libraryGameIds: new Set(['a', 'b', 'c']),
+    genreIds: new Set(['rpg']),
+    wishlistGameIds: new Set(['w1']),
+    completedGameIds: new Set(['a']),
+    reviewRatings: new Map([['a', 9]]),
+  };
+  const right = {
+    libraryGameIds: new Set(['b', 'c', 'd']),
+    genreIds: new Set(['rpg']),
+    wishlistGameIds: new Set(['w1']),
+    completedGameIds: new Set(['a']),
+    reviewRatings: new Map([['a', 9]]),
+  };
+
+  it('the weighted sum of the five parts equals total — it can never drift', () => {
+    const breakdown = computeUserSimilarityBreakdown(left, right);
+    const reweighted =
+      USER_SIMILARITY_WEIGHTS.library * breakdown.library +
+      USER_SIMILARITY_WEIGHTS.genre * breakdown.genre +
+      USER_SIMILARITY_WEIGHTS.reviewRating * breakdown.reviewRating +
+      USER_SIMILARITY_WEIGHTS.wishlist * breakdown.wishlist +
+      USER_SIMILARITY_WEIGHTS.completion * breakdown.completion;
+    expect(breakdown.total).toBeCloseTo(reweighted, 10);
+  });
+
+  it('every part and the total stay in [0, 1]', () => {
+    const breakdown = computeUserSimilarityBreakdown(left, right);
+    for (const value of Object.values(breakdown)) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('computeUserSimilarityScore stays a thin wrapper over the breakdown total', () => {
+    expect(computeUserSimilarityScore(left, right)).toBe(
+      computeUserSimilarityBreakdown(left, right).total,
+    );
+  });
+
+  it('a fully disjoint pair scores near zero on every dimension', () => {
+    const disjointRight = {
+      libraryGameIds: new Set(['x', 'y']),
+      genreIds: new Set(['sim']),
+      wishlistGameIds: new Set(['w9']),
+      completedGameIds: new Set(['z']),
+      reviewRatings: new Map([['q', 2]]),
+    };
+    const breakdown = computeUserSimilarityBreakdown(left, disjointRight);
+    expect(breakdown.library).toBe(0);
+    expect(breakdown.genre).toBe(0);
+    expect(breakdown.wishlist).toBe(0);
+    expect(breakdown.completion).toBe(0);
+    expect(breakdown.reviewRating).toBe(0);
+    expect(breakdown.total).toBe(0);
   });
 });
 
