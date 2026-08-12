@@ -12,6 +12,11 @@ export { TierComposer } from './components/tier-composer';
 export { EmptyTierLists } from './components/empty-tier-lists';
 export { TierSkeleton, TierDetailSkeleton } from './components/tier-skeleton';
 export { TierErrorState } from './components/tier-error-state';
+export { TierBoard } from './components/tier-board';
+export { TierPlate } from './components/tier-plate';
+export { TierCover, TierCoverGhost } from './components/tier-cover';
+export { TierActionRow } from './components/tier-action-row';
+export { TierListOwnerMenu } from './components/tier-list-owner-menu';
 
 export {
   useTierLists,
@@ -20,4 +25,6 @@ export {
   useUpdateTierList,
   useDeleteTierList,
   useReplaceSlots,
+  useForkTierList,
+  useToggleTierListLike,
 } from './hooks/use-tier-lists';

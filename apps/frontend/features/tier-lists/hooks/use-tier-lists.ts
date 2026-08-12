@@ -1,16 +1,22 @@
-import type { TierListResponse } from '@gmrlog/types';
+import type { ReactionResponse, TierListResponse } from '@gmrlog/types';
 import type {
   TierListCreateInput,
   TierListPatchInput,
   TierListSlotsPutInput,
 } from '@gmrlog/validators';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useApiClient } from '../../../src/api/api-provider';
+import { createIdempotencyKey } from '../../../src/api/idempotency';
 import { queryKeys } from '../../../src/query/query-client';
 
-import { resolveListView } from './tier-list-model';
+import {
+  boardToSlotsPutPayload,
+  forkTierListTitle,
+  resolveListView,
+  toEditableBoard,
+} from './tier-list-model';
 
 export function useTierLists() {
   const api = useApiClient();
@@ -209,6 +215,71 @@ export function useReplaceSlots(tierListId: string) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.tierLists.list() });
     },
   });
+}
+
+/**
+ * Fork — §20's action row, composed from the two mutations that already
+ * exist rather than a dedicated endpoint (`TierListsController` has none).
+ * Create, then replace the new list's slots with the source board; a failure
+ * on the second call leaves an empty tier list behind rather than a corrupt
+ * one, which is the safer half to fail on.
+ */
+export function useForkTierList() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (source: TierListResponse) => {
+      const created = await api.createTierList({
+        title: forkTierListTitle(source.title),
+        visibility: 'private',
+      });
+      const payload = boardToSlotsPutPayload(toEditableBoard(source.slots));
+      const replaced = await api.replaceTierListSlots(created.data.id, payload);
+      return replaced.data;
+    },
+    onSuccess: (tierList) => {
+      queryClient.setQueryData(queryKeys.tierLists.detail(tierList.id), tierList);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tierLists.list() });
+    },
+  });
+}
+
+/**
+ * Like — `tier_list` is a real `ReactionTargetTypeValue`, but
+ * `TierListResponse` carries no aggregate count and no viewer state
+ * (`reactionSummary` / `viewerState` are documented as "deferred with
+ * Reactions" in `ReactionResponse`'s own comment). Without a persisted
+ * viewer-state to read on load, this can only be a session-local toggle: the
+ * created reaction's id is kept in memory so a second tap can undo it, but a
+ * remount forgets it, honestly, rather than guessing.
+ */
+export function useToggleTierListLike(tierListId: string) {
+  const api = useApiClient();
+  const [reaction, setReaction] = useState<ReactionResponse | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (reaction) {
+        await api.deleteReaction(reaction.id);
+        return null;
+      }
+      const envelope = await api.createReaction(
+        { targetType: 'tier_list', targetId: tierListId, kind: 'like' },
+        createIdempotencyKey('reaction'),
+      );
+      return envelope.data;
+    },
+    onSuccess: (result) => {
+      setReaction(result);
+    },
+  });
+
+  return {
+    liked: reaction !== null,
+    toggle: mutation.mutate,
+    isPending: mutation.isPending,
+  };
 }
 
 function patchTierListInList(

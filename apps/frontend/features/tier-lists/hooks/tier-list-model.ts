@@ -16,10 +16,22 @@ import { formatUpdatedAt, resolveListView } from '../../boards/shared/board-mode
 
 export { formatUpdatedAt, resolveListView };
 
-/** Canonical empty board rows when the server returns no slots. */
-export const DEFAULT_TIER_LABELS = ['S', 'A', 'B', 'C', 'D', 'F'] as const;
+/**
+ * Canonical empty board rows when the server returns no slots.
+ * `SCREEN_REDESIGNS_2.md` §20 draws five lettered plates (S–D) plus a
+ * separate "Unranked" tray for games not yet sorted — there is no `F` row.
+ * The label is a free string server-side (`TierSlotResponse.label`), so
+ * "Unranked" is a real, storable slot, not a client-only concept.
+ */
+export const DEFAULT_TIER_LABELS = ['S', 'A', 'B', 'C', 'D', 'Unranked'] as const;
 
 export type DefaultTierLabel = (typeof DEFAULT_TIER_LABELS)[number];
+
+/** The lettered plates §20 draws with the rank-brightening treatment. */
+export const RANKED_TIER_LABELS = ['S', 'A', 'B', 'C', 'D'] as const;
+
+/** The horizontally-scrolling tray at the bottom of §20 — everything not yet ranked. */
+export const TRAY_LABEL = 'Unranked';
 
 export function visibilityLabel(visibility: ContentVisibilityValue): string {
   switch (visibility) {
@@ -200,4 +212,47 @@ export function toTierListPatchPayload(values: TierComposerEditValues) {
     title: values.title,
     visibility: values.visibility,
   });
+}
+
+/**
+ * §20's byline is "author · likes · forks", but `TierListResponse` carries
+ * only `owner` — there is no like/fork count anywhere on the DTO or the
+ * backend (`TierListsController` has no such routes). Showing the author and
+ * leaving the rest off is the honest subset; see this task's closing note.
+ */
+export function tierListByline(tierList: TierListResponse): string {
+  return `@${tierList.owner.handle}`;
+}
+
+export function tierListShareUrl(tierListId: string): string {
+  return `https://gmrlog.app/tier-list/${tierListId}`;
+}
+
+export function tierListShareMessage(tierList: TierListResponse): string {
+  return `${tierList.owner.displayName}'s "${tierList.title}" tier list on GMRLOG — ${tierListShareUrl(tierList.id)}`;
+}
+
+const FORK_TITLE_MAX = 100;
+
+/** Fork's new title, kept inside the same 100-char cap `tierListCreateSchema` enforces. */
+export function forkTierListTitle(originalTitle: string): string {
+  const suffix = ' (fork)';
+  const budget = FORK_TITLE_MAX - suffix.length;
+  const base = originalTitle.length > budget ? originalTitle.slice(0, budget) : originalTitle;
+  return `${base}${suffix}`;
+}
+
+/**
+ * §20: "the plate's border and text brighten as the tier rises; no coloured
+ * tier bands." With no rank colour ramp in the token set, brightness is
+ * carried the same way §23's cohort retention grid carries it — opacity on an
+ * existing token, never a new colour — S at full strength down to D dimmest.
+ */
+export function rankOpacity(index: number, total: number): number {
+  if (total <= 1) {
+    return 1;
+  }
+  const MIN_OPACITY = 0.4;
+  const step = (1 - MIN_OPACITY) / (total - 1);
+  return 1 - index * step;
 }
