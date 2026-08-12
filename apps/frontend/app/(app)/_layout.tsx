@@ -29,6 +29,7 @@ export default function AppLayout() {
     <Stack screenOptions={stackMotion}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="profile/customize" options={modalMotion} />
+      <Stack.Screen name="profile/store" options={modalMotion} />
       <Stack.Screen name="messages/new" options={modalMotion} />
       <Stack.Screen name="communities/create" options={modalMotion} />
       <Stack.Screen name="community/[id]/edit" options={modalMotion} />

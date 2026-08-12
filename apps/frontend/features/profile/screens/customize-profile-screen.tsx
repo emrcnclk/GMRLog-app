@@ -14,6 +14,7 @@ import {
   ErrorState,
   GradientScrim,
   HatchOverlay,
+  ListItem,
   Section,
   SCREEN_GUTTER,
   Screen,
@@ -399,10 +400,24 @@ export function CustomizeProfileScreen() {
           </View>
         </Section>
 
-        {/* §18's footer links through to the cosmetics store (3b.7). That
-            screen doesn't exist yet — omitted rather than pointing at a
-            route that would 404, per the dead-route class this session
-            already found and fixed once. */}
+        {/* §18's footer link through to the cosmetics store — real as of
+            3b.7. Its "Owned" catalog is the accent/card-style/banner options
+            immediately above, not a separate purchasable set, so the
+            subtitle names those rather than the doc's frames/badges copy,
+            which nothing here backs. */}
+        <ListItem
+          title="Cosmetics store"
+          subtitle="Accents, card styles and banners — cosmetic only"
+          accessibilityLabel="Cosmetics store"
+          onPress={() => {
+            router.push('/(app)/profile/store');
+          }}
+          trailing={
+            <Text role="meta" color="color.text.tertiary">
+              ›
+            </Text>
+          }
+        />
       </View>
     </Screen>
   );
