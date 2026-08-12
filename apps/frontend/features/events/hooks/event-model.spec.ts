@@ -2,8 +2,14 @@ import type { EventResponse } from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
 
 import {
+  eventDatePlateDay,
+  eventDatePlateMonth,
   eventKindLabel,
+  eventRowTime,
+  filterEventsByKind,
   formatEventStartsAt,
+  groupEventsByWhen,
+  isEventLive,
   isViewerGoing,
   optimisticJoin,
   optimisticLeave,
@@ -95,5 +101,68 @@ describe('event-model', () => {
 
   it('labels event kinds for UI', () => {
     expect(eventKindLabel('community')).toBe('community');
+  });
+
+  it('filters events by the §21 filter-pill kinds', () => {
+    const events = [
+      event({ id: 't1', kind: 'tournament' }),
+      event({ id: 'w1', kind: 'watch_party' }),
+      event({ id: 'r1', kind: 'release_countdown' }),
+      event({ id: 'r2', kind: 'release' }),
+      event({ id: 'g1', kind: 'game' }),
+    ];
+    expect(filterEventsByKind(events, 'all')).toHaveLength(5);
+    expect(filterEventsByKind(events, 'tournaments').map((e) => e.id)).toEqual(['t1']);
+    expect(filterEventsByKind(events, 'watch_parties').map((e) => e.id)).toEqual(['w1']);
+    expect(filterEventsByKind(events, 'launches').map((e) => e.id)).toEqual(['r1', 'r2']);
+  });
+
+  it('groups events into This week / Later by startsAt', () => {
+    const now = Date.parse('2026-07-28T12:00:00.000Z');
+    const events = [
+      event({ id: 'today', startsAt: '2026-07-28T18:00:00.000Z' }),
+      event({ id: 'in6days', startsAt: '2026-08-03T18:00:00.000Z' }),
+      event({ id: 'in7days', startsAt: '2026-08-04T18:00:00.000Z' }),
+      event({ id: 'far', startsAt: '2026-09-01T18:00:00.000Z' }),
+    ];
+    const grouped = groupEventsByWhen(events, now);
+    expect(grouped.thisWeek.map((e) => e.id)).toEqual(['today', 'in6days']);
+    expect(grouped.later.map((e) => e.id)).toEqual(['in7days', 'far']);
+  });
+
+  it('derives live state only from a real startsAt/endsAt window', () => {
+    const now = Date.parse('2026-07-28T18:30:00.000Z');
+    expect(
+      isEventLive(
+        event({ startsAt: '2026-07-28T18:00:00.000Z', endsAt: '2026-07-28T20:00:00.000Z' }),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isEventLive(
+        event({ startsAt: '2026-07-28T18:00:00.000Z', endsAt: '2026-07-28T18:15:00.000Z' }),
+        now,
+      ),
+    ).toBe(false);
+    // No endsAt — no real signal the event hasn't ended, so never live.
+    expect(isEventLive(event({ startsAt: '2026-07-28T18:00:00.000Z', endsAt: null }), now)).toBe(
+      false,
+    );
+  });
+
+  it('reads the date-plate day and month from a real startsAt', () => {
+    expect(eventDatePlateDay('2026-08-03T18:00:00.000Z')).toBe(
+      String(new Date('2026-08-03T18:00:00.000Z').getDate()),
+    );
+    expect(eventDatePlateMonth('2026-08-03T18:00:00.000Z')).toBe('AUG');
+  });
+
+  it('formats the row time', () => {
+    expect(eventRowTime('2026-07-28T18:00:00.000Z')).toBe(
+      new Date('2026-07-28T18:00:00.000Z').toLocaleTimeString(undefined, {
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+    );
   });
 });

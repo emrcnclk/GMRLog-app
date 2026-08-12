@@ -13,8 +13,17 @@ export {
   optimisticJoin,
   optimisticLeave,
   patchEventInDiscoverPages,
+  EVENT_FILTERS,
+  filterEventsByKind,
+  groupEventsByWhen,
+  isEventLive,
+  eventDatePlateDay,
+  eventDatePlateMonth,
+  eventRowTime,
   type EventsListStatus,
   type EventsListViewModel,
+  type EventFilterValue,
+  type GroupedEvents,
 } from './hooks/event-model';
 export { useEvents, useEvent, useJoinEvent, useLeaveEvent } from './hooks/use-events';
 export { EventsScreen } from './screens/events-screen';
