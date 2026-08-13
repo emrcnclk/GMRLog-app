@@ -648,6 +648,16 @@ enum ConsoleGeneration {
   @@map("console_generation")
 }
 
+/// 5.4 — design_handoff_dna_match_and_community/BACKEND_CHANGES.md §4.
+/// No account-type field existed anywhere on `User` before this; added as the
+/// doc's own 0.1 audit allows for. Every existing row backfills to `individual`.
+enum AccountKind {
+  individual
+  organisation
+
+  @@map("account_kind")
+}
+
 // =============================================================================
 // IDENTITY & SETTINGS (S2 §10.1)
 // =============================================================================
@@ -667,6 +677,9 @@ model User {
   privacyId       String?   @map("privacy_id")
   /// D3.24 — Creator Profile surface flag (eligibility still deterministic).
   creatorFeatured Boolean   @default(false) @map("creator_featured")
+  /// 5.4 — BACKEND_CHANGES.md §4. Gates the DNA match panel: `applicable: false`
+  /// for any non-individual account. Every row backfills to `individual`.
+  accountKind     AccountKind @default(individual) @map("account_kind")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")

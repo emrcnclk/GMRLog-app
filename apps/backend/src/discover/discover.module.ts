@@ -10,6 +10,8 @@ import { DiscoverController } from './discover.controller';
 import { DiscoverService } from './discover.service';
 import { DISCOVER_COMMUNITY_MEMBER_REPOSITORY, DISCOVER_REPOSITORY } from './discover.tokens';
 import { DiscoveryScoreService } from './discovery-score.service';
+import { DnaMatchController } from './dna-match.controller';
+import { DnaMatchService } from './dna-match.service';
 import { RecommendationService } from './recommendation.service';
 import { SimilarityService } from './similarity.service';
 import { TrendingService } from './trending.service';
@@ -20,7 +22,7 @@ import { TrendingService } from './trending.service';
  */
 @Module({
   imports: [AuthModule, PrismaModule],
-  controllers: [DiscoverController],
+  controllers: [DiscoverController, DnaMatchController],
   providers: [
     {
       provide: DISCOVER_REPOSITORY,
@@ -38,6 +40,7 @@ import { TrendingService } from './trending.service';
     TrendingService,
     BecauseYouPlayedService,
     DiscoverService,
+    DnaMatchService,
   ],
   exports: [
     DiscoveryScoreService,

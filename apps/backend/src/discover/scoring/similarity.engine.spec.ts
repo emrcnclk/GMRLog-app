@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildDnaDimensions,
   buildDnaMatch,
   clamp01,
   computeGameSimilarityScore,
@@ -317,6 +318,20 @@ describe('dnaBandForPercent', () => {
     expect(dnaBandForPercent(70)).toBe('strong');
     expect(dnaBandForPercent(84)).toBe('strong');
     expect(dnaBandForPercent(85)).toBe('near-identical');
+  });
+});
+
+describe('buildDnaDimensions', () => {
+  it('rounds every component to a 0-100 score, never omitting for an all-zero pair', () => {
+    expect(
+      buildDnaDimensions({ library: 0, genre: 0, reviewRating: 0, wishlist: 0, completion: 0 }),
+    ).toEqual([
+      { key: 'library', score: 0 },
+      { key: 'genre', score: 0 },
+      { key: 'reviewRating', score: 0 },
+      { key: 'wishlist', score: 0 },
+      { key: 'completion', score: 0 },
+    ]);
   });
 });
 

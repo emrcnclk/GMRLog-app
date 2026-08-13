@@ -1342,6 +1342,18 @@ export interface SimilarUserResponse {
   match?: DnaMatch; // NEW, optional so nothing breaks
 }
 
+/** 5.4 — `GET /users/:id/dna-match` (`BACKEND_CHANGES.md` §4). */
+export interface DnaMatchResponse {
+  user: UserPublicResponse;
+  applicable: boolean; // false for organisation / studio accounts
+  percent: number;
+  band: DnaBand;
+  dimensions: DnaDimension[];
+  verdict: string; // one sentence
+  traits: string[]; // 2-3 short labels
+  sharedGames: GameCardResponse[]; // cap at 8
+}
+
 export interface RecommendedGameResponse {
   game: GameCardResponse;
   score: number;

@@ -51,6 +51,7 @@ describe('search.mapper', () => {
           bannerVariants: null,
           privacyId: null,
           creatorFeatured: false,
+          accountKind: 'individual',
           createdAt: orderedAt,
           updatedAt: orderedAt,
           deletedAt: null,

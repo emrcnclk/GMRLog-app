@@ -328,10 +328,36 @@ export function dnaBandForPercent(percent: number): DnaBand {
 
 export type UserSimilarityComponents = Omit<UserSimilarityBreakdown, 'total'>;
 
+function clampComponents(components: UserSimilarityComponents): UserSimilarityComponents {
+  return {
+    library: clamp01(components.library),
+    genre: clamp01(components.genre),
+    reviewRating: clamp01(components.reviewRating),
+    wishlist: clamp01(components.wishlist),
+    completion: clamp01(components.completion),
+  };
+}
+
 /**
- * Builds the `match` field of `SimilarUserResponse` (and, once 5.4 lands,
- * `DnaMatchResponse`) from a persisted or freshly-computed breakdown. Never
- * recomputes — the caller supplies the components it already has.
+ * The five `DnaDimension` bars, in `USER_SIMILARITY_WEIGHTS` order. Shared by
+ * `buildDnaMatch` (5.3) and `DnaMatchService` (5.4) — one place that knows
+ * how a breakdown becomes 0-100 rounded bars.
+ */
+export function buildDnaDimensions(components: UserSimilarityComponents): DnaMatch['dimensions'] {
+  const clamped = clampComponents(components);
+  return [
+    { key: 'library', score: Math.round(clamped.library * 100) },
+    { key: 'genre', score: Math.round(clamped.genre * 100) },
+    { key: 'reviewRating', score: Math.round(clamped.reviewRating * 100) },
+    { key: 'wishlist', score: Math.round(clamped.wishlist * 100) },
+    { key: 'completion', score: Math.round(clamped.completion * 100) },
+  ];
+}
+
+/**
+ * Builds the `match` field of `SimilarUserResponse` from a persisted or
+ * freshly-computed breakdown. Never recomputes — the caller supplies the
+ * components it already has.
  *
  * §2's rule: a cached row from before the breakdown columns existed has
  * `total > 0` with all five components still at their `0` default. Emitting
@@ -343,13 +369,7 @@ export function buildDnaMatch(
   total: number,
 ): DnaMatch | undefined {
   const clampedTotal = clamp01(total);
-  const clamped = {
-    library: clamp01(components.library),
-    genre: clamp01(components.genre),
-    reviewRating: clamp01(components.reviewRating),
-    wishlist: clamp01(components.wishlist),
-    completion: clamp01(components.completion),
-  };
+  const clamped = clampComponents(components);
   const allZero =
     clamped.library === 0 &&
     clamped.genre === 0 &&
@@ -364,12 +384,6 @@ export function buildDnaMatch(
   return {
     percent,
     band: dnaBandForPercent(percent),
-    dimensions: [
-      { key: 'library', score: Math.round(clamped.library * 100) },
-      { key: 'genre', score: Math.round(clamped.genre * 100) },
-      { key: 'reviewRating', score: Math.round(clamped.reviewRating * 100) },
-      { key: 'wishlist', score: Math.round(clamped.wishlist * 100) },
-      { key: 'completion', score: Math.round(clamped.completion * 100) },
-    ],
+    dimensions: buildDnaDimensions(components),
   };
 }

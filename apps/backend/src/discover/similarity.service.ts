@@ -6,6 +6,7 @@ import { toUserPublicResponse } from '../posts/mappers/post.mapper';
 
 import { toGameCardResponse } from './mappers/game-card.mapper';
 import { loadDiscoverGameRecords } from './mappers/load-discover-games';
+import { loadUserSimilaritySignals } from './mappers/load-user-signals';
 import {
   buildDnaMatch,
   computeGameSimilarityScore,
@@ -13,7 +14,6 @@ import {
   type GameSimilaritySignals,
   type UserSimilarityBreakdown,
   type UserSimilarityComponents,
-  type UserSimilaritySignals,
 } from './scoring/similarity.engine';
 
 const CANDIDATE_CAP = 120;
@@ -181,7 +181,7 @@ export class SimilarityService {
     userId: string,
     limit: number,
   ): Promise<{ otherId: string; score: number; components: UserSimilarityComponents }[]> {
-    const source = await this.loadUserSignals(userId);
+    const source = await loadUserSimilaritySignals(this.prisma, userId);
     if (source === null) {
       return [];
     }
@@ -217,7 +217,7 @@ export class SimilarityService {
 
     const scored: { otherId: string; score: number; breakdown: UserSimilarityBreakdown }[] = [];
     for (const otherId of [...candidateIds].slice(0, CANDIDATE_CAP)) {
-      const signals = await this.loadUserSignals(otherId);
+      const signals = await loadUserSimilaritySignals(this.prisma, otherId);
       if (signals === null) {
         continue;
       }
@@ -311,53 +311,6 @@ export class SimilarityService {
         companies.filter((row) => row.role === 'developer').map((row) => row.companyId),
       ),
       seriesId: game.seriesId,
-    };
-  }
-
-  private async loadUserSignals(userId: string): Promise<UserSimilaritySignals | null> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (user?.deletedAt !== null) {
-      return null;
-    }
-
-    const [entries, reviews] = await Promise.all([
-      this.prisma.libraryEntry.findMany({
-        where: { userId },
-        select: { gameId: true, status: true },
-      }),
-      this.prisma.review.findMany({
-        where: { authorId: userId, deletedAt: null, visibility: 'public' },
-        select: { gameId: true, rating: true },
-      }),
-    ]);
-
-    const libraryGameIds = new Set(entries.map((row) => row.gameId));
-    const wishlistGameIds = new Set(
-      entries.filter((row) => row.status === 'wishlist').map((row) => row.gameId),
-    );
-    const completedGameIds = new Set(
-      entries.filter((row) => row.status === 'completed').map((row) => row.gameId),
-    );
-
-    const genreLinks =
-      libraryGameIds.size === 0
-        ? []
-        : await this.prisma.gameGenre.findMany({
-            where: { gameId: { in: [...libraryGameIds] } },
-            select: { genreId: true },
-          });
-
-    const reviewRatings = new Map<string, number>();
-    for (const review of reviews) {
-      reviewRatings.set(review.gameId, review.rating);
-    }
-
-    return {
-      libraryGameIds,
-      genreIds: new Set(genreLinks.map((row) => row.genreId)),
-      wishlistGameIds,
-      completedGameIds,
-      reviewRatings,
     };
   }
 

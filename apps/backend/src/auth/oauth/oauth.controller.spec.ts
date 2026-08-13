@@ -39,6 +39,7 @@ function makeUser(overrides: Partial<{ id: string; handle: string }> = {}) {
     bannerVariants: null,
     privacyId: null,
     creatorFeatured: false,
+    accountKind: 'individual' as const,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

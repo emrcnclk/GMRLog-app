@@ -51,6 +51,7 @@ const userHit = {
     bannerVariants: null,
     privacyId: null,
     creatorFeatured: false,
+    accountKind: 'individual' as const,
     createdAt: new Date('2026-01-02T00:00:00.000Z'),
     updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     deletedAt: null,
