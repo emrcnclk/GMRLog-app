@@ -21,9 +21,9 @@ function makeDeps(overrides: Partial<OAuthSignInDeps> = {}): OAuthSignInDeps {
 describe('runOAuthSignIn', () => {
   it('resolves unavailable for a provider with no real backend flow, without starting one', async () => {
     const deps = makeDeps();
-    const result = await runOAuthSignIn('discord', deps);
+    const result = await runOAuthSignIn('steam', deps);
 
-    expect(result).toEqual({ status: 'unavailable', provider: 'discord' });
+    expect(result).toEqual({ status: 'unavailable', provider: 'steam' });
     expect(deps.oauthStart).not.toHaveBeenCalled();
   });
 
@@ -33,8 +33,37 @@ describe('runOAuthSignIn', () => {
     const result = await runOAuthSignIn('google', deps);
 
     expect(result).toEqual({ status: 'success' });
-    expect(deps.oauthStart).toHaveBeenCalledWith('https://app.gmrlog.test/oauth/callback');
-    expect(deps.completeOAuth).toHaveBeenCalledWith({ state: 'state-1', code: 'code-1' });
+    expect(deps.oauthStart).toHaveBeenCalledWith(
+      'google',
+      'https://app.gmrlog.test/oauth/callback',
+    );
+    expect(deps.completeOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      state: 'state-1',
+      code: 'code-1',
+    });
+  });
+
+  it('completes a successful Discord round-trip end to end (4.4)', async () => {
+    const deps = makeDeps({
+      oauthStart: vi.fn(async () => ({
+        authorizeUrl: 'https://discord.com/oauth2/authorize?state=state-1',
+        state: 'state-1',
+      })),
+    });
+
+    const result = await runOAuthSignIn('discord', deps);
+
+    expect(result).toEqual({ status: 'success' });
+    expect(deps.oauthStart).toHaveBeenCalledWith(
+      'discord',
+      'https://app.gmrlog.test/oauth/callback',
+    );
+    expect(deps.completeOAuth).toHaveBeenCalledWith({
+      provider: 'discord',
+      state: 'state-1',
+      code: 'code-1',
+    });
   });
 
   it('always sends the state /start returned, never one parsed off the redirect URL', async () => {
@@ -51,7 +80,11 @@ describe('runOAuthSignIn', () => {
 
     await runOAuthSignIn('google', deps);
 
-    expect(deps.completeOAuth).toHaveBeenCalledWith({ state: 'state-1', code: 'code-1' });
+    expect(deps.completeOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      state: 'state-1',
+      code: 'code-1',
+    });
   });
 
   it('treats a cancelled provider sheet as no error at all (OAUTH.md §4)', async () => {

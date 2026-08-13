@@ -85,6 +85,20 @@ export const backendEnvSchema = sharedEnvSchema
           .map((uri) => uri.trim())
           .filter((uri) => uri.length > 0),
       ),
+    // Discord (task 4.4) — login only, minimum scope for subject + verified
+    // email. Never request `guilds` or anything an import/connect flow would
+    // need; that's a separate, not-yet-built surface (OAUTH.md §1).
+    DISCORD_OAUTH_CLIENT_ID: z.string().default(''),
+    DISCORD_OAUTH_CLIENT_SECRET: z.string().default(''),
+    DISCORD_OAUTH_ALLOWED_REDIRECT_URIS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((uri) => uri.trim())
+          .filter((uri) => uri.length > 0),
+      ),
     OAUTH_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
     SENTRY_DSN: z.string().default(''),
     LOG_FILE: z.string().default(''),

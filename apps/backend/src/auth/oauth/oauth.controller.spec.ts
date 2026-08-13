@@ -10,7 +10,8 @@ import { parseBackendEnv } from '../../infrastructure/config/env.schema';
 
 import { MemoryOAuthStateStore } from './oauth-state.store';
 import { OAuthController } from './oauth.controller';
-import type { OAuthMatchResult } from './oauth.types';
+import type { OAuthIdentity, OAuthMatchResult } from './oauth.types';
+import { DiscordOAuthError } from './providers/discord.provider';
 import { GoogleOAuthError } from './providers/google.provider';
 
 const ALLOWED_REDIRECT_URI = 'https://app.gmrlog.test/oauth/callback';
@@ -52,11 +53,30 @@ function createFakeGoogleProvider() {
   };
 }
 
+function createFakeDiscordProvider() {
+  return {
+    isEnabled: vi.fn(() => true),
+    buildAuthorizeUrl: vi.fn(
+      ({ state }: { state: string }) => `https://discord.com/oauth2/authorize?state=${state}`,
+    ),
+    exchangeAndFetchIdentity: vi.fn<() => Promise<OAuthIdentity>>(async () => ({
+      provider: 'discord',
+      subject: 'sub-discord-1',
+      email: 'player@example.com',
+      emailVerified: true,
+      displayName: 'Kaan',
+    })),
+  };
+}
+
 function createEnv(overrides: Record<string, string> = {}) {
   return parseBackendEnv({
     GOOGLE_OAUTH_CLIENT_ID: 'client-id',
     GOOGLE_OAUTH_CLIENT_SECRET: 'client-secret',
     GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS: ALLOWED_REDIRECT_URI,
+    DISCORD_OAUTH_CLIENT_ID: 'discord-client-id',
+    DISCORD_OAUTH_CLIENT_SECRET: 'discord-client-secret',
+    DISCORD_OAUTH_ALLOWED_REDIRECT_URIS: ALLOWED_REDIRECT_URI,
     OAUTH_STATE_TTL_SECONDS: '600',
     ...overrides,
   });
@@ -65,6 +85,7 @@ function createEnv(overrides: Record<string, string> = {}) {
 describe('OAuthController', () => {
   let stateStore: MemoryOAuthStateStore;
   let google: ReturnType<typeof createFakeGoogleProvider>;
+  let discord: ReturnType<typeof createFakeDiscordProvider>;
   let oauthService: { resolveLogin: ReturnType<typeof vi.fn> };
   let sessions: { issueCredentialPair: ReturnType<typeof vi.fn> };
   let controller: OAuthController;
@@ -72,6 +93,7 @@ describe('OAuthController', () => {
   beforeEach(() => {
     stateStore = new MemoryOAuthStateStore();
     google = createFakeGoogleProvider();
+    discord = createFakeDiscordProvider();
     oauthService = { resolveLogin: vi.fn() };
     sessions = {
       issueCredentialPair: vi.fn(async (userId: string) => ({
@@ -81,6 +103,7 @@ describe('OAuthController', () => {
     };
     controller = new OAuthController(
       google as never,
+      discord as never,
       stateStore as never,
       oauthService as never,
       sessions as never,
@@ -91,7 +114,7 @@ describe('OAuthController', () => {
   describe('start', () => {
     it('rejects an unsupported provider', async () => {
       await expect(
-        controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI }),
+        controller.start('steam', { redirectUri: ALLOWED_REDIRECT_URI }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
@@ -163,8 +186,7 @@ describe('OAuthController', () => {
     });
 
     it('rejects a state minted for a different provider', async () => {
-      // Only 'google' is wired up today, so simulate the mismatch directly
-      // against the store the way a future second provider's state would.
+      // A state minted by /start/discord must not redeem against /callback/google.
       await stateStore.put(
         'cross-provider-state',
         {
@@ -266,6 +288,127 @@ describe('OAuthController', () => {
 
       await expect(controller.callback('google', { state, code: 'code-1' })).rejects.toBeInstanceOf(
         UnauthorizedException,
+      );
+    });
+  });
+
+  describe('discord (task 4.4)', () => {
+    it('completes start + callback end to end, independent of google', async () => {
+      oauthService.resolveLogin.mockResolvedValue({
+        outcome: 'created',
+        user: makeUser({ id: 'user-discord' }),
+      } satisfies OAuthMatchResult);
+
+      const { state, authorizeUrl } = await controller.start('discord', {
+        redirectUri: ALLOWED_REDIRECT_URI,
+      });
+      expect(authorizeUrl).toContain('discord.com');
+
+      const result = await controller.callback('discord', { state, code: 'code-1' });
+
+      expect(result).toEqual({
+        accessToken: 'access-user-discord',
+        refreshToken: 'refresh-user-discord',
+      });
+      expect(oauthService.resolveLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'discord', subject: 'sub-discord-1' }),
+      );
+    });
+
+    it('fails closed when Discord is not configured', async () => {
+      discord.isEnabled.mockReturnValue(false);
+      await expect(
+        controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    });
+
+    it("rejects a redirectUri outside Discord's own allowlist, even if Google's would match", async () => {
+      const scopedEnv = createEnv({
+        DISCORD_OAUTH_ALLOWED_REDIRECT_URIS: 'https://discord-only.example/cb',
+      });
+      controller = new OAuthController(
+        google as never,
+        discord as never,
+        stateStore as never,
+        oauthService as never,
+        sessions as never,
+        scopedEnv,
+      );
+
+      await expect(
+        controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('maps a Discord exchange failure to a clear, retryable error naming Discord', async () => {
+      discord.exchangeAndFetchIdentity.mockRejectedValue(new DiscordOAuthError('userinfo_failed'));
+      const { state } = await controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI });
+
+      await expect(
+        controller.callback('discord', { state, code: 'bad-code' }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    });
+
+    it('strips an unverified Discord email before it reaches OAuthService', async () => {
+      discord.exchangeAndFetchIdentity.mockResolvedValue({
+        provider: 'discord',
+        subject: 'sub-discord-1',
+        email: 'unverified@example.com',
+        emailVerified: false,
+        displayName: 'Kaan',
+      });
+      oauthService.resolveLogin.mockResolvedValue({
+        outcome: 'created',
+        user: makeUser(),
+      } satisfies OAuthMatchResult);
+      const { state } = await controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI });
+
+      await controller.callback('discord', { state, code: 'code-1' });
+
+      expect(oauthService.resolveLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ email: null, emailVerified: false }),
+      );
+    });
+
+    it('passes an emailless Discord identity straight through — no capture step at this layer', async () => {
+      discord.exchangeAndFetchIdentity.mockResolvedValue({
+        provider: 'discord',
+        subject: 'sub-discord-no-email',
+        email: null,
+        emailVerified: false,
+        displayName: 'Kaan',
+      });
+      oauthService.resolveLogin.mockResolvedValue({
+        outcome: 'created',
+        user: makeUser({ id: 'user-no-email' }),
+      } satisfies OAuthMatchResult);
+      const { state } = await controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI });
+
+      const result = await controller.callback('discord', { state, code: 'code-1' });
+
+      expect(result).toEqual({
+        accessToken: 'access-user-no-email',
+        refreshToken: 'refresh-user-no-email',
+      });
+      expect(oauthService.resolveLogin).toHaveBeenCalledWith(
+        expect.objectContaining({ email: null, emailVerified: false }),
+      );
+    });
+
+    it('maps an unverified-email conflict to 409 naming Discord as the connect target', async () => {
+      oauthService.resolveLogin.mockResolvedValue({
+        outcome: 'rejected',
+        reason: 'unverified_email_conflict',
+        hasPassword: true,
+      } satisfies OAuthMatchResult);
+      const { state } = await controller.start('discord', { redirectUri: ALLOWED_REDIRECT_URI });
+
+      await expect(controller.callback('discord', { state, code: 'code-1' })).rejects.toMatchObject(
+        {
+          response: expect.objectContaining({
+            message: expect.stringContaining('connect Discord'),
+          }),
+        },
       );
     });
   });

@@ -1,4 +1,8 @@
-import type { OAuthStartResponse, SessionCredentialResponse } from '@gmrlog/types';
+import type {
+  OAuthProviderKind,
+  OAuthStartResponse,
+  SessionCredentialResponse,
+} from '@gmrlog/types';
 import { oauthStartSchema } from '@gmrlog/validators';
 import {
   BadRequestException,
@@ -24,27 +28,70 @@ import { OAuthStateStore } from './oauth-state.store';
 import { OAuthService } from './oauth.service';
 import type { OAuthIdentity } from './oauth.types';
 import { codeChallengeFromVerifier, generateCodeVerifier, generateState } from './pkce';
+import { DiscordOAuthError, DiscordOAuthProvider } from './providers/discord.provider';
 import { GoogleOAuthError, GoogleOAuthProvider } from './providers/google.provider';
 
-const SUPPORTED_PROVIDER = 'google';
+const SUPPORTED_PROVIDERS: readonly OAuthProviderKind[] = ['google', 'discord'];
+
+function isSupportedProvider(provider: string): provider is OAuthProviderKind {
+  return (SUPPORTED_PROVIDERS as readonly string[]).includes(provider);
+}
+
+interface ProviderAdapter {
+  displayName: string;
+  isEnabled(): boolean;
+  allowedRedirectUris(env: BackendEnv): readonly string[];
+  buildAuthorizeUrl(params: { state: string; codeChallenge: string; redirectUri: string }): string;
+  exchangeAndFetchIdentity(params: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+  }): Promise<OAuthIdentity>;
+}
 
 /**
- * Google sign-in surface (OAUTH.md §2, §7 step 3). `/start` and `/callback`
- * are the only two routes — the client drives `expo-auth-session` between
- * them; the backend never hands the client a provider token (§2: "the client
- * never sees a client secret or a provider access token — everything
- * crosses the backend").
+ * Google + Discord sign-in surface (OAUTH.md §2, §7 steps 3-4, task 4.4).
+ * `/start` and `/callback` are the only two routes — the client drives
+ * `expo-auth-session` between them; the backend never hands the client a
+ * provider token (§2: "the client never sees a client secret or a provider
+ * access token — everything crosses the backend"). Both providers create
+ * `AuthCredential(type=oauth)` rows only — never `ConnectedAccount` — since
+ * this surface is exclusively `AccountLink.purpose = 'login'`; connecting an
+ * already-signed-in-with-password user's Discord account for import is a
+ * distinct, not-yet-built surface (`ConnectedProvider`/`purpose: 'connect'`)
+ * that shares no table row with this one, so a sign-in here can never
+ * silently become — or clobber — a connection made there.
  */
 @ApiTags('oauth')
 @Controller('auth/oauth')
 export class OAuthController {
+  private readonly providers: Record<OAuthProviderKind, ProviderAdapter>;
+
   constructor(
     private readonly google: GoogleOAuthProvider,
+    private readonly discord: DiscordOAuthProvider,
     private readonly stateStore: OAuthStateStore,
     private readonly oauthService: OAuthService,
     private readonly sessions: SessionsService,
     @Inject(ENV) private readonly env: BackendEnv,
-  ) {}
+  ) {
+    this.providers = {
+      google: {
+        displayName: 'Google',
+        isEnabled: () => this.google.isEnabled(),
+        allowedRedirectUris: (env) => env.GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS,
+        buildAuthorizeUrl: (params) => this.google.buildAuthorizeUrl(params),
+        exchangeAndFetchIdentity: (params) => this.wrapGoogleErrors(params),
+      },
+      discord: {
+        displayName: 'Discord',
+        isEnabled: () => this.discord.isEnabled(),
+        allowedRedirectUris: (env) => env.DISCORD_OAUTH_ALLOWED_REDIRECT_URIS,
+        buildAuthorizeUrl: (params) => this.discord.buildAuthorizeUrl(params),
+        exchangeAndFetchIdentity: (params) => this.wrapDiscordErrors(params),
+      },
+    };
+  }
 
   @Post(':provider/start')
   @RateLimitClass('auth')
@@ -53,14 +100,14 @@ export class OAuthController {
     @Param('provider') provider: string,
     @Body() body: OAuthStartDto,
   ): Promise<OAuthStartResponse> {
-    this.assertSupportedProvider(provider);
-    if (!this.google.isEnabled()) {
+    const adapter = this.resolveProvider(provider);
+    if (!adapter.isEnabled()) {
       throw new ServiceUnavailableException({
         code: 'OAUTH_PROVIDER_UNAVAILABLE',
-        message: 'Google sign-in is not configured',
+        message: `${adapter.displayName} sign-in is not configured`,
       });
     }
-    if (!this.env.GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS.includes(body.redirectUri)) {
+    if (!adapter.allowedRedirectUris(this.env).includes(body.redirectUri)) {
       throw new BadRequestException('redirectUri is not registered for this environment');
     }
 
@@ -71,7 +118,7 @@ export class OAuthController {
     await this.stateStore.put(
       state,
       {
-        provider,
+        provider: provider as OAuthProviderKind,
         codeVerifier,
         redirectUri: body.redirectUri,
         createdAt: Date.now(),
@@ -79,7 +126,7 @@ export class OAuthController {
       this.env.OAUTH_STATE_TTL_SECONDS,
     );
 
-    const authorizeUrl = this.google.buildAuthorizeUrl({
+    const authorizeUrl = adapter.buildAuthorizeUrl({
       state,
       codeChallenge,
       redirectUri: body.redirectUri,
@@ -94,7 +141,7 @@ export class OAuthController {
     @Param('provider') provider: string,
     @Body() body: OAuthCallbackDto,
   ): Promise<SessionCredentialResponse> {
-    this.assertSupportedProvider(provider);
+    const adapter = this.resolveProvider(provider);
 
     // Single-use: `consume` is a Redis GETDEL, so a replayed `state` (a
     // captured/resubmitted callback body) misses on every attempt after the
@@ -109,22 +156,11 @@ export class OAuthController {
       });
     }
 
-    let identity: OAuthIdentity;
-    try {
-      identity = await this.google.exchangeAndFetchIdentity({
-        code: body.code,
-        codeVerifier: record.codeVerifier,
-        redirectUri: record.redirectUri,
-      });
-    } catch (error) {
-      if (error instanceof GoogleOAuthError) {
-        throw new ServiceUnavailableException({
-          code: 'OAUTH_PROVIDER_UNAVAILABLE',
-          message: 'Google is not responding. Try again, or use email.',
-        });
-      }
-      throw error;
-    }
+    const identity = await adapter.exchangeAndFetchIdentity({
+      code: body.code,
+      codeVerifier: record.codeVerifier,
+      redirectUri: record.redirectUri,
+    });
 
     // Controller-level verified-email gate (OAUTH.md §3 rule 3), independent
     // of 4.2's own gate inside `OAuthService`: an unverified email is treated
@@ -145,8 +181,7 @@ export class OAuthController {
         if (result.reason === 'unverified_email_conflict') {
           throw new ConflictException({
             code: 'OAUTH_EMAIL_CONFLICT',
-            message:
-              'This email is already registered. Sign in with your password, then connect Google from Settings.',
+            message: `This email is already registered. Sign in with your password, then connect ${adapter.displayName} from Settings.`,
             hasPassword: result.hasPassword,
           });
         }
@@ -157,9 +192,46 @@ export class OAuthController {
     }
   }
 
-  private assertSupportedProvider(provider: string): asserts provider is typeof SUPPORTED_PROVIDER {
-    if (provider !== SUPPORTED_PROVIDER) {
+  private resolveProvider(provider: string): ProviderAdapter {
+    if (!isSupportedProvider(provider)) {
       throw new BadRequestException(`Unsupported OAuth provider: ${provider}`);
+    }
+    return this.providers[provider];
+  }
+
+  private async wrapGoogleErrors(params: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+  }): Promise<OAuthIdentity> {
+    try {
+      return await this.google.exchangeAndFetchIdentity(params);
+    } catch (error) {
+      if (error instanceof GoogleOAuthError) {
+        throw new ServiceUnavailableException({
+          code: 'OAUTH_PROVIDER_UNAVAILABLE',
+          message: 'Google is not responding. Try again, or use email.',
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async wrapDiscordErrors(params: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+  }): Promise<OAuthIdentity> {
+    try {
+      return await this.discord.exchangeAndFetchIdentity(params);
+    } catch (error) {
+      if (error instanceof DiscordOAuthError) {
+        throw new ServiceUnavailableException({
+          code: 'OAUTH_PROVIDER_UNAVAILABLE',
+          message: 'Discord is not responding. Try again, or use email.',
+        });
+      }
+      throw error;
     }
   }
 }

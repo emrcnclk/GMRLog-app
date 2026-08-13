@@ -36,10 +36,17 @@ export interface AuthStoreState {
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
   bootstrap: () => Promise<void>;
-  /** `POST /auth/oauth/google/start` (D4.3 / OAUTH.md §2 step 1) — the browser round-trip lives in `use-oauth-sign-in.ts`. */
-  oauthStart: (redirectUri: string) => Promise<{ authorizeUrl: string; state: string }>;
-  /** `POST /auth/oauth/google/callback` — same shape as `login`/`register`: persist tokens, then activate via `/me`. */
-  completeOAuth: (params: { state: string; code: string }) => Promise<void>;
+  /** `POST /auth/oauth/{provider}/start` (D4.3 / D4.4 / OAUTH.md §2 step 1) — the browser round-trip lives in `use-oauth-sign-in.ts`. */
+  oauthStart: (
+    provider: 'google' | 'discord',
+    redirectUri: string,
+  ) => Promise<{ authorizeUrl: string; state: string }>;
+  /** `POST /auth/oauth/{provider}/callback` — same shape as `login`/`register`: persist tokens, then activate via `/me`. */
+  completeOAuth: (params: {
+    provider: 'google' | 'discord';
+    state: string;
+    code: string;
+  }) => Promise<void>;
 }
 
 let runtime: AuthRuntime | null = null;
@@ -173,18 +180,18 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     }
   },
 
-  oauthStart: async (redirectUri) => {
+  oauthStart: async (provider, redirectUri) => {
     const { api } = requireRuntime();
-    const envelope = await api.oauthStart('google', { redirectUri });
+    const envelope = await api.oauthStart(provider, { redirectUri });
     return envelope.data;
   },
 
   // Same shape as `login`/`register`, and the same reasoning applies:
   // form/flow-owned outcome, `bootstrapping` untouched.
-  completeOAuth: async ({ state, code }) => {
+  completeOAuth: async ({ provider, state, code }) => {
     const { api, manager, queryClient } = requireRuntime();
     try {
-      const envelope = await api.oauthCallback('google', { state, code });
+      const envelope = await api.oauthCallback(provider, { state, code });
       const tokens = readTokensFromEnvelope(envelope.data);
       if (!tokens) {
         throw new Error('OAuth callback response did not include credentials');

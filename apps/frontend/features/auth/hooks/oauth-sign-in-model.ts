@@ -14,8 +14,15 @@ export interface AuthSessionResult {
 }
 
 export interface OAuthSignInDeps {
-  oauthStart: (redirectUri: string) => Promise<{ authorizeUrl: string; state: string }>;
-  completeOAuth: (params: { state: string; code: string }) => Promise<void>;
+  oauthStart: (
+    provider: 'google' | 'discord',
+    redirectUri: string,
+  ) => Promise<{ authorizeUrl: string; state: string }>;
+  completeOAuth: (params: {
+    provider: 'google' | 'discord';
+    state: string;
+    code: string;
+  }) => Promise<void>;
   openAuthSession: (authorizeUrl: string, redirectUri: string) => Promise<AuthSessionResult>;
   makeRedirectUri: () => string;
 }
@@ -35,19 +42,19 @@ export interface OAuthSignInDeps {
  * The PKCE verifier and the provider's access/id token never reach this
  * code: `/start` returns only an authorize URL and a `state`, and
  * `/callback` returns only session tokens — everything in between happens
- * server-side (`OAuthController`, `GoogleOAuthProvider`).
+ * server-side (`OAuthController`, `GoogleOAuthProvider`/`DiscordOAuthProvider`).
  */
 export async function runOAuthSignIn(
   provider: AuthOauthProvider,
   deps: OAuthSignInDeps,
 ): Promise<OAuthSignInResult> {
-  if (provider !== 'google') {
+  if (provider !== 'google' && provider !== 'discord') {
     return { status: 'unavailable', provider };
   }
 
   try {
     const redirectUri = deps.makeRedirectUri();
-    const { authorizeUrl, state } = await deps.oauthStart(redirectUri);
+    const { authorizeUrl, state } = await deps.oauthStart(provider, redirectUri);
 
     const result = await deps.openAuthSession(authorizeUrl, redirectUri);
     if (result.type !== 'success' || result.url === undefined) {
@@ -64,7 +71,7 @@ export async function runOAuthSignIn(
     // of truth for whether it's still valid, and there is no reason to
     // trust a state value parsed out of a redirect over the one already
     // held from the request that created it.
-    await deps.completeOAuth({ state, code });
+    await deps.completeOAuth({ provider, state, code });
     return { status: 'success' };
   } catch (error) {
     return { status: 'error', error };

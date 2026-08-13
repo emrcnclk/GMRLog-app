@@ -28,6 +28,7 @@ import { TokenService } from './jwt/token.service';
 import { OAuthStateStore } from './oauth/oauth-state.store';
 import { OAuthController } from './oauth/oauth.controller';
 import { OAuthService } from './oauth/oauth.service';
+import { DiscordOAuthProvider } from './oauth/providers/discord.provider';
 import { GoogleOAuthProvider } from './oauth/providers/google.provider';
 import { PasswordResetStore } from './password-reset.store';
 import { SessionsService } from './sessions.service';
@@ -67,6 +68,15 @@ import { SessionsService } from './sessions.service';
         new GoogleOAuthProvider({
           clientId: env.GOOGLE_OAUTH_CLIENT_ID,
           clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+        }),
+    },
+    {
+      provide: DiscordOAuthProvider,
+      inject: [ENV],
+      useFactory: (env: BackendEnv) =>
+        new DiscordOAuthProvider({
+          clientId: env.DISCORD_OAUTH_CLIENT_ID,
+          clientSecret: env.DISCORD_OAUTH_CLIENT_SECRET,
         }),
     },
     {

@@ -1234,9 +1234,9 @@ export class AxiosApiClient {
     return this.get<CreatorProfileResponse>(`/users/${userId}/creator`);
   }
 
-  /** `POST /auth/oauth/{provider}/start` — OAuth flow entry (D4.3 / OAUTH.md §2 step 1). */
+  /** `POST /auth/oauth/{provider}/start` — OAuth flow entry (D4.3 / D4.4 / OAUTH.md §2 step 1). */
   oauthStart(
-    provider: 'google',
+    provider: 'google' | 'discord',
     body: { redirectUri: string },
   ): Promise<ApiEnvelope<{ authorizeUrl: string; state: string }>> {
     return this.request<{ authorizeUrl: string; state: string }>({
@@ -1247,9 +1247,9 @@ export class AxiosApiClient {
     });
   }
 
-  /** `POST /auth/oauth/{provider}/callback` — server-side code exchange (D4.3 / OAUTH.md §2 steps 3-4). */
+  /** `POST /auth/oauth/{provider}/callback` — server-side code exchange (D4.3 / D4.4 / OAUTH.md §2 steps 3-4). */
   oauthCallback(
-    provider: 'google',
+    provider: 'google' | 'discord',
     body: { state: string; code: string },
   ): Promise<ApiEnvelope<{ accessToken: string; refreshToken: string }>> {
     return this.request<{ accessToken: string; refreshToken: string }>({
