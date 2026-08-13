@@ -25,6 +25,7 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalGuestGuard } from './guards/optional-guest.guard';
 import { TokenService } from './jwt/token.service';
+import { OAuthService } from './oauth/oauth.service';
 import { PasswordResetStore } from './password-reset.store';
 import { SessionsService } from './sessions.service';
 
@@ -51,6 +52,7 @@ import { SessionsService } from './sessions.service';
     TokenService,
     AuthService,
     SessionsService,
+    OAuthService,
     PasswordResetStore,
     JwtAuthGuard,
     OptionalGuestGuard,
