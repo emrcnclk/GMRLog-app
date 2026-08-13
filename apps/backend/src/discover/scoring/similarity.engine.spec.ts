@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildDnaMatch,
   clamp01,
   computeGameSimilarityScore,
   computeUserSimilarityBreakdown,
   computeUserSimilarityScore,
+  dnaBandForPercent,
   equalityOverlap,
   GAME_SIMILARITY_WEIGHTS,
   jaccardSimilarity,
@@ -304,5 +306,77 @@ describe('computeGameSimilarityScore with D3.25 catalog signals', () => {
     const score = computeGameSimilarityScore(full, full);
     expect(score).toBeGreaterThan(0.9);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('dnaBandForPercent', () => {
+  it('pins the exact boundary values from BACKEND_CHANGES.md §3', () => {
+    expect(dnaBandForPercent(54)).toBe('different');
+    expect(dnaBandForPercent(55)).toBe('partial');
+    expect(dnaBandForPercent(69)).toBe('partial');
+    expect(dnaBandForPercent(70)).toBe('strong');
+    expect(dnaBandForPercent(84)).toBe('strong');
+    expect(dnaBandForPercent(85)).toBe('near-identical');
+  });
+});
+
+describe('buildDnaMatch', () => {
+  const components = {
+    library: 0.5,
+    genre: 0.25,
+    reviewRating: 0.75,
+    wishlist: 0.1,
+    completion: 0.9,
+  };
+
+  it('rounds percent and every dimension score to 0-100', () => {
+    const match = buildDnaMatch(components, 0.634);
+    expect(match).toEqual({
+      percent: 63,
+      band: 'partial',
+      dimensions: [
+        { key: 'library', score: 50 },
+        { key: 'genre', score: 25 },
+        { key: 'reviewRating', score: 75 },
+        { key: 'wishlist', score: 10 },
+        { key: 'completion', score: 90 },
+      ],
+    });
+  });
+
+  it('derives band from the rounded percent', () => {
+    expect(buildDnaMatch(components, 0.85)?.band).toBe('near-identical');
+  });
+
+  it('omits the match entirely when a pre-5.2 cached row has total > 0 but all components are 0', () => {
+    const zeroComponents = {
+      library: 0,
+      genre: 0,
+      reviewRating: 0,
+      wishlist: 0,
+      completion: 0,
+    };
+    expect(buildDnaMatch(zeroComponents, 0.42)).toBeUndefined();
+  });
+
+  it('does not omit a genuinely zero match when total is also 0', () => {
+    const zeroComponents = {
+      library: 0,
+      genre: 0,
+      reviewRating: 0,
+      wishlist: 0,
+      completion: 0,
+    };
+    expect(buildDnaMatch(zeroComponents, 0)).toEqual({
+      percent: 0,
+      band: 'different',
+      dimensions: [
+        { key: 'library', score: 0 },
+        { key: 'genre', score: 0 },
+        { key: 'reviewRating', score: 0 },
+        { key: 'wishlist', score: 0 },
+        { key: 'completion', score: 0 },
+      ],
+    });
   });
 });

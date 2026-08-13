@@ -207,6 +207,69 @@ describe('SimilarityService', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.user.id).toBe('u2');
     expect(rows[0]?.score).toBe(0.6);
+    // 5.3: existing consumer shape ({ user, score }) still compiles and works
+    // unchanged — `match` is additive, not required.
+    const [existingShape]: { user: unknown; score: number }[] = rows;
+    expect(existingShape).toBeDefined();
+  });
+
+  it('populates `match` from a fully-persisted cached row', async () => {
+    prisma.user.findUnique.mockResolvedValue(sampleUser);
+    prisma.userSimilarity.findMany.mockResolvedValue([
+      {
+        id: '1',
+        userAId: 'u1',
+        userBId: 'u2',
+        score: 0.634,
+        library: 0.5,
+        genre: 0.25,
+        reviewRating: 0.75,
+        wishlist: 0.1,
+        completion: 0.9,
+      },
+    ]);
+    prisma.user.findMany.mockResolvedValue([
+      { ...sampleUser, id: 'u2', handle: 'bob', displayName: 'Bob' },
+    ]);
+
+    const rows = await service.getSimilarUsers('u1', 5);
+
+    expect(rows[0]?.match).toEqual({
+      percent: 63,
+      band: 'partial',
+      dimensions: [
+        { key: 'library', score: 50 },
+        { key: 'genre', score: 25 },
+        { key: 'reviewRating', score: 75 },
+        { key: 'wishlist', score: 10 },
+        { key: 'completion', score: 90 },
+      ],
+    });
+  });
+
+  it('omits `match` for a pre-5.2 cached row with score but all components 0', async () => {
+    prisma.user.findUnique.mockResolvedValue(sampleUser);
+    prisma.userSimilarity.findMany.mockResolvedValue([
+      {
+        id: '1',
+        userAId: 'u1',
+        userBId: 'u2',
+        score: 0.6,
+        library: 0,
+        genre: 0,
+        reviewRating: 0,
+        wishlist: 0,
+        completion: 0,
+      },
+    ]);
+    prisma.user.findMany.mockResolvedValue([
+      { ...sampleUser, id: 'u2', handle: 'bob', displayName: 'Bob' },
+    ]);
+
+    const rows = await service.getSimilarUsers('u1', 5);
+
+    expect(rows[0]?.score).toBe(0.6);
+    expect(rows[0]?.match).toBeUndefined();
   });
 
   it('computes and caches user pairs when cache is empty', async () => {

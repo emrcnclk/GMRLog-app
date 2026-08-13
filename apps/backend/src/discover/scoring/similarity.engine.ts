@@ -1,3 +1,5 @@
+import type { DnaBand, DnaMatch } from '@gmrlog/types';
+
 /**
  * Pure similarity helpers (D3.22 / SIMILARITY_ENGINE.md).
  * Weighted Jaccard / equality overlap — no AI.
@@ -305,4 +307,69 @@ export function computeUserSimilarityScore(
   right: UserSimilaritySignals,
 ): number {
   return computeUserSimilarityBreakdown(left, right).total;
+}
+
+/**
+ * 5.3 (`BACKEND_CHANGES.md` §3) — server-owned band thresholds, one place
+ * only, so every surface (list token, panel) agrees. `percent` is 0-100.
+ */
+export function dnaBandForPercent(percent: number): DnaBand {
+  if (percent >= 85) {
+    return 'near-identical';
+  }
+  if (percent >= 70) {
+    return 'strong';
+  }
+  if (percent >= 55) {
+    return 'partial';
+  }
+  return 'different';
+}
+
+export type UserSimilarityComponents = Omit<UserSimilarityBreakdown, 'total'>;
+
+/**
+ * Builds the `match` field of `SimilarUserResponse` (and, once 5.4 lands,
+ * `DnaMatchResponse`) from a persisted or freshly-computed breakdown. Never
+ * recomputes — the caller supplies the components it already has.
+ *
+ * §2's rule: a cached row from before the breakdown columns existed has
+ * `total > 0` with all five components still at their `0` default. Emitting
+ * that as a real breakdown would be a lie, so it's omitted entirely rather
+ * than shown as five zero bars.
+ */
+export function buildDnaMatch(
+  components: UserSimilarityComponents,
+  total: number,
+): DnaMatch | undefined {
+  const clampedTotal = clamp01(total);
+  const clamped = {
+    library: clamp01(components.library),
+    genre: clamp01(components.genre),
+    reviewRating: clamp01(components.reviewRating),
+    wishlist: clamp01(components.wishlist),
+    completion: clamp01(components.completion),
+  };
+  const allZero =
+    clamped.library === 0 &&
+    clamped.genre === 0 &&
+    clamped.reviewRating === 0 &&
+    clamped.wishlist === 0 &&
+    clamped.completion === 0;
+  if (clampedTotal > 0 && allZero) {
+    return undefined;
+  }
+
+  const percent = Math.round(clampedTotal * 100);
+  return {
+    percent,
+    band: dnaBandForPercent(percent),
+    dimensions: [
+      { key: 'library', score: Math.round(clamped.library * 100) },
+      { key: 'genre', score: Math.round(clamped.genre * 100) },
+      { key: 'reviewRating', score: Math.round(clamped.reviewRating * 100) },
+      { key: 'wishlist', score: Math.round(clamped.wishlist * 100) },
+      { key: 'completion', score: Math.round(clamped.completion * 100) },
+    ],
+  };
 }

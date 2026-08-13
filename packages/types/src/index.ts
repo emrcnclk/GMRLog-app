@@ -1323,9 +1323,23 @@ export interface SimilarGameResponse {
   score: number;
 }
 
+export type DnaBand = 'near-identical' | 'strong' | 'partial' | 'different';
+
+export interface DnaDimension {
+  key: 'library' | 'genre' | 'reviewRating' | 'wishlist' | 'completion';
+  score: number; // 0-100, rounded
+}
+
+export interface DnaMatch {
+  percent: number; // 0-100, rounded — what the UI shows
+  band: DnaBand;
+  dimensions: DnaDimension[];
+}
+
 export interface SimilarUserResponse {
   user: UserPublicResponse;
-  score: number;
+  score: number; // unchanged — 0-1, existing consumers keep working
+  match?: DnaMatch; // NEW, optional so nothing breaks
 }
 
 export interface RecommendedGameResponse {

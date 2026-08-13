@@ -7,10 +7,12 @@ import { toUserPublicResponse } from '../posts/mappers/post.mapper';
 import { toGameCardResponse } from './mappers/game-card.mapper';
 import { loadDiscoverGameRecords } from './mappers/load-discover-games';
 import {
+  buildDnaMatch,
   computeGameSimilarityScore,
   computeUserSimilarityBreakdown,
   type GameSimilaritySignals,
   type UserSimilarityBreakdown,
+  type UserSimilarityComponents,
   type UserSimilaritySignals,
 } from './scoring/similarity.engine';
 
@@ -78,11 +80,18 @@ export class SimilarityService {
       take: limit + blocked.size,
     });
 
-    let pairs: { otherId: string; score: number }[] =
+    let pairs: { otherId: string; score: number; components: UserSimilarityComponents }[] =
       cached.length > 0
         ? cached.map((row) => ({
             otherId: row.userAId === userId ? row.userBId : row.userAId,
             score: row.score,
+            components: {
+              library: row.library,
+              genre: row.genre,
+              reviewRating: row.reviewRating,
+              wishlist: row.wishlist,
+              completion: row.completion,
+            },
           }))
         : await this.computeAndCacheUserPairs(userId, limit + blocked.size);
 
@@ -100,7 +109,14 @@ export class SimilarityService {
       if (other === undefined) {
         return [];
       }
-      return [{ user: toUserPublicResponse(other), score: pair.score }];
+      const match = buildDnaMatch(pair.components, pair.score);
+      return [
+        {
+          user: toUserPublicResponse(other),
+          score: pair.score,
+          ...(match !== undefined ? { match } : {}),
+        },
+      ];
     });
   }
 
@@ -164,7 +180,7 @@ export class SimilarityService {
   private async computeAndCacheUserPairs(
     userId: string,
     limit: number,
-  ): Promise<{ otherId: string; score: number }[]> {
+  ): Promise<{ otherId: string; score: number; components: UserSimilarityComponents }[]> {
     const source = await this.loadUserSignals(userId);
     if (source === null) {
       return [];
@@ -234,7 +250,17 @@ export class SimilarityService {
       }),
     );
 
-    return top.map(({ otherId, score }) => ({ otherId, score }));
+    return top.map(({ otherId, score, breakdown }) => ({
+      otherId,
+      score,
+      components: {
+        library: breakdown.library,
+        genre: breakdown.genre,
+        reviewRating: breakdown.reviewRating,
+        wishlist: breakdown.wishlist,
+        completion: breakdown.completion,
+      },
+    }));
   }
 
   private async loadGameSignals(gameId: string): Promise<GameSimilaritySignals | null> {
