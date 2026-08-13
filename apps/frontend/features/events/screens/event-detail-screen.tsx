@@ -8,10 +8,23 @@ import { useConnectivityStore } from '../../../src/state/stores';
 import { EventErrorState } from '../components/event-error-state';
 import { EventHeader } from '../components/event-header';
 import { EventDetailSkeleton } from '../components/event-skeleton';
+import { RsvpPanel } from '../components/rsvp-panel';
+import { TournamentBracketGap } from '../components/tournament-bracket-gap';
+import { TournamentHeader } from '../components/tournament-header';
 import { eventKindLabel, formatEventWindow } from '../hooks/event-model';
 import { useEvent } from '../hooks/use-events';
 
-/** Event detail — GET /events/{id}. */
+/**
+ * Event detail — GET /events/{id}.
+ *
+ * §22's Tournament screen is this same detail view, branched on the event's
+ * real `kind`: `kind === 'tournament'` swaps the flat `EventHeader` for
+ * `TournamentHeader` (the 186px hero) and adds `TournamentBracketGap` in
+ * place of the bracket/metric-strip/watch-party section §22 draws, none of
+ * which has backend data yet — see that component's doc comment for the gap.
+ * Schedule/kind/linked-game/community and RSVP stay identical to every other
+ * event kind, since none of that is tournament-specific.
+ */
 export function EventDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -70,9 +83,15 @@ export function EventDetailScreen() {
   }
 
   const event = detail.event;
+  const isTournament = event.kind === 'tournament';
 
+  // `edges` drops 'left'/'right' here (unlike the three states above) because
+  // every block below already supplies its own `paddingHorizontal` — `EventHeader`
+  // internally, the rest explicitly — the same "own its own inset" pattern
+  // `CommunityHeader`/`GameHero` use. `TournamentHeader` needs the Screen to add
+  // none of its own, or §22's "full-bleed" hero would sit 16px shy of each edge.
   return (
-    <Screen edges={['left', 'right', 'bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Screen edges={['bottom']} style={{ paddingTop: 0, paddingBottom: 0 }}>
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -89,11 +108,22 @@ export function EventDetailScreen() {
           gap: theme.space('space.4'),
         }}
       >
-        <EventHeader event={event} onBack={onBack} onError={onParticipationError} />
+        {isTournament ? (
+          <TournamentHeader event={event} onBack={onBack} />
+        ) : (
+          <EventHeader event={event} onBack={onBack} onError={onParticipationError} />
+        )}
 
         {banner ? (
           <View style={{ paddingHorizontal: theme.space('space.4') }}>
             <ErrorBanner title={banner.title} description={banner.description} />
+          </View>
+        ) : null}
+
+        {isTournament ? (
+          <View style={{ paddingHorizontal: theme.space('space.4'), gap: theme.space('space.4') }}>
+            <RsvpPanel event={event} onError={onParticipationError} />
+            <TournamentBracketGap />
           </View>
         ) : null}
 

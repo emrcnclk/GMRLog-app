@@ -1,5 +1,7 @@
 export { EventCard } from './components/event-card';
 export { EventHeader } from './components/event-header';
+export { TournamentHeader } from './components/tournament-header';
+export { TournamentBracketGap } from './components/tournament-bracket-gap';
 export { ParticipationButton } from './components/participation-button';
 export { EventSkeleton, EventListSkeleton, EventDetailSkeleton } from './components/event-skeleton';
 export { EmptyEvents } from './components/empty-events';
