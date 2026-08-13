@@ -55,6 +55,7 @@ export function IntegrationsDashboardScreen() {
             displayName={displayName}
             verified={steam?.verified ?? dashboard.steamStatus?.integration?.verified ?? false}
             disabled={!isOnline}
+            isOnline={isOnline}
           />
 
           <SettingsSectionHeader

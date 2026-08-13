@@ -37,6 +37,14 @@ import { hashPassword, verifyPassword } from './password';
 import { PasswordResetStore } from './password-reset.store';
 
 /**
+ * Task 4.6 — shape-valid but unattached to any real credential, so
+ * `verifyPassword` always does genuine scrypt work and never matches. Used
+ * only to normalize login timing when no real `secretHash` exists to check
+ * against (see `SessionsService.login`).
+ */
+const DUMMY_SECRET_HASH = `${'a'.repeat(32)}:${'b'.repeat(128)}`;
+
+/**
  * Session credential flow (S1 §13.1 — `/sessions`). Login · register · refresh ·
  * logout · password recovery.
  */
@@ -58,12 +66,21 @@ export class SessionsService {
   async login(input: SessionCreateInput): Promise<SessionCredentialResponse> {
     const email = normalizeEmail(input.email);
     const credential = await this.credentials.findByTypeAndProviderRef('password', email);
-    if (credential?.secretHash == null) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
 
-    const valid = await verifyPassword(input.password, credential.secretHash);
-    if (!valid) {
+    // Task 4.6 — unknown email, wrong password, and an oauth-only account
+    // (a `type=password` credential with `secretHash: null`, planted purely
+    // as an email claim placeholder) already throw the identical message and
+    // status below; that alone isn't enough if the three take different
+    // amounts of wall-clock time to fail. Run the same scrypt work on every
+    // attempt — against the real hash when one exists, against a fixed dummy
+    // hash otherwise — so timing can't become a second oracle for account
+    // existence next to the message that's deliberately the same for all three.
+    const suppliedPassword = typeof input.password === 'string' ? input.password : '';
+    const valid = await verifyPassword(
+      suppliedPassword,
+      credential?.secretHash ?? DUMMY_SECRET_HASH,
+    );
+    if (credential?.secretHash == null || !valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 

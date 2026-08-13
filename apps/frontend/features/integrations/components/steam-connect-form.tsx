@@ -2,6 +2,7 @@ import { Button, Text, TextField, useTheme } from '@gmrlog/ui';
 import { memo, useState } from 'react';
 import { View } from 'react-native';
 
+import { mapAuthError } from '../../../src/auth/map-auth-error';
 import { isSteamIdOrUrlValid } from '../hooks/integrations-model';
 import { useConnectSteam, useDisconnectSteam } from '../hooks/use-integrations';
 import { useSteamConnectOpenId } from '../hooks/use-steam-connect-openid';
@@ -12,6 +13,7 @@ export interface SteamConnectFormProps {
   /** Task 4.5a — durable per-connection flag, not inferred from anything client-side. */
   verified?: boolean;
   disabled?: boolean;
+  isOnline?: boolean;
   onError?: (message: string) => void;
 }
 
@@ -20,6 +22,7 @@ function SteamConnectFormComponent({
   displayName,
   verified = false,
   disabled = false,
+  isOnline = true,
   onError,
 }: SteamConnectFormProps) {
   const theme = useTheme();
@@ -32,22 +35,25 @@ function SteamConnectFormComponent({
   const busy = connect.isPending || disconnect.isPending || openId.pending;
   const canSubmit = isSteamIdOrUrlValid(steamIdOrUrl) && !busy && !disabled;
 
+  // Task 4.6 — same `mapAuthError` the login/register screens use, so a
+  // forged Steam assertion, an expired connect state, or "already linked"
+  // reads with the same precise, non-leaking copy everywhere it can occur.
+  const reportError = (error: unknown) => {
+    const { description } = mapAuthError(error, isOnline);
+    setLocalError(description);
+    onError?.(description);
+  };
+
   const onConnectVerified = () => {
     setLocalError(null);
     openId
       .connect()
       .then((result) => {
         if (result.status === 'error') {
-          const message = result.error instanceof Error ? result.error.message : 'Connect failed';
-          setLocalError(message);
-          onError?.(message);
+          reportError(result.error);
         }
       })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Connect failed';
-        setLocalError(message);
-        onError?.(message);
-      });
+      .catch(reportError);
   };
 
   return (
@@ -85,11 +91,7 @@ function SteamConnectFormComponent({
             onPress={() => {
               setLocalError(null);
               disconnect.mutate(undefined, {
-                onError: (error) => {
-                  const message = error instanceof Error ? error.message : 'Disconnect failed';
-                  setLocalError(message);
-                  onError?.(message);
-                },
+                onError: reportError,
               });
             }}
           >
@@ -132,11 +134,7 @@ function SteamConnectFormComponent({
                 onSuccess: () => {
                   setSteamIdOrUrl('');
                 },
-                onError: (error) => {
-                  const message = error instanceof Error ? error.message : 'Connect failed';
-                  setLocalError(message);
-                  onError?.(message);
-                },
+                onError: reportError,
               });
             }}
           >

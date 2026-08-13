@@ -107,7 +107,13 @@ export class SteamConnectService {
       // disconnect path a real disconnect would, so nothing about its
       // imported data changes except the "live" flag.
       if (otherVerified || !verified) {
-        throw new ConflictException('Steam account already linked to another user');
+        // Task 4.6 — same code as `SteamConnectController`'s verified-path
+        // 409 (`STEAM_CONNECT_ALREADY_LINKED`), so `mapAuthError` gives both
+        // surfaces identical copy without depending on this message string.
+        throw new ConflictException({
+          code: 'STEAM_CONNECT_ALREADY_LINKED',
+          message: 'Steam account already linked to another user',
+        });
       }
 
       await this.prisma.userIntegration.update({
