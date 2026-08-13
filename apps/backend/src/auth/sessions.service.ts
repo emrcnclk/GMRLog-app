@@ -186,7 +186,8 @@ export class SessionsService {
     await this.logoutCurrent(userId);
   }
 
-  private async issueCredentialPair(userId: string): Promise<SessionCredentialResponse> {
+  /** Shared token-issuance step — also used by `OAuthController` once a user resolves. */
+  async issueCredentialPair(userId: string): Promise<SessionCredentialResponse> {
     const expiresAt = new Date(Date.now() + this.env.JWT_REFRESH_TTL_SECONDS * 1000);
     const session = await this.sessions.create({
       user: { connect: { id: userId } },

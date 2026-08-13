@@ -323,6 +323,38 @@ describe('SessionsService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('never authenticates a null-hash credential, regardless of the password supplied', async () => {
+    // OAuth-only accounts (4.2) plant a `type=password` credential with
+    // `secretHash: null` purely as an email claim placeholder — it must never
+    // double as a login method. This locks that `credential?.secretHash ==
+    // null` guard in `login` as a regression: any weakening of it (a falsy
+    // check that a `''` hash would also satisfy, a loose `==` against the
+    // supplied password, a "no hash means skip the check" branch) is an
+    // account takeover on precisely the accounts the placeholder defends.
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({
+        secretHash: null,
+        providerRef: 'oauth-only@example.com',
+        userId: 'user-1',
+      }),
+    );
+
+    const attempts = [
+      '',
+      'password',
+      'null',
+      'undefined',
+      null as unknown as string,
+      undefined as unknown as string,
+    ];
+    for (const password of attempts) {
+      await expect(
+        service.login({ email: 'oauth-only@example.com', password }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+  });
+
   it('registers a user and returns SessionCredentialResponse shape', async () => {
     const result = await service.register({
       email: 'New@Example.com',

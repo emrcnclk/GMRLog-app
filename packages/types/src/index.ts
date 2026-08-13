@@ -86,6 +86,19 @@ export type ConnectedProviderKind = 'steam' | 'discord';
  */
 export type OAuthProviderKind = 'google' | 'discord';
 
+/** D4.3 / OAUTH.md §2 — `POST /auth/oauth/:provider/start` response. */
+export interface OAuthStartResponse {
+  authorizeUrl: string;
+  state: string;
+}
+
+/** D4.3 / OAUTH.md §4 — machine-readable rejection reasons `/callback` can return. */
+export type OAuthCallbackErrorCode =
+  | 'OAUTH_STATE_INVALID'
+  | 'OAUTH_PROVIDER_UNAVAILABLE'
+  | 'OAUTH_EMAIL_CONFLICT'
+  | 'OAUTH_ACCOUNT_UNAVAILABLE';
+
 /** S1 §15.11 — connected account link status (closed set). */
 export type ConnectedAccountLinkStatus = 'connected' | 'disconnected' | 'expired';
 

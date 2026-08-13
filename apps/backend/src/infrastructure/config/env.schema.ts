@@ -67,6 +67,25 @@ export const backendEnvSchema = sharedEnvSchema
     SMTP_FROM: z.string().default('noreply@gmrlog.local'),
     PASSWORD_RESET_URL_BASE: z.string().url().default('http://localhost:3000/reset-password'),
     PASSWORD_RESET_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+
+    // -----------------------------------------------------------------------
+    // OAuth login providers (D4.3 / OAUTH.md). Empty client id/secret leaves
+    // the provider disabled — /start answers 503 rather than silently
+    // offering a flow that can never complete.
+    // -----------------------------------------------------------------------
+    GOOGLE_OAUTH_CLIENT_ID: z.string().default(''),
+    GOOGLE_OAUTH_CLIENT_SECRET: z.string().default(''),
+    /** Comma-separated allowlist a client-supplied `redirectUri` must match exactly. */
+    GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((uri) => uri.trim())
+          .filter((uri) => uri.length > 0),
+      ),
+    OAUTH_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
     SENTRY_DSN: z.string().default(''),
     LOG_FILE: z.string().default(''),
     METRICS_TOKEN: z.string().default(''),

@@ -99,6 +99,25 @@ export const passwordResetSchema = z
 
 export type PasswordResetInput = z.infer<typeof passwordResetSchema>;
 
+/** D4.3 / OAUTH.md §2 step 1 — `POST /auth/oauth/:provider/start` body. */
+export const oauthStartSchema = z
+  .object({
+    redirectUri: z.string().trim().url().max(2048),
+  })
+  .strict();
+
+export type OAuthStartInput = z.infer<typeof oauthStartSchema>;
+
+/** D4.3 / OAUTH.md §2 step 3 — `POST /auth/oauth/:provider/callback` body. */
+export const oauthCallbackSchema = z
+  .object({
+    state: z.string().trim().min(1).max(512),
+    code: z.string().trim().min(1).max(2048),
+  })
+  .strict();
+
+export type OAuthCallbackInput = z.infer<typeof oauthCallbackSchema>;
+
 /** S1 §14.18 BlockCreateRequest. */
 export const blockCreateSchema = z
   .object({

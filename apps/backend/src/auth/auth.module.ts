@@ -25,7 +25,10 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OptionalGuestGuard } from './guards/optional-guest.guard';
 import { TokenService } from './jwt/token.service';
+import { OAuthStateStore } from './oauth/oauth-state.store';
+import { OAuthController } from './oauth/oauth.controller';
 import { OAuthService } from './oauth/oauth.service';
+import { GoogleOAuthProvider } from './oauth/providers/google.provider';
 import { PasswordResetStore } from './password-reset.store';
 import { SessionsService } from './sessions.service';
 
@@ -47,15 +50,25 @@ import { SessionsService } from './sessions.service';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, OAuthController],
   providers: [
     TokenService,
     AuthService,
     SessionsService,
     OAuthService,
+    OAuthStateStore,
     PasswordResetStore,
     JwtAuthGuard,
     OptionalGuestGuard,
+    {
+      provide: GoogleOAuthProvider,
+      inject: [ENV],
+      useFactory: (env: BackendEnv) =>
+        new GoogleOAuthProvider({
+          clientId: env.GOOGLE_OAUTH_CLIENT_ID,
+          clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+        }),
+    },
     {
       provide: SESSION_REPOSITORY,
       inject: [PrismaService],

@@ -14,6 +14,7 @@ import { useConnectivityStore } from '../../src/state/stores';
 
 import { AUTH_BUTTON_HEIGHT } from './auth-layout';
 import { AuthShell } from './auth-shell';
+import { useOAuthSignIn } from './hooks/use-oauth-sign-in';
 import { OauthProviderButtons, type AuthOauthProvider } from './oauth-provider-buttons';
 
 /**
@@ -62,13 +63,33 @@ export function LoginScreen() {
     }
   });
 
-  const onOauthSelect = (provider: AuthOauthProvider) => {
-    const label = provider === 'google' ? 'Google' : provider === 'discord' ? 'Discord' : 'Steam';
-    setBanner({
-      kind: 'unavailable',
-      title: `Continue with ${label}`,
-      description: 'Provider sign-in is not available yet. Use email or create an account.',
-    });
+  const { signIn: signInWithOAuth, pending: oauthPending } = useOAuthSignIn();
+
+  const onOauthSelect = async (provider: AuthOauthProvider) => {
+    setBanner(null);
+    const result = await signInWithOAuth(provider);
+    switch (result.status) {
+      case 'success':
+      case 'cancelled':
+        // Cancelled is not a failure (OAUTH.md §4) — return silently to the screen.
+        return;
+      case 'unavailable': {
+        const label =
+          result.provider === 'discord'
+            ? 'Discord'
+            : result.provider === 'steam'
+              ? 'Steam'
+              : 'this provider';
+        setBanner({
+          kind: 'unavailable',
+          title: `Continue with ${label}`,
+          description: 'Provider sign-in is not available yet. Use email or create an account.',
+        });
+        return;
+      }
+      case 'error':
+        setBanner(mapAuthError(result.error, isOnline));
+    }
   };
 
   return (
@@ -97,7 +118,12 @@ export function LoginScreen() {
             Continue with email
           </Button>
 
-          <OauthProviderButtons disabled={busy} onSelect={onOauthSelect} />
+          <OauthProviderButtons
+            disabled={busy || oauthPending}
+            onSelect={(provider) => {
+              void onOauthSelect(provider);
+            }}
+          />
         </>
       ) : (
         <View style={{ gap: theme.space('space.3') }}>
