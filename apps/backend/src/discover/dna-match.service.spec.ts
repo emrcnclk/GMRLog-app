@@ -45,6 +45,7 @@ describe('DnaMatchService', () => {
     gamePlatform: { findMany: vi.fn() },
     game: { findMany: vi.fn() },
   };
+  const archetypes = { listForUser: vi.fn() };
 
   let service: DnaMatchService;
 
@@ -56,7 +57,8 @@ describe('DnaMatchService', () => {
     prisma.gamePlatform.findMany.mockResolvedValue([]);
     prisma.libraryEntry.groupBy.mockResolvedValue([]);
     prisma.review.groupBy.mockResolvedValue([]);
-    service = new DnaMatchService(prisma as never);
+    archetypes.listForUser.mockResolvedValue([]);
+    service = new DnaMatchService(prisma as never, archetypes as never);
   });
 
   it('throws when the viewer or the target is missing or soft-deleted', async () => {
@@ -77,7 +79,7 @@ describe('DnaMatchService', () => {
     expect(prisma.libraryEntry.findMany).not.toHaveBeenCalled();
   });
 
-  it('returns applicable: false for an organisation target without computing a breakdown', async () => {
+  it('returns applicable: false and traits: [] for an organisation target, without querying archetypes', async () => {
     prisma.user.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
       where.id === 'org-1'
         ? { ...sampleUser, id: 'org-1', accountKind: 'organisation' }
@@ -92,9 +94,10 @@ describe('DnaMatchService', () => {
     expect(result.traits).toEqual([]);
     expect(result.sharedGames).toEqual([]);
     expect(prisma.libraryEntry.findMany).not.toHaveBeenCalled();
+    expect(archetypes.listForUser).not.toHaveBeenCalled();
   });
 
-  it('reports the thin-data verdict when fewer than 3 shared games and no shared reviews', async () => {
+  it('reports the thin-data verdict and traits: [] when fewer than 3 shared games and no shared reviews', async () => {
     prisma.user.findUnique.mockResolvedValue(sampleUser);
     prisma.libraryEntry.findMany.mockImplementation(
       async ({ where }: { where: { userId: string; gameId?: { in: string[] } } }) => {
@@ -105,6 +108,10 @@ describe('DnaMatchService', () => {
       },
     );
     prisma.game.findMany.mockResolvedValue([sampleGame]);
+    // Even if both sides share badges, thin shared-game data must not surface them.
+    archetypes.listForUser.mockResolvedValue([
+      { key: 'collector', score: 90, awardedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
 
     const result = await service.getDnaMatch('viewer', 'user-1');
 
@@ -114,9 +121,10 @@ describe('DnaMatchService', () => {
     expect(result.verdict).toContain('Not enough shared library or reviews yet');
     expect(result.traits).toEqual([]);
     expect(result.sharedGames.map((game) => game.id)).toEqual(['g1']);
+    expect(archetypes.listForUser).not.toHaveBeenCalled();
   });
 
-  it('computes a real breakdown and verdict, with shared games ordered by viewer recency', async () => {
+  it('derives traits from archetypes shared by both sides, ranked by combined score and capped at 3', async () => {
     prisma.user.findUnique.mockResolvedValue(sampleUser);
     prisma.libraryEntry.findMany.mockImplementation(
       async ({ where }: { where: { userId: string; gameId?: { in: string[] } } }) => {
@@ -142,6 +150,23 @@ describe('DnaMatchService', () => {
       { ...sampleGame, id: 'g2' },
       { ...sampleGame, id: 'g3' },
     ]);
+    archetypes.listForUser.mockImplementation(async (userId: string) =>
+      userId === 'viewer'
+        ? [
+            { key: 'collector', score: 90, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'explorer', score: 80, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'reviewer', score: 70, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'tryhard', score: 60, awardedAt: '2026-01-01T00:00:00.000Z' },
+            // one-sided — not shared, must not appear
+            { key: 'social_gamer', score: 100, awardedAt: '2026-01-01T00:00:00.000Z' },
+          ]
+        : [
+            { key: 'collector', score: 90, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'explorer', score: 80, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'reviewer', score: 70, awardedAt: '2026-01-01T00:00:00.000Z' },
+            { key: 'tryhard', score: 60, awardedAt: '2026-01-01T00:00:00.000Z' },
+          ],
+    );
 
     const result = await service.getDnaMatch('viewer', 'user-1');
 
@@ -149,9 +174,36 @@ describe('DnaMatchService', () => {
     expect(result.percent).toBeGreaterThan(0);
     expect(result.dimensions).toHaveLength(5);
     expect(result.verdict.length).toBeGreaterThan(0);
-    // 5.5's own task, not this one — the endpoint ships honest, not fabricated.
-    expect(result.traits).toEqual([]);
+    // 4 shared badges exist (collector/explorer/reviewer/tryhard) — capped at 3, ranked by combined score.
+    expect(result.traits).toEqual(['Collector', 'Explorer', 'Reviewer']);
     // most-recently-touched by the viewer first
     expect(result.sharedGames.map((game) => game.id)).toEqual(['g3', 'g2', 'g1']);
+  });
+
+  it('returns traits: [] on the real path when nothing is shared', async () => {
+    prisma.user.findUnique.mockResolvedValue(sampleUser);
+    prisma.libraryEntry.findMany.mockImplementation(
+      async ({ where }: { where: { userId: string; gameId?: { in: string[] } } }) => {
+        if (where.gameId !== undefined) {
+          return [{ gameId: 'g1', updatedAt: new Date('2026-01-01T00:00:00.000Z') }];
+        }
+        return [
+          { gameId: 'g1', status: 'owned' },
+          { gameId: 'g2', status: 'owned' },
+          { gameId: 'g3', status: 'owned' },
+        ];
+      },
+    );
+    prisma.game.findMany.mockResolvedValue([{ ...sampleGame, id: 'g1' }]);
+    archetypes.listForUser.mockImplementation(async (userId: string) =>
+      userId === 'viewer'
+        ? [{ key: 'collector', score: 90, awardedAt: '2026-01-01T00:00:00.000Z' }]
+        : [{ key: 'explorer', score: 90, awardedAt: '2026-01-01T00:00:00.000Z' }],
+    );
+
+    const result = await service.getDnaMatch('viewer', 'user-1');
+
+    expect(result.applicable).toBe(true);
+    expect(result.traits).toEqual([]);
   });
 });

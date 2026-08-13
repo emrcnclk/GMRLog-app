@@ -2,12 +2,14 @@ import type { User } from '@gmrlog/database';
 import type { DnaMatchResponse } from '@gmrlog/types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { ArchetypeEngineService } from '../archetypes/archetype-engine.service';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { toUserPublicResponse } from '../posts/mappers/post.mapper';
 
 import { toGameCardResponse } from './mappers/game-card.mapper';
 import { loadDiscoverGameRecords } from './mappers/load-discover-games';
 import { loadUserSimilaritySignals } from './mappers/load-user-signals';
+import { buildDnaTraits } from './scoring/dna-traits';
 import { buildDnaVerdict, DNA_THIN_DATA_VERDICT } from './scoring/dna-verdict';
 import {
   buildDnaDimensions,
@@ -30,14 +32,18 @@ const ZERO_COMPONENTS: UserSimilarityComponents = {
 };
 
 /**
- * 5.4 (`BACKEND_CHANGES.md` §4) — `GET /users/:id/dna-match`. Breakdown +
- * verdict + shared games, on top of 5.1-5.3's engine. `traits` is always `[]`
- * here — reusing the archetype engine for real labels is 5.5's own task, not
- * bundled into this diff.
+ * 5.4-5.5 (`BACKEND_CHANGES.md` §4) — `GET /users/:id/dna-match`. Breakdown +
+ * verdict + shared games + traits, on top of 5.1-5.3's engine. `traits`
+ * reuses `ArchetypeEngineService` (5.5); it stays `[]` in both degenerate
+ * responses (`applicable: false`, thin shared data) — a trait on either would
+ * be a fabrication the same way a real percent would be.
  */
 @Injectable()
 export class DnaMatchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly archetypes: ArchetypeEngineService,
+  ) {}
 
   async getDnaMatch(viewerId: string, targetId: string): Promise<DnaMatchResponse> {
     const [, target] = await Promise.all([
@@ -99,6 +105,7 @@ export class DnaMatchService {
     }
 
     const percent = Math.round(clamp01(breakdown.total) * 100);
+    const traits = await this.loadSharedTraits(viewerId, targetId);
     return {
       user,
       applicable: true,
@@ -106,7 +113,7 @@ export class DnaMatchService {
       band: dnaBandForPercent(percent),
       dimensions,
       verdict: buildDnaVerdict(components),
-      traits: [],
+      traits,
       sharedGames,
     };
   }
@@ -133,6 +140,15 @@ export class DnaMatchService {
     if (block !== null) {
       throw new NotFoundException('User not found');
     }
+  }
+
+  /** 5.5: shared-badge traits, computed only on the real (non-thin) path. */
+  private async loadSharedTraits(viewerId: string, targetId: string): Promise<string[]> {
+    const [viewerArchetypes, targetArchetypes] = await Promise.all([
+      this.archetypes.listForUser(viewerId),
+      this.archetypes.listForUser(targetId),
+    ]);
+    return buildDnaTraits(viewerArchetypes, targetArchetypes);
   }
 
   /**

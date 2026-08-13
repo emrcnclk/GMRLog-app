@@ -1,6 +1,7 @@
 import { PrismaCommunityMemberRepository, PrismaDiscoverRepository } from '@gmrlog/database';
 import { Module } from '@nestjs/common';
 
+import { ArchetypesModule } from '../archetypes/archetypes.module';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
@@ -21,7 +22,7 @@ import { TrendingService } from './trending.service';
  * repositories + deterministic scoring services.
  */
 @Module({
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, ArchetypesModule],
   controllers: [DiscoverController, DnaMatchController],
   providers: [
     {
