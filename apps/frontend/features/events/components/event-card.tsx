@@ -1,5 +1,5 @@
 import type { EventResponse } from '@gmrlog/types';
-import { Text, pressableMotionStyle, useReduceMotion, useTheme } from '@gmrlog/ui';
+import { Text, pressableMotionStyle, usePulseOpacity, useReduceMotion, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -31,16 +31,20 @@ const LIVE_DOT_SIZE = 7;
  * as 3.1's `holderPercent`: a denormalized `communityName` and an
  * `attendeeCount` on `EventResponse` would let this row match §21 in full.
  *
- * **The dot doesn't pulse.** `Animated.timing` driving `interpolate(transform)`
- * never advances on this app's web build (CLAUDE.md's platform traps); this
- * renders the dot at its settled, visible state on both platforms, same as
- * `ActiveNowRail`'s identical dot.
+ * **The dot pulses, off `opacity` and a plain re-render.** CLAUDE.md's trap is
+ * specific — `Animated.timing` driving `interpolate(transform)` never advances
+ * on this build, while plain re-renders still do. `usePulseOpacity` drives
+ * `opacity` from `setState` on an interval and touches no part of `Animated`,
+ * so it advances identically on native and web. Reduce-motion holds it at its
+ * settled, visible state. (`ActiveNowRail`'s dot still renders frozen; it can
+ * adopt this hook, but retrofitting it is not this task's change.)
  */
 function EventCardComponent({ event, onPress }: EventCardProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const live = isEventLive(event);
   const time = eventRowTime(event.startsAt);
+  const pulse = usePulseOpacity(live, reduceMotion);
 
   const body = (
     <View
@@ -67,6 +71,7 @@ function EventCardComponent({ event, onPress }: EventCardProps) {
               height: LIVE_DOT_SIZE,
               borderRadius: theme.radius('radius.full'),
               backgroundColor: theme.color('color.accent.default'),
+              opacity: pulse,
             }}
           />
           <Text role="metaSm" color="color.accent.default">
@@ -86,11 +91,11 @@ function EventCardComponent({ event, onPress }: EventCardProps) {
             gap: theme.space('space.1'),
           }}
         >
-          <Text role="metaSm" color="color.text.tertiary">
-            {eventDatePlateMonth(event.startsAt)}
-          </Text>
           <Text role="title3" color="color.text.primary">
             {eventDatePlateDay(event.startsAt)}
+          </Text>
+          <Text role="metaSm" color="color.text.tertiary">
+            {eventDatePlateMonth(event.startsAt)}
           </Text>
         </View>
       )}

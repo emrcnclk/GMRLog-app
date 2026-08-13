@@ -29,6 +29,7 @@ export {
   releasePressScale,
   type PressableMotionStyle,
 } from './pressable';
+export { PULSE_TROUGH_OPACITY, PULSE_HALF_PERIOD_MS, pulseOpacity, usePulseOpacity } from './pulse';
 export {
   modalMotion,
   dialogExitMs,
