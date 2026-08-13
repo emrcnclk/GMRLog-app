@@ -128,6 +128,7 @@ function createFakeSessionRepository(seed: Session[] = []): FakeSessionRepositor
 interface FakeAuthCredentialRepository extends AuthCredentialRepository {
   rows: AuthCredential[];
   findPasswordByUserId(userId: string): Promise<AuthCredential | null>;
+  listByUserId(userId: string): Promise<AuthCredential[]>;
   updateSecretHash(id: string, secretHash: string): Promise<AuthCredential>;
 }
 
@@ -151,6 +152,7 @@ function createFakeAuthCredentialRepository(
         id: `cred-${seq}`,
         userId,
         type: data.type,
+        provider: (data.provider as AuthCredential['provider']) ?? null,
         providerRef: data.providerRef ?? null,
         secretHash: data.secretHash ?? null,
       });
@@ -159,6 +161,9 @@ function createFakeAuthCredentialRepository(
     },
     async findPasswordByUserId(userId) {
       return rows.find((row) => row.userId === userId && row.type === 'password') ?? null;
+    },
+    async listByUserId(userId) {
+      return rows.filter((row) => row.userId === userId);
     },
     async updateSecretHash(id, secretHash) {
       const index = rows.findIndex((row) => row.id === id);
@@ -487,5 +492,128 @@ describe('SessionsService', () => {
         handle: 'other_handle',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  describe('signInMethods', () => {
+    it('counts a real password as usable and a null-hash placeholder as not', async () => {
+      credentials.rows.push(
+        makeCredential({
+          id: 'cred-placeholder',
+          userId: 'user-1',
+          type: 'password',
+          secretHash: null,
+        }),
+      );
+
+      const result = await service.signInMethods('user-1');
+
+      expect(result).toEqual({
+        password: { usable: false },
+        google: { connected: false },
+        discord: { connected: false },
+        usableCount: 0,
+      });
+    });
+
+    it('reports connected providers and a total matching the disconnect guard', async () => {
+      credentials.rows.push(
+        makeCredential({
+          id: 'cred-password',
+          userId: 'user-1',
+          type: 'password',
+          secretHash: 'hashed',
+        }),
+        makeCredential({
+          id: 'cred-google',
+          userId: 'user-1',
+          type: 'oauth',
+          provider: 'google',
+          providerRef: 'google:sub-1',
+        }),
+      );
+
+      const result = await service.signInMethods('user-1');
+
+      expect(result).toEqual({
+        password: { usable: true },
+        google: { connected: true },
+        discord: { connected: false },
+        usableCount: 2,
+      });
+    });
+  });
+
+  describe('setPassword', () => {
+    it('fills in an existing null-hash placeholder without requiring an email', async () => {
+      credentials.rows.push(
+        makeCredential({
+          id: 'cred-placeholder',
+          userId: 'user-1',
+          type: 'password',
+          providerRef: 'player@example.com',
+          secretHash: null,
+        }),
+      );
+
+      await service.setPassword('user-1', { password: 'new-secure-pass-1' });
+
+      const updated = credentials.rows.find((row) => row.id === 'cred-placeholder');
+      expect(updated?.secretHash).not.toBeNull();
+      const valid = await verifyPassword('new-secure-pass-1', updated?.secretHash ?? '');
+      expect(valid).toBe(true);
+    });
+
+    it('rejects when a real password is already set', async () => {
+      credentials.rows.push(
+        makeCredential({
+          id: 'cred-password',
+          userId: 'user-1',
+          type: 'password',
+          secretHash: 'already-hashed',
+        }),
+      );
+
+      await expect(
+        service.setPassword('user-1', { password: 'new-secure-pass-1' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('requires an email when the caller has no password credential at all', async () => {
+      await expect(
+        service.setPassword('user-1', { password: 'new-secure-pass-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('creates a new password credential from a supplied email', async () => {
+      await service.setPassword('user-1', {
+        email: 'fresh@example.com',
+        password: 'new-secure-pass-1',
+      });
+
+      const created = credentials.rows.find(
+        (row) => row.type === 'password' && row.providerRef === 'fresh@example.com',
+      );
+      expect(created?.userId).toBe('user-1');
+      expect(created?.secretHash).not.toBeNull();
+    });
+
+    it('rejects a supplied email already registered to a password account', async () => {
+      credentials.rows.push(
+        makeCredential({
+          id: 'cred-other',
+          userId: 'user-2',
+          type: 'password',
+          providerRef: 'taken@example.com',
+          secretHash: 'hashed',
+        }),
+      );
+
+      await expect(
+        service.setPassword('user-1', {
+          email: 'taken@example.com',
+          password: 'new-secure-pass-1',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 });

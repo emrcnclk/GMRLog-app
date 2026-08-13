@@ -14,6 +14,7 @@ import { SettingsErrorState } from '../components/settings-error-state';
 import { SettingsScreenChrome } from '../components/settings-screen-chrome';
 import { SettingsSectionHeader } from '../components/settings-section-header';
 import { SettingsSkeleton } from '../components/settings-skeleton';
+import { SignInMethodsSection } from '../components/sign-in-methods-section';
 import { useConnectedAccounts } from '../hooks/use-connected-accounts';
 import { mapSettingsError } from '../model/settings-model';
 
@@ -36,6 +37,8 @@ export function AccountSettingsScreen() {
           router.push('/(app)/(tabs)/profile');
         }}
       />
+
+      <SignInMethodsSection />
 
       <SettingsSectionHeader title="Connected accounts" description="GET /connected-accounts" />
       {accounts.status === 'loading' ? <SettingsSkeleton /> : null}

@@ -14,6 +14,7 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { EmailModule } from '../infrastructure/email/email.module';
 import { RedisModule } from '../infrastructure/redis/redis.module';
 
+import { AccountSecurityController } from './account-security.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import {
@@ -53,7 +54,7 @@ import { SessionsService } from './sessions.service';
       }),
     }),
   ],
-  controllers: [AuthController, OAuthController],
+  controllers: [AuthController, OAuthController, AccountSecurityController],
   providers: [
     TokenService,
     AuthService,

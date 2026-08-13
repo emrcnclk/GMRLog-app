@@ -10,20 +10,31 @@ import {
   ConflictException,
   Controller,
   Inject,
+  NotFoundException,
   Param,
   Post,
   ServiceUnavailableException,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { ENV } from '../../infrastructure/config/config.module';
 import type { BackendEnv } from '../../infrastructure/config/env.schema';
 import { RateLimitClass } from '../../infrastructure/http/rate-limit.interceptor';
 import { ApiZodBody } from '../../infrastructure/openapi/swagger.decorators';
+import { CurrentUser } from '../decorators/current-user.decorator';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import type { RequestIdentity } from '../interfaces/identity';
+import { playerIdOf } from '../player-id';
 import { SessionsService } from '../sessions.service';
 
-import { OAuthCallbackDto, OAuthStartDto } from './dto/oauth.dto';
+import {
+  OAuthCallbackDto,
+  OAuthConnectCallbackDto,
+  OAuthConnectStartDto,
+  OAuthStartDto,
+} from './dto/oauth.dto';
 import { OAuthStateStore } from './oauth-state.store';
 import { OAuthService } from './oauth.service';
 import type { OAuthIdentity } from './oauth.types';
@@ -189,6 +200,138 @@ export class OAuthController {
           code: 'OAUTH_ACCOUNT_UNAVAILABLE',
           message: 'This account is no longer available.',
         });
+    }
+  }
+
+  /**
+   * Task 4.7 — Settings "Connect" entry. Authenticated, unlike `/start`:
+   * binds the minted `state` to the caller (`OAuthStateRecord.userId`) so
+   * `/connect/callback` attaches the resulting identity to *this* player,
+   * never to whichever account an email match would otherwise pick.
+   */
+  @Post(':provider/connect/start')
+  @RateLimitClass('auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  @ApiZodBody(oauthStartSchema)
+  async connectStart(
+    @CurrentUser() identity: RequestIdentity,
+    @Param('provider') provider: string,
+    @Body() body: OAuthConnectStartDto,
+  ): Promise<OAuthStartResponse> {
+    const adapter = this.resolveProvider(provider);
+    if (!adapter.isEnabled()) {
+      throw new ServiceUnavailableException({
+        code: 'OAUTH_PROVIDER_UNAVAILABLE',
+        message: `${adapter.displayName} sign-in is not configured`,
+      });
+    }
+    if (!adapter.allowedRedirectUris(this.env).includes(body.redirectUri)) {
+      throw new BadRequestException('redirectUri is not registered for this environment');
+    }
+
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = codeChallengeFromVerifier(codeVerifier);
+
+    await this.stateStore.put(
+      state,
+      {
+        provider: provider as OAuthProviderKind,
+        codeVerifier,
+        redirectUri: body.redirectUri,
+        createdAt: Date.now(),
+        userId: playerIdOf(identity),
+      },
+      this.env.OAUTH_STATE_TTL_SECONDS,
+    );
+
+    const authorizeUrl = adapter.buildAuthorizeUrl({
+      state,
+      codeChallenge,
+      redirectUri: body.redirectUri,
+    });
+
+    return { authorizeUrl, state };
+  }
+
+  /**
+   * Task 4.7 — completes a Settings "Connect" attempt. Public route, same as
+   * `/callback`: trust comes from the single-use `state` token, not from
+   * whatever session redeems it (mirrors `SteamConnectController.callback`'s
+   * reasoning, which additionally has a guard to compare against — this
+   * route has no equivalent second signal, so `record.userId` is the only
+   * source of truth for who this identity attaches to).
+   */
+  @Post(':provider/connect/callback')
+  @RateLimitClass('auth')
+  async connectCallback(
+    @Param('provider') provider: string,
+    @Body() body: OAuthConnectCallbackDto,
+  ): Promise<{ connected: true }> {
+    const adapter = this.resolveProvider(provider);
+
+    const record = await this.stateStore.consume(body.state);
+    if (record?.provider !== provider || record.userId === undefined) {
+      throw new UnauthorizedException({
+        code: 'OAUTH_STATE_INVALID',
+        message: 'That connection expired. Try again.',
+      });
+    }
+
+    const identity = await adapter.exchangeAndFetchIdentity({
+      code: body.code,
+      codeVerifier: record.codeVerifier,
+      redirectUri: record.redirectUri,
+    });
+
+    const result = await this.oauthService.connectLogin(record.userId, identity);
+    switch (result.outcome) {
+      case 'connected':
+      case 'already_connected':
+        return { connected: true };
+      case 'rejected':
+        if (result.reason === 'identity_in_use') {
+          throw new ConflictException({
+            code: 'OAUTH_IDENTITY_ALREADY_LINKED',
+            message: `This ${adapter.displayName} account is already connected to another player.`,
+          });
+        }
+        throw new UnauthorizedException({
+          code: 'OAUTH_ACCOUNT_UNAVAILABLE',
+          message: 'This account is no longer available.',
+        });
+    }
+  }
+
+  /**
+   * Task 4.7's other half of the Settings surface — refuses when this is the
+   * caller's last usable sign-in method (`OAuthService.disconnectLogin`).
+   */
+  @Post(':provider/disconnect')
+  @RateLimitClass('auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('bearer')
+  async disconnect(
+    @CurrentUser() identity: RequestIdentity,
+    @Param('provider') provider: string,
+  ): Promise<{ disconnected: true }> {
+    const adapter = this.resolveProvider(provider);
+    const result = await this.oauthService.disconnectLogin(
+      playerIdOf(identity),
+      provider as OAuthProviderKind,
+    );
+    switch (result.outcome) {
+      case 'disconnected':
+        return { disconnected: true };
+      case 'rejected':
+        if (result.reason === 'last_method') {
+          throw new ConflictException({
+            code: 'LAST_SIGN_IN_METHOD',
+            message: `${adapter.displayName} is your only sign-in method. Set a password or connect another provider first.`,
+          });
+        }
+        throw new NotFoundException(`${adapter.displayName} is not connected`);
     }
   }
 

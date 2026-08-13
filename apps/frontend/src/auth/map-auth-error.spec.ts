@@ -192,6 +192,74 @@ describe('mapAuthError', () => {
       expect(result.description).toBe(message);
     });
 
+    it('echoes the disconnect guard message naming the escape hatch (task 4.7)', () => {
+      const message =
+        'Google is your only sign-in method. Set a password or connect another provider first.';
+      const error = new FrontendApiError(
+        message,
+        409,
+        envelopeFor(409, 'LAST_SIGN_IN_METHOD', message),
+        'r1',
+      );
+      const result = mapAuthError(error, true);
+      expect(result.kind).toBe('validation');
+      expect(result.description).toBe(message);
+    });
+
+    it('names an oauth identity already connected to a different player without naming who', () => {
+      const error = new FrontendApiError(
+        'This Discord account is already connected to another player.',
+        409,
+        envelopeFor(
+          409,
+          'OAUTH_IDENTITY_ALREADY_LINKED',
+          'This Discord account is already connected to another player.',
+        ),
+        'r1',
+      );
+      const result = mapAuthError(error, true);
+      expect(result.kind).toBe('validation');
+      expect(result.description).not.toMatch(/@|user-\w+|player_/);
+    });
+
+    it('maps set-password errors (task 4.7)', () => {
+      expect(
+        mapAuthError(
+          new FrontendApiError(
+            'A password is already set for this account.',
+            409,
+            envelopeFor(409, 'PASSWORD_ALREADY_SET', 'A password is already set for this account.'),
+            'r1',
+          ),
+          true,
+        ).kind,
+      ).toBe('validation');
+
+      expect(
+        mapAuthError(
+          new FrontendApiError(
+            'An email is required to set a password.',
+            400,
+            envelopeFor(400, 'EMAIL_REQUIRED', 'An email is required to set a password.'),
+            'r1',
+          ),
+          true,
+        ).title,
+      ).toBe('Email required');
+
+      expect(
+        mapAuthError(
+          new FrontendApiError(
+            'Email is already registered.',
+            409,
+            envelopeFor(409, 'EMAIL_ALREADY_REGISTERED', 'Email is already registered.'),
+            'r1',
+          ),
+          true,
+        ).title,
+      ).toBe('Email already registered');
+    });
+
     it.each(['OAUTH_PROVIDER_UNAVAILABLE', 'STEAM_CONNECT_PROVIDER_UNAVAILABLE'])(
       'maps %s to an unavailable-provider message',
       (code) => {

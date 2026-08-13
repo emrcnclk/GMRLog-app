@@ -1,10 +1,17 @@
 import type { Prisma } from '@gmrlog/database';
+import type { OAuthProviderKind } from '@gmrlog/types';
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { countUsableSignInMethods } from '../sign-in-methods';
 
 import { baseHandleFromDisplayName } from './handle-generator';
-import type { OAuthIdentity, OAuthMatchResult } from './oauth.types';
+import type {
+  OAuthConnectResult,
+  OAuthDisconnectResult,
+  OAuthIdentity,
+  OAuthMatchResult,
+} from './oauth.types';
 
 const MAX_MATCH_ATTEMPTS = 3;
 const MAX_HANDLE_ATTEMPTS = 50;
@@ -65,6 +72,109 @@ export class OAuthService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Task 4.7 — link a verified provider identity to the caller's own,
+   * already-authenticated account. Deliberately not `resolveLogin`'s
+   * email-matching logic run with a known user: that would let connecting
+   * Google from Settings silently attach to a *different* account than the
+   * one the player is signed into, whenever the Google email happens to
+   * match some other row. This never looks at email at all — it only checks
+   * whether the exact provider identity is already claimed.
+   */
+  async connectLogin(userId: string, identity: OAuthIdentity): Promise<OAuthConnectResult> {
+    return this.attemptConnect(userId, identity, 0);
+  }
+
+  private async attemptConnect(
+    userId: string,
+    identity: OAuthIdentity,
+    retryCount: number,
+  ): Promise<OAuthConnectResult> {
+    try {
+      return await this.prisma.$transaction((tx) =>
+        this.connectWithinTransaction(tx, userId, identity),
+      );
+    } catch (error) {
+      if (retryCount < MAX_MATCH_ATTEMPTS - 1 && isUniqueViolation(error)) {
+        return this.attemptConnect(userId, identity, retryCount + 1);
+      }
+      throw error;
+    }
+  }
+
+  private async connectWithinTransaction(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    identity: OAuthIdentity,
+  ): Promise<OAuthConnectResult> {
+    const providerRef = `${identity.provider}:${identity.subject}`;
+
+    const existing = await tx.authCredential.findUnique({
+      where: { type_providerRef: { type: 'oauth', providerRef } },
+    });
+    if (existing !== null) {
+      return existing.userId === userId
+        ? { outcome: 'already_connected' }
+        : { outcome: 'rejected', reason: 'identity_in_use' };
+    }
+
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (user?.deletedAt !== null) {
+      return { outcome: 'rejected', reason: 'account_deleted' };
+    }
+
+    await tx.authCredential.create({
+      data: {
+        user: { connect: { id: userId } },
+        type: 'oauth',
+        provider: identity.provider,
+        providerRef,
+      },
+    });
+    await tx.accountLink.create({
+      data: {
+        user: { connect: { id: userId } },
+        provider: identity.provider,
+        purpose: 'connect',
+        status: 'completed',
+      },
+    });
+
+    return { outcome: 'connected' };
+  }
+
+  /**
+   * Task 4.7's last-sign-in-method guard. `SELECT ... FOR UPDATE` on the
+   * user row serializes concurrent disconnects for the same player so two
+   * requests racing to drop the last two methods can't both read "2 usable
+   * methods remain" and both proceed — the second one blocks until the first
+   * commits, then re-reads a world where only one is left.
+   */
+  async disconnectLogin(
+    userId: string,
+    provider: OAuthProviderKind,
+  ): Promise<OAuthDisconnectResult> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+
+      const credential = await tx.authCredential.findFirst({
+        where: { userId, type: 'oauth', provider },
+      });
+      if (credential === null) {
+        return { outcome: 'rejected', reason: 'not_connected' };
+      }
+
+      const all = await tx.authCredential.findMany({ where: { userId } });
+      const remaining = all.filter((row) => row.id !== credential.id);
+      if (countUsableSignInMethods(remaining) === 0) {
+        return { outcome: 'rejected', reason: 'last_method' };
+      }
+
+      await tx.authCredential.delete({ where: { id: credential.id } });
+      return { outcome: 'disconnected' };
+    });
   }
 
   private async matchWithinTransaction(

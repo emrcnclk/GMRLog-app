@@ -142,6 +142,32 @@ export const steamConnectCallbackSchema = z
 
 export type SteamConnectCallbackInput = z.infer<typeof steamConnectCallbackSchema>;
 
+/**
+ * D4.7 / OAUTH.md §5 — `POST /auth/password` body. `email` is required only
+ * when the caller has no existing `type=password` row at all (an
+ * unverified-email OAuth signup never got the `secretHash: null` claim
+ * placeholder `OAuthService` plants for a verified one) — `SessionsService.
+ * setPassword` is what decides whether it's needed.
+ */
+export const setPasswordSchema = z
+  .object({
+    email: emailSchema.optional(),
+    password: passwordPolicySchema,
+  })
+  .strict();
+
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;
+
+/** D4.7 / OAUTH.md §2 step 1 — `POST /auth/oauth/:provider/connect/start` body. */
+export const oauthConnectStartSchema = oauthStartSchema;
+
+export type OAuthConnectStartInput = z.infer<typeof oauthConnectStartSchema>;
+
+/** D4.7 / OAUTH.md §2 step 3 — `POST /auth/oauth/:provider/connect/callback` body. */
+export const oauthConnectCallbackSchema = oauthCallbackSchema;
+
+export type OAuthConnectCallbackInput = z.infer<typeof oauthConnectCallbackSchema>;
+
 /** S1 §14.18 BlockCreateRequest. */
 export const blockCreateSchema = z
   .object({

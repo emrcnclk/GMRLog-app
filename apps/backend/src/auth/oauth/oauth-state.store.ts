@@ -20,6 +20,14 @@ export interface OAuthStateRecord {
   codeVerifier: string;
   redirectUri: string;
   createdAt: number;
+  /**
+   * Task 4.7 — set only by `/connect/start`, never by `/start`. Binds this
+   * state to the authenticated player who requested the connect attempt, the
+   * same way `SteamConnectStateStore`'s record does, so `/connect/callback`
+   * can attach the resulting identity to *that* user without trusting
+   * whatever session happens to redeem the callback.
+   */
+  userId?: string;
 }
 
 export interface OAuthStateStorePort<T> {

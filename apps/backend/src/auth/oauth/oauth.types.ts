@@ -31,3 +31,27 @@ export type OAuthMatchResult =
   | { outcome: 'created'; user: User }
   | { outcome: 'rejected'; reason: 'unverified_email_conflict'; hasPassword: boolean }
   | { outcome: 'rejected'; reason: 'account_deleted' };
+
+/**
+ * Outcome of `OAuthService.connectLogin` (task 4.7 / OAUTH.md §5) — attaches
+ * a verified provider identity to the *already-authenticated* caller, never
+ * to whichever account an email happens to match. `identity_in_use` covers
+ * the one case that matters here: this exact provider identity is already an
+ * `AuthCredential` row for a *different* user, so linking it here would
+ * silently move a login method between two accounts.
+ */
+export type OAuthConnectResult =
+  | { outcome: 'connected' }
+  | { outcome: 'already_connected' }
+  | { outcome: 'rejected'; reason: 'identity_in_use' }
+  | { outcome: 'rejected'; reason: 'account_deleted' };
+
+/**
+ * Outcome of `OAuthService.disconnectLogin` — the task 4.7 last-method guard.
+ * `last_method` is the lockout case this whole task exists to prevent:
+ * removing this row would leave zero `isUsableSignInMethod` rows behind.
+ */
+export type OAuthDisconnectResult =
+  | { outcome: 'disconnected' }
+  | { outcome: 'rejected'; reason: 'not_connected' }
+  | { outcome: 'rejected'; reason: 'last_method' };

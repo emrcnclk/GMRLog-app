@@ -12,6 +12,8 @@ export interface AuthCredentialRepository {
     providerRef: string,
   ): Promise<AuthCredential | null>;
   findPasswordByUserId(userId: string): Promise<AuthCredential | null>;
+  /** All credential rows for a user — task 4.7's sign-in-methods projection and disconnect guard. */
+  listByUserId(userId: string): Promise<AuthCredential[]>;
   create(data: Prisma.AuthCredentialCreateInput): Promise<AuthCredential>;
   updateSecretHash(id: string, secretHash: string): Promise<AuthCredential>;
 }
@@ -32,6 +34,10 @@ export class PrismaAuthCredentialRepository implements AuthCredentialRepository 
     return this.db.authCredential.findFirst({
       where: { userId, type: 'password' },
     });
+  }
+
+  listByUserId(userId: string): Promise<AuthCredential[]> {
+    return this.db.authCredential.findMany({ where: { userId } });
   }
 
   create(data: Prisma.AuthCredentialCreateInput): Promise<AuthCredential> {

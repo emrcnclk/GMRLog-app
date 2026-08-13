@@ -6,13 +6,18 @@ import type {
   UserRepository,
   UserSettingsRepository,
 } from '@gmrlog/database';
-import type { SessionCredentialResponse } from '@gmrlog/types';
+import type {
+  OAuthProviderKind,
+  SessionCredentialResponse,
+  SignInMethodsResponse,
+} from '@gmrlog/types';
 import type {
   SessionCreateInput,
   SessionRefreshInput,
   SessionRegisterInput,
   PasswordForgotInput,
   PasswordResetInput,
+  SetPasswordInput,
 } from '@gmrlog/validators';
 import {
   BadRequestException,
@@ -35,6 +40,7 @@ import {
 import { TokenService } from './jwt/token.service';
 import { hashPassword, verifyPassword } from './password';
 import { PasswordResetStore } from './password-reset.store';
+import { countUsableSignInMethods } from './sign-in-methods';
 
 /**
  * Task 4.6 — shape-valid but unattached to any real credential, so
@@ -203,6 +209,91 @@ export class SessionsService {
     await this.logoutCurrent(userId);
   }
 
+  /**
+   * Task 4.7 — the Settings connect/disconnect surface's read model. Counts
+   * the same way the disconnect guard does (`countUsableSignInMethods`), so
+   * the UI and the guard it's disabling a button in front of can't disagree
+   * about how many usable methods a player has left.
+   */
+  async signInMethods(userId: string): Promise<SignInMethodsResponse> {
+    const credentials = await this.credentials.listByUserId(userId);
+    const password = credentials.find((row) => row.type === 'password') ?? null;
+    const connected = new Set<OAuthProviderKind>();
+    for (const row of credentials) {
+      if (row.type === 'oauth' && row.provider !== null) {
+        connected.add(row.provider);
+      }
+    }
+
+    return {
+      password: { usable: password?.secretHash != null },
+      google: { connected: connected.has('google') },
+      discord: { connected: connected.has('discord') },
+      usableCount: countUsableSignInMethods(credentials),
+    };
+  }
+
+  /**
+   * Task 4.7's escape hatch (OAUTH.md §5: "Prompt them to set a password
+   * first"). Either fills in the `secretHash: null` email-claim placeholder
+   * an OAuth signup already planted (`OAuthService` rule 4), or — for an
+   * account that never got one (an unverified-email OAuth signup) — creates
+   * a fresh `type=password` row from a supplied email. Never revokes the
+   * caller's own session the way `resetPassword` does: that revocation
+   * defends the "someone else has the reset link" scenario, which doesn't
+   * apply to an already-authenticated player adding a password to their own
+   * account.
+   */
+  async setPassword(userId: string, input: SetPasswordInput): Promise<void> {
+    const existing = await this.credentials.findPasswordByUserId(userId);
+    if (existing !== null && existing.secretHash !== null) {
+      throw new ConflictException({
+        code: 'PASSWORD_ALREADY_SET',
+        message: 'A password is already set for this account.',
+      });
+    }
+
+    const secretHash = await hashPassword(input.password);
+
+    if (existing !== null) {
+      await this.credentials.updateSecretHash(existing.id, secretHash);
+      return;
+    }
+
+    if (input.email === undefined) {
+      throw new BadRequestException({
+        code: 'EMAIL_REQUIRED',
+        message: 'An email is required to set a password.',
+      });
+    }
+
+    const email = normalizeEmail(input.email);
+    const taken = await this.credentials.findByTypeAndProviderRef('password', email);
+    if (taken !== null) {
+      throw new ConflictException({
+        code: 'EMAIL_ALREADY_REGISTERED',
+        message: 'Email is already registered.',
+      });
+    }
+
+    try {
+      await this.credentials.create({
+        user: { connect: { id: userId } },
+        type: 'password',
+        providerRef: email,
+        secretHash,
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException({
+          code: 'EMAIL_ALREADY_REGISTERED',
+          message: 'Email is already registered.',
+        });
+      }
+      throw error;
+    }
+  }
+
   /** Shared token-issuance step — also used by `OAuthController` once a user resolves. */
   async issueCredentialPair(userId: string): Promise<SessionCredentialResponse> {
     const expiresAt = new Date(Date.now() + this.env.JWT_REFRESH_TTL_SECONDS * 1000);
@@ -222,4 +313,13 @@ export class SessionsService {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  );
 }

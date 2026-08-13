@@ -1,18 +1,27 @@
 import {
   BadRequestException,
   ConflictException,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseBackendEnv } from '../../infrastructure/config/env.schema';
+import type { AuthenticatedIdentity } from '../interfaces/identity';
 
 import { MemoryOAuthStateStore } from './oauth-state.store';
 import { OAuthController } from './oauth.controller';
-import type { OAuthIdentity, OAuthMatchResult } from './oauth.types';
+import type {
+  OAuthConnectResult,
+  OAuthDisconnectResult,
+  OAuthIdentity,
+  OAuthMatchResult,
+} from './oauth.types';
 import { DiscordOAuthError } from './providers/discord.provider';
 import { GoogleOAuthError } from './providers/google.provider';
+
+const CALLER: AuthenticatedIdentity = { class: 'player', userId: 'user-1' };
 
 const ALLOWED_REDIRECT_URI = 'https://app.gmrlog.test/oauth/callback';
 
@@ -86,7 +95,11 @@ describe('OAuthController', () => {
   let stateStore: MemoryOAuthStateStore;
   let google: ReturnType<typeof createFakeGoogleProvider>;
   let discord: ReturnType<typeof createFakeDiscordProvider>;
-  let oauthService: { resolveLogin: ReturnType<typeof vi.fn> };
+  let oauthService: {
+    resolveLogin: ReturnType<typeof vi.fn>;
+    connectLogin: ReturnType<typeof vi.fn>;
+    disconnectLogin: ReturnType<typeof vi.fn>;
+  };
   let sessions: { issueCredentialPair: ReturnType<typeof vi.fn> };
   let controller: OAuthController;
 
@@ -94,7 +107,7 @@ describe('OAuthController', () => {
     stateStore = new MemoryOAuthStateStore();
     google = createFakeGoogleProvider();
     discord = createFakeDiscordProvider();
-    oauthService = { resolveLogin: vi.fn() };
+    oauthService = { resolveLogin: vi.fn(), connectLogin: vi.fn(), disconnectLogin: vi.fn() };
     sessions = {
       issueCredentialPair: vi.fn(async (userId: string) => ({
         accessToken: `access-${userId}`,
@@ -409,6 +422,107 @@ describe('OAuthController', () => {
             message: expect.stringContaining('connect Discord'),
           }),
         },
+      );
+    });
+  });
+
+  describe('connectStart / connectCallback (task 4.7)', () => {
+    it('binds the minted state to the authenticated caller', async () => {
+      const { state } = await controller.connectStart(CALLER, 'google', {
+        redirectUri: ALLOWED_REDIRECT_URI,
+      });
+
+      const record = await stateStore.consume(state);
+      expect(record).toMatchObject({ provider: 'google', userId: 'user-1' });
+    });
+
+    it('rejects a connect callback whose state was minted by plain /start (no bound userId)', async () => {
+      const { state } = await controller.start('google', { redirectUri: ALLOWED_REDIRECT_URI });
+
+      await expect(
+        controller.connectCallback('google', { state, code: 'code-1' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('attaches the resulting identity to the bound caller, never a login-matched account', async () => {
+      oauthService.connectLogin.mockResolvedValue({
+        outcome: 'connected',
+      } satisfies OAuthConnectResult);
+      const { state } = await controller.connectStart(CALLER, 'google', {
+        redirectUri: ALLOWED_REDIRECT_URI,
+      });
+
+      const result = await controller.connectCallback('google', { state, code: 'code-1' });
+
+      expect(result).toEqual({ connected: true });
+      expect(oauthService.connectLogin).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ provider: 'google', subject: 'sub-1' }),
+      );
+    });
+
+    it('treats already_connected as a successful no-op', async () => {
+      oauthService.connectLogin.mockResolvedValue({
+        outcome: 'already_connected',
+      } satisfies OAuthConnectResult);
+      const { state } = await controller.connectStart(CALLER, 'google', {
+        redirectUri: ALLOWED_REDIRECT_URI,
+      });
+
+      const result = await controller.connectCallback('google', { state, code: 'code-1' });
+
+      expect(result).toEqual({ connected: true });
+    });
+
+    it('maps identity_in_use to 409', async () => {
+      oauthService.connectLogin.mockResolvedValue({
+        outcome: 'rejected',
+        reason: 'identity_in_use',
+      } satisfies OAuthConnectResult);
+      const { state } = await controller.connectStart(CALLER, 'google', {
+        redirectUri: ALLOWED_REDIRECT_URI,
+      });
+
+      await expect(
+        controller.connectCallback('google', { state, code: 'code-1' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('disconnect (task 4.7 last-sign-in-method guard)', () => {
+    it('disconnects when the guard allows it', async () => {
+      oauthService.disconnectLogin.mockResolvedValue({
+        outcome: 'disconnected',
+      } satisfies OAuthDisconnectResult);
+
+      const result = await controller.disconnect(CALLER, 'google');
+
+      expect(result).toEqual({ disconnected: true });
+      expect(oauthService.disconnectLogin).toHaveBeenCalledWith('user-1', 'google');
+    });
+
+    it('maps the last-method guard rejection to 409 with actionable copy', async () => {
+      oauthService.disconnectLogin.mockResolvedValue({
+        outcome: 'rejected',
+        reason: 'last_method',
+      } satisfies OAuthDisconnectResult);
+
+      await expect(controller.disconnect(CALLER, 'google')).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'LAST_SIGN_IN_METHOD',
+          message: expect.stringContaining('Set a password'),
+        }),
+      });
+    });
+
+    it('maps not_connected to 404', async () => {
+      oauthService.disconnectLogin.mockResolvedValue({
+        outcome: 'rejected',
+        reason: 'not_connected',
+      } satisfies OAuthDisconnectResult);
+
+      await expect(controller.disconnect(CALLER, 'google')).rejects.toBeInstanceOf(
+        NotFoundException,
       );
     });
   });

@@ -42,6 +42,11 @@ interface FakeDb {
     findUnique(args: {
       where: { type_providerRef: { type: string; providerRef: string } };
     }): Promise<FakeCredential | null>;
+    findFirst(args: {
+      where: { userId: string; type: string; provider?: string };
+    }): Promise<FakeCredential | null>;
+    findMany(args: { where: { userId: string } }): Promise<FakeCredential[]>;
+    delete(args: { where: { id: string } }): Promise<FakeCredential>;
     create(args: {
       data: {
         user: { connect: { id: string } };
@@ -62,6 +67,7 @@ interface FakeDb {
       };
     }): Promise<FakeAccountLink>;
   };
+  $queryRaw(strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
   $transaction<T>(fn: (tx: FakeDb) => Promise<T>): Promise<T>;
 }
 
@@ -109,6 +115,25 @@ function createFakeDb() {
         const { type, providerRef } = where.type_providerRef;
         return credentials.find((c) => c.type === type && c.providerRef === providerRef) ?? null;
       },
+      async findFirst({ where }) {
+        return (
+          credentials.find(
+            (c) =>
+              c.userId === where.userId &&
+              c.type === where.type &&
+              (where.provider === undefined || c.provider === where.provider),
+          ) ?? null
+        );
+      },
+      async findMany({ where }) {
+        return credentials.filter((c) => c.userId === where.userId);
+      },
+      async delete({ where }) {
+        const index = credentials.findIndex((c) => c.id === where.id);
+        if (index < 0) throw new Error(`credential ${where.id} not found`);
+        const [row] = credentials.splice(index, 1);
+        return row!;
+      },
       async create({ data }) {
         if (
           data.providerRef !== null &&
@@ -143,6 +168,11 @@ function createFakeDb() {
         return row;
       },
     },
+    async $queryRaw() {
+      // `disconnectLogin`'s row lock — no real concurrency to serialize
+      // against in-memory, so this is a no-op the tests don't depend on.
+      return [];
+    },
     async $transaction<T>(fn: (tx: FakeDb) => Promise<T>): Promise<T> {
       // A thrown error must undo only *this attempt's own* writes — real
       // Postgres rolls back the transaction, and OAuthService's race-retry
@@ -164,6 +194,9 @@ function createFakeDb() {
         },
         authCredential: {
           findUnique: db.authCredential.findUnique,
+          findFirst: db.authCredential.findFirst,
+          findMany: db.authCredential.findMany,
+          delete: db.authCredential.delete,
           create: async (args) => {
             const row = await db.authCredential.create(args);
             createdCredentialIds.push(row.id);
@@ -177,6 +210,7 @@ function createFakeDb() {
             return row;
           },
         },
+        $queryRaw: db.$queryRaw,
         $transaction: db.$transaction,
       };
 
@@ -444,6 +478,174 @@ describe('OAuthService', () => {
 
     expect(result.outcome).toBe('signed_in');
     expect(fake.users.size).toBe(1);
+  });
+
+  describe('connectLogin', () => {
+    it('attaches a verified identity to the caller, not to whoever the email would have matched', async () => {
+      const caller = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      const other = await fake.db.user.create({
+        data: { handle: 'zeynep', displayName: 'Zeynep' },
+      });
+      // A different user already claimed this email via password signup —
+      // resolveLogin's rule 2 would link there; connectLogin must not.
+      fake.credentials.push({
+        id: 'cred-other-password',
+        userId: other.id,
+        type: 'password',
+        provider: null,
+        providerRef: 'player@example.com',
+        secretHash: 'hashed',
+      });
+
+      const result = await service.connectLogin(caller.id, makeIdentity());
+
+      expect(result).toEqual({ outcome: 'connected' });
+      const oauthCred = fake.credentials.find((c) => c.type === 'oauth');
+      expect(oauthCred).toMatchObject({ userId: caller.id, providerRef: 'google:sub-1' });
+      expect(fake.accountLinks).toEqual([
+        expect.objectContaining({ userId: caller.id, purpose: 'connect', status: 'completed' }),
+      ]);
+    });
+
+    it('is idempotent when the caller connects the same identity twice', async () => {
+      const caller = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      await service.connectLogin(caller.id, makeIdentity());
+
+      const result = await service.connectLogin(caller.id, makeIdentity());
+
+      expect(result).toEqual({ outcome: 'already_connected' });
+      expect(fake.credentials.filter((c) => c.type === 'oauth')).toHaveLength(1);
+    });
+
+    it('refuses to steal an identity already connected to a different account', async () => {
+      const owner = await fake.db.user.create({
+        data: { handle: 'zeynep', displayName: 'Zeynep' },
+      });
+      const caller = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      fake.credentials.push({
+        id: 'cred-owner',
+        userId: owner.id,
+        type: 'oauth',
+        provider: 'google',
+        providerRef: 'google:sub-1',
+        secretHash: null,
+      });
+
+      const result = await service.connectLogin(caller.id, makeIdentity());
+
+      expect(result).toEqual({ outcome: 'rejected', reason: 'identity_in_use' });
+      expect(fake.credentials).toHaveLength(1);
+    });
+  });
+
+  describe('disconnectLogin', () => {
+    it('refuses to disconnect the caller’s only usable sign-in method', async () => {
+      const user = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      fake.credentials.push({
+        id: 'cred-google',
+        userId: user.id,
+        type: 'oauth',
+        provider: 'google',
+        providerRef: 'google:sub-1',
+        secretHash: null,
+      });
+
+      const result = await service.disconnectLogin(user.id, 'google');
+
+      expect(result).toEqual({ outcome: 'rejected', reason: 'last_method' });
+      expect(fake.credentials).toHaveLength(1);
+    });
+
+    it('refuses when the only other credential is an oauth-signup placeholder (secretHash: null)', async () => {
+      const user = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      fake.credentials.push(
+        {
+          id: 'cred-google',
+          userId: user.id,
+          type: 'oauth',
+          provider: 'google',
+          providerRef: 'google:sub-1',
+          secretHash: null,
+        },
+        {
+          id: 'cred-placeholder',
+          userId: user.id,
+          type: 'password',
+          provider: null,
+          providerRef: 'player@example.com',
+          secretHash: null,
+        },
+      );
+
+      const result = await service.disconnectLogin(user.id, 'google');
+
+      expect(result).toEqual({ outcome: 'rejected', reason: 'last_method' });
+      expect(fake.credentials).toHaveLength(2);
+    });
+
+    it('allows disconnecting when a real password remains', async () => {
+      const user = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      fake.credentials.push(
+        {
+          id: 'cred-google',
+          userId: user.id,
+          type: 'oauth',
+          provider: 'google',
+          providerRef: 'google:sub-1',
+          secretHash: null,
+        },
+        {
+          id: 'cred-password',
+          userId: user.id,
+          type: 'password',
+          provider: null,
+          providerRef: 'player@example.com',
+          secretHash: 'hashed',
+        },
+      );
+
+      const result = await service.disconnectLogin(user.id, 'google');
+
+      expect(result).toEqual({ outcome: 'disconnected' });
+      expect(fake.credentials).toHaveLength(1);
+      expect(fake.credentials[0]?.type).toBe('password');
+    });
+
+    it('allows disconnecting when another oauth provider remains', async () => {
+      const user = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+      fake.credentials.push(
+        {
+          id: 'cred-google',
+          userId: user.id,
+          type: 'oauth',
+          provider: 'google',
+          providerRef: 'google:sub-1',
+          secretHash: null,
+        },
+        {
+          id: 'cred-discord',
+          userId: user.id,
+          type: 'oauth',
+          provider: 'discord',
+          providerRef: 'discord:sub-2',
+          secretHash: null,
+        },
+      );
+
+      const result = await service.disconnectLogin(user.id, 'google');
+
+      expect(result).toEqual({ outcome: 'disconnected' });
+      expect(fake.credentials).toHaveLength(1);
+      expect(fake.credentials[0]?.provider).toBe('discord');
+    });
+
+    it('reports not_connected when the provider was never linked', async () => {
+      const user = await fake.db.user.create({ data: { handle: 'kaan', displayName: 'Kaan' } });
+
+      const result = await service.disconnectLogin(user.id, 'google');
+
+      expect(result).toEqual({ outcome: 'rejected', reason: 'not_connected' });
+    });
   });
 });
 

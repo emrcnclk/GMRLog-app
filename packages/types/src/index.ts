@@ -117,6 +117,34 @@ export type SteamConnectErrorCode =
   | 'STEAM_CONNECT_VERIFICATION_FAILED'
   | 'STEAM_CONNECT_ALREADY_LINKED';
 
+/**
+ * D4.7 / OAUTH.md §5 — `GET /auth/sign-in-methods` response. The Settings
+ * connect/disconnect surface's read model: `usableCount` is exactly what
+ * `OAuthService.disconnectLogin`'s last-method guard checks against, so the
+ * UI can disable a Disconnect control in front of the same count the backend
+ * will refuse behind, without re-implementing the counting rule itself.
+ */
+export interface SignInMethodsResponse {
+  password: { usable: boolean };
+  google: { connected: boolean };
+  discord: { connected: boolean };
+  usableCount: number;
+}
+
+/** D4.7 — machine-readable rejection reasons `POST /auth/oauth/:provider/disconnect` can return. */
+export type OAuthDisconnectErrorCode = 'LAST_SIGN_IN_METHOD';
+
+/** D4.7 — machine-readable rejection reasons `POST /auth/oauth/:provider/connect/callback` can return. */
+export type OAuthConnectErrorCode =
+  | 'OAUTH_STATE_INVALID'
+  | 'OAUTH_PROVIDER_UNAVAILABLE'
+  | 'OAUTH_IDENTITY_ALREADY_LINKED'
+  | 'OAUTH_ACCOUNT_UNAVAILABLE';
+
+/** D4.7 — machine-readable rejection reasons `POST /auth/password` can return. */
+export type SetPasswordErrorCode =
+  'PASSWORD_ALREADY_SET' | 'EMAIL_REQUIRED' | 'EMAIL_ALREADY_REGISTERED';
+
 /** S1 §15.11 — connected account link status (closed set). */
 export type ConnectedAccountLinkStatus = 'connected' | 'disconnected' | 'expired';
 

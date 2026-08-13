@@ -155,6 +155,56 @@ export function mapAuthError(error: unknown, isOnline: boolean): AuthUiError {
       };
     }
 
+    // Task 4.7's disconnect guard (OAUTH.md §5: "refuse to disconnect the
+    // last remaining sign-in method"). The server's own message already
+    // names the provider and the escape hatch — echo it rather than
+    // replacing it with a generic one.
+    if (code === 'LAST_SIGN_IN_METHOD') {
+      return {
+        kind: 'validation',
+        title: 'This is your only sign-in method',
+        description:
+          error.message || 'Set a password or connect another provider first, then try again.',
+      };
+    }
+
+    // A Settings "Connect" attempt (task 4.7) whose provider identity is
+    // already an `AuthCredential` row on a *different* GMRLOG account. Same
+    // reasoning as `STEAM_CONNECT_ALREADY_LINKED` above — completing the
+    // provider's sign-in already proves ownership, so naming the conflict is
+    // safe.
+    if (code === 'OAUTH_IDENTITY_ALREADY_LINKED') {
+      return {
+        kind: 'validation',
+        title: 'Already connected elsewhere',
+        description: error.message || 'This account is already connected to another player.',
+      };
+    }
+
+    if (code === 'PASSWORD_ALREADY_SET') {
+      return {
+        kind: 'validation',
+        title: 'Password already set',
+        description: error.message || 'A password is already set for this account.',
+      };
+    }
+
+    if (code === 'EMAIL_REQUIRED') {
+      return {
+        kind: 'validation',
+        title: 'Email required',
+        description: error.message || 'An email is required to set a password.',
+      };
+    }
+
+    if (code === 'EMAIL_ALREADY_REGISTERED') {
+      return {
+        kind: 'validation',
+        title: 'Email already registered',
+        description: error.message || 'Try a different email address.',
+      };
+    }
+
     if (code !== undefined && PROVIDER_UNAVAILABLE_CODES.has(code)) {
       return {
         kind: 'unavailable',

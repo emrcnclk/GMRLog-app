@@ -52,6 +52,7 @@ import type {
   ReviewResponse,
   SearchHit,
   SettingsResponse,
+  SignInMethodsResponse,
   StatisticsHistoryResponse,
   SimilarGameResponse,
   SimilarUserResponse,
@@ -1281,6 +1282,51 @@ export class AxiosApiClient {
       body,
       skipUnauthorizedRecovery: true,
     });
+  }
+
+  /**
+   * `POST /auth/oauth/{provider}/connect/start` — Settings "Connect" entry
+   * (task 4.7 / OAUTH.md §5), authenticated unlike `oauthStart` above.
+   */
+  oauthConnectStart(
+    provider: 'google' | 'discord',
+    body: { redirectUri: string },
+  ): Promise<ApiEnvelope<{ authorizeUrl: string; state: string }>> {
+    return this.request<{ authorizeUrl: string; state: string }>({
+      method: 'POST',
+      path: `/auth/oauth/${provider}/connect/start`,
+      body,
+    });
+  }
+
+  /** `POST /auth/oauth/{provider}/connect/callback` — completes a Settings "Connect" attempt. */
+  oauthConnectCallback(
+    provider: 'google' | 'discord',
+    body: { state: string; code: string },
+  ): Promise<ApiEnvelope<{ connected: true }>> {
+    return this.request<{ connected: true }>({
+      method: 'POST',
+      path: `/auth/oauth/${provider}/connect/callback`,
+      body,
+      skipUnauthorizedRecovery: true,
+    });
+  }
+
+  /** `POST /auth/oauth/{provider}/disconnect` — guarded by the last-sign-in-method rule (task 4.7). */
+  disconnectOauthProvider(
+    provider: 'google' | 'discord',
+  ): Promise<ApiEnvelope<{ disconnected: true }>> {
+    return this.post<{ disconnected: true }>(`/auth/oauth/${provider}/disconnect`);
+  }
+
+  /** `GET /auth/sign-in-methods` — task 4.7's Settings read model. */
+  getSignInMethods(): Promise<ApiEnvelope<SignInMethodsResponse>> {
+    return this.get<SignInMethodsResponse>('/auth/sign-in-methods');
+  }
+
+  /** `POST /auth/password` — sets a password for an oauth-only account (task 4.7's escape hatch). */
+  setPassword(body: { email?: string; password: string }): Promise<ApiEnvelope<null>> {
+    return this.post<null>('/auth/password', body);
   }
 
   /** `POST /sessions` — login (S1 §13.1). */
