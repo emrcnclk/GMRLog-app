@@ -37,8 +37,9 @@ describe('MemoryOAuthStateStore', () => {
   });
 
   it('consumes a stored record exactly once', async () => {
-    await store.put('state-1', makeRecord(), 600);
-    expect(await store.consume('state-1')).toEqual(makeRecord());
+    const record = makeRecord();
+    await store.put('state-1', record, 600);
+    expect(await store.consume('state-1')).toEqual(record);
     // Replay: the same state can never be consumed twice.
     expect(await store.consume('state-1')).toBeNull();
   });
