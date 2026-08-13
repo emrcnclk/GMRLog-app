@@ -12,6 +12,7 @@ import type {
   CommunityMemberResponse,
   CommunityResponse,
   ConnectedAccountResponse,
+  CreatorProfileResponse,
   ContentVisibilityValue,
   ConversationResponse,
   CsvImportPreviewResponse,
@@ -1226,6 +1227,11 @@ export class AxiosApiClient {
   /** `GET /users/{userId}` — public profile card. */
   getUserPublic(userId: string): Promise<ApiEnvelope<UserPublicResponse>> {
     return this.get<UserPublicResponse>(`/users/${userId}`);
+  }
+
+  /** `GET /users/{userId}/creator` — Creator Profile surface (D3.24). */
+  getCreatorProfile(userId: string): Promise<ApiEnvelope<CreatorProfileResponse>> {
+    return this.get<CreatorProfileResponse>(`/users/${userId}/creator`);
   }
 
   /** `POST /sessions` — login (S1 §13.1). */

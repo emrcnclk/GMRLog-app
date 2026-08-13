@@ -106,6 +106,10 @@ export const queryKeys = {
     hero: (userId: string) => ['profile', 'hero', userId] as const,
     theme: () => ['profile', 'theme'] as const,
   },
+  /** D3.24 — Creator Profile surface (`GET /users/:id/creator`). */
+  creator: {
+    profile: (userId: string) => ['creator', 'profile', userId] as const,
+  },
   /** D3.28 — public profile reads (`GET /users/:id/*`). */
   users: {
     all: ['users'] as const,
