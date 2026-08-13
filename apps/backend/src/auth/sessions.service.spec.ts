@@ -61,6 +61,7 @@ function makeCredential(overrides: Partial<AuthCredential> = {}): AuthCredential
     id: 'cred-1',
     userId: 'user-1',
     type: 'password',
+    provider: null,
     providerRef: 'player@example.com',
     secretHash: null,
     createdAt: now,

@@ -79,6 +79,13 @@ export type IdentityClass = 'guest' | 'player';
 /** S2 §14 / S1 §15.11 — connected account provider (closed set). */
 export type ConnectedProviderKind = 'steam' | 'discord';
 
+/**
+ * D4.1 / OAUTH.md §1 — login-capable OAuth provider (closed set). Distinct
+ * from `ConnectedProviderKind`: Google and Discord issue a verifiable email
+ * and back an `auth_credentials` row, Steam does not and stays connection-only.
+ */
+export type OAuthProviderKind = 'google' | 'discord';
+
 /** S1 §15.11 — connected account link status (closed set). */
 export type ConnectedAccountLinkStatus = 'connected' | 'disconnected' | 'expired';
 
