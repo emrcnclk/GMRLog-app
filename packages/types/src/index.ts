@@ -99,6 +99,24 @@ export type OAuthCallbackErrorCode =
   | 'OAUTH_EMAIL_CONFLICT'
   | 'OAUTH_ACCOUNT_UNAVAILABLE';
 
+/**
+ * D4.5 — `POST /auth/connect/steam/start` response. Steam is a *connect*
+ * surface (attaches a verified SteamID to an already-authenticated user),
+ * never a login provider — see `OAuthProviderKind` above and `steam-connect.
+ * controller.ts`'s own doc comment for why it doesn't share `OAuthController`.
+ */
+export interface SteamConnectStartResponse {
+  authorizeUrl: string;
+  state: string;
+}
+
+/** D4.5 — machine-readable rejection reasons `/auth/connect/steam/callback` can return. */
+export type SteamConnectErrorCode =
+  | 'STEAM_CONNECT_PROVIDER_UNAVAILABLE'
+  | 'STEAM_CONNECT_STATE_INVALID'
+  | 'STEAM_CONNECT_VERIFICATION_FAILED'
+  | 'STEAM_CONNECT_ALREADY_LINKED';
+
 /** S1 §15.11 — connected account link status (closed set). */
 export type ConnectedAccountLinkStatus = 'connected' | 'disconnected' | 'expired';
 

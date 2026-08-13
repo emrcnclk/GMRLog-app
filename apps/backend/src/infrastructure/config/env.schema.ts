@@ -100,6 +100,21 @@ export const backendEnvSchema = sharedEnvSchema
           .filter((uri) => uri.length > 0),
       ),
     OAUTH_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+    // Steam connect (task 4.5 / OAUTH.md, deviates from the doc's login+
+    // email-capture design for Steam — see steam-connect.controller.ts).
+    // OpenID 2.0 has no client id/secret; an empty realm disables the
+    // provider the same way an empty Google/Discord client id does.
+    STEAM_OPENID_REALM: z.string().default(''),
+    /** Comma-separated allowlist a client-supplied `returnTo` must match exactly. */
+    STEAM_OPENID_ALLOWED_RETURN_URIS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((uri) => uri.trim())
+          .filter((uri) => uri.length > 0),
+      ),
     SENTRY_DSN: z.string().default(''),
     LOG_FILE: z.string().default(''),
     METRICS_TOKEN: z.string().default(''),

@@ -30,6 +30,8 @@ import { OAuthController } from './oauth/oauth.controller';
 import { OAuthService } from './oauth/oauth.service';
 import { DiscordOAuthProvider } from './oauth/providers/discord.provider';
 import { GoogleOAuthProvider } from './oauth/providers/google.provider';
+import { SteamOpenIdProvider } from './oauth/providers/steam-openid.provider';
+import { SteamConnectStateStore } from './oauth/steam-connect-state.store';
 import { PasswordResetStore } from './password-reset.store';
 import { SessionsService } from './sessions.service';
 
@@ -58,6 +60,7 @@ import { SessionsService } from './sessions.service';
     SessionsService,
     OAuthService,
     OAuthStateStore,
+    SteamConnectStateStore,
     PasswordResetStore,
     JwtAuthGuard,
     OptionalGuestGuard,
@@ -77,6 +80,14 @@ import { SessionsService } from './sessions.service';
         new DiscordOAuthProvider({
           clientId: env.DISCORD_OAUTH_CLIENT_ID,
           clientSecret: env.DISCORD_OAUTH_CLIENT_SECRET,
+        }),
+    },
+    {
+      provide: SteamOpenIdProvider,
+      inject: [ENV],
+      useFactory: (env: BackendEnv) =>
+        new SteamOpenIdProvider({
+          realm: env.STEAM_OPENID_REALM,
         }),
     },
     {
@@ -100,6 +111,13 @@ import { SessionsService } from './sessions.service';
       useFactory: (prisma: PrismaService) => new PrismaUserSettingsRepository(prisma),
     },
   ],
-  exports: [TokenService, AuthService, JwtAuthGuard, OptionalGuestGuard],
+  exports: [
+    TokenService,
+    AuthService,
+    JwtAuthGuard,
+    OptionalGuestGuard,
+    SteamOpenIdProvider,
+    SteamConnectStateStore,
+  ],
 })
 export class AuthModule {}

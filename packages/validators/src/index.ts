@@ -118,6 +118,30 @@ export const oauthCallbackSchema = z
 
 export type OAuthCallbackInput = z.infer<typeof oauthCallbackSchema>;
 
+/** D4.5 / OAUTH.md — `POST /auth/connect/steam/start` body. */
+export const steamConnectStartSchema = z
+  .object({
+    returnTo: z.string().trim().url().max(2048),
+  })
+  .strict();
+
+export type SteamConnectStartInput = z.infer<typeof steamConnectStartSchema>;
+
+/**
+ * D4.5 — `POST /auth/connect/steam/callback` body. Steam's OpenID 2.0 return
+ * carries no `code`/`state` pair the way OAuth2 does — everything (including
+ * the `state` this app minted at `/start`) rides on the querystring of the
+ * `return_to` URL Steam redirects back to, so the client forwards that
+ * querystring verbatim rather than picking fields out of it itself.
+ */
+export const steamConnectCallbackSchema = z
+  .object({
+    query: z.record(z.string()),
+  })
+  .strict();
+
+export type SteamConnectCallbackInput = z.infer<typeof steamConnectCallbackSchema>;
+
 /** S1 §14.18 BlockCreateRequest. */
 export const blockCreateSchema = z
   .object({

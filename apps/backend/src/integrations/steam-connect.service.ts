@@ -55,10 +55,37 @@ export class SteamConnectService {
       throw error;
     }
 
+    return this.upsertConnection({ userId, steamId64, vanity, verified: false });
+  }
+
+  /**
+   * Task 4.5 — the SteamID here has already been proven, via OpenID 2.0
+   * `check_authentication` (`SteamOpenIdProvider.verifyAssertion`), to
+   * belong to whoever completed the browser round-trip. Unlike `connect()`
+   * there is no user-supplied string to parse or vanity to resolve, and the
+   * write additionally records an `AccountLink(purpose: 'connect')` audit
+   * row — the proof-of-ownership event `connect()`'s self-reported path
+   * never had grounds to claim.
+   */
+  async connectVerified(userId: string, steamId64: string): Promise<UserIntegrationResponse> {
+    return this.upsertConnection({ userId, steamId64, vanity: null, verified: true });
+  }
+
+  private async upsertConnection(params: {
+    userId: string;
+    steamId64: string;
+    vanity: string | null;
+    verified: boolean;
+  }): Promise<UserIntegrationResponse> {
+    const { userId, steamId64, vanity, verified } = params;
+
     const summary = await this.steam.getPlayerSummary(steamId64);
     const displayName = summary?.personaName ?? steamId64;
     const now = new Date();
 
+    // One SteamID cannot back two players' connections — checked before
+    // every write, verified or not, so a verified attempt can't steal a
+    // SteamID a manual entry already claimed, or vice versa.
     const existingOther = await this.prisma.userIntegration.findFirst({
       where: {
         provider: 'steam',
@@ -71,6 +98,9 @@ export class SteamConnectService {
       throw new ConflictException('Steam account already linked to another user');
     }
 
+    // Re-connecting (including re-verifying) the same user's own Steam
+    // account is idempotent: the upsert below just refreshes the existing
+    // row rather than rejecting or duplicating it.
     const integration = await this.prisma.userIntegration.upsert({
       where: { userId_provider: { userId, provider: 'steam' } },
       create: {
@@ -132,6 +162,17 @@ export class SteamConnectService {
         linkedAt: now,
       },
     });
+
+    if (verified) {
+      await this.prisma.accountLink.create({
+        data: {
+          user: { connect: { id: userId } },
+          provider: 'steam',
+          purpose: 'connect',
+          status: 'completed',
+        },
+      });
+    }
 
     await this.prisma.activityItem.create({
       data: {

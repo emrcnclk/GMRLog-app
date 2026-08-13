@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { isSteamIdOrUrlValid } from '../hooks/integrations-model';
 import { useConnectSteam, useDisconnectSteam } from '../hooks/use-integrations';
+import { useSteamConnectOpenId } from '../hooks/use-steam-connect-openid';
 
 export interface SteamConnectFormProps {
   connected: boolean;
@@ -21,11 +22,30 @@ function SteamConnectFormComponent({
   const theme = useTheme();
   const connect = useConnectSteam();
   const disconnect = useDisconnectSteam();
+  const openId = useSteamConnectOpenId();
   const [steamIdOrUrl, setSteamIdOrUrl] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const busy = connect.isPending || disconnect.isPending;
+  const busy = connect.isPending || disconnect.isPending || openId.pending;
   const canSubmit = isSteamIdOrUrlValid(steamIdOrUrl) && !busy && !disabled;
+
+  const onConnectVerified = () => {
+    setLocalError(null);
+    openId
+      .connect()
+      .then((result) => {
+        if (result.status === 'error') {
+          const message = result.error instanceof Error ? result.error.message : 'Connect failed';
+          setLocalError(message);
+          onError?.(message);
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Connect failed';
+        setLocalError(message);
+        onError?.(message);
+      });
+  };
 
   return (
     <View
@@ -41,7 +61,7 @@ function SteamConnectFormComponent({
         Steam
       </Text>
       <Text role="caption" color="color.text.tertiary">
-        Connect with SteamID64, vanity URL, or profile URL.
+        Sign in with Steam to connect, or link an ID manually.
       </Text>
 
       {connected ? (
@@ -70,6 +90,18 @@ function SteamConnectFormComponent({
         </View>
       ) : (
         <View style={{ gap: theme.space('space.2') }}>
+          <Button
+            variant="primary"
+            accessibilityLabel="Connect with Steam"
+            disabled={busy || disabled}
+            loading={openId.pending}
+            onPress={onConnectVerified}
+          >
+            Connect with Steam
+          </Button>
+          <Text role="meta" color="color.text.tertiary">
+            Or link manually, without signing in
+          </Text>
           <TextField
             label="Steam ID or profile URL"
             value={steamIdOrUrl}
@@ -82,7 +114,7 @@ function SteamConnectFormComponent({
             accessibilityLabel="Steam ID or profile URL"
           />
           <Button
-            variant="primary"
+            variant="secondary"
             accessibilityLabel="Connect Steam"
             disabled={!canSubmit}
             loading={connect.isPending}

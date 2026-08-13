@@ -711,6 +711,29 @@ export class AxiosApiClient {
     return this.get<SteamProfileResponse>('/integrations/steam/profile');
   }
 
+  /**
+   * `POST /auth/connect/steam/start` — OpenID 2.0 connect entry (D4.5).
+   * Authenticated (attaches to the signed-in player), unlike `/auth/oauth/*`
+   * — Steam is a connect surface, never a login one (OAUTH.md §1).
+   */
+  steamConnectStart(body: {
+    returnTo: string;
+  }): Promise<ApiEnvelope<{ authorizeUrl: string; state: string }>> {
+    return this.post<{ authorizeUrl: string; state: string }>('/auth/connect/steam/start', body);
+  }
+
+  /**
+   * `POST /auth/connect/steam/callback` — the full querystring Steam
+   * redirected back with, forwarded verbatim (D4.5). No `code`/`state` pair
+   * to pick apart client-side the way OAuth2 has — see the backend's own
+   * doc comment on `steamConnectCallbackSchema`.
+   */
+  steamConnectCallback(body: {
+    query: Record<string, string>;
+  }): Promise<ApiEnvelope<UserIntegrationResponse>> {
+    return this.post<UserIntegrationResponse>('/auth/connect/steam/callback', body);
+  }
+
   /** `POST /integrations/:id/sync` — trigger sync job. */
   syncIntegration(
     id: string,

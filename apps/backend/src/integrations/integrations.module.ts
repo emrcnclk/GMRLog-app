@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AchievementsModule } from '../achievements/achievements.module';
 import { AuthModule } from '../auth/auth.module';
+import { SteamConnectController } from '../auth/oauth/steam-connect.controller';
 import { DiscoverModule } from '../discover/discover.module';
 import { MetadataModule } from '../games/metadata/metadata.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
@@ -30,7 +31,7 @@ import { SteamConnectService } from './steam-connect.service';
     // D3.25 — skeleton games created during sync are enqueued for enrichment.
     MetadataModule,
   ],
-  controllers: [IntegrationsController],
+  controllers: [IntegrationsController, SteamConnectController],
   providers: [
     {
       provide: STEAM_WEB_API_CLIENT,

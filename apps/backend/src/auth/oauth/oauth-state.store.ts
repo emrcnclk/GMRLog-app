@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
 import { ENV } from '../../infrastructure/config/config.module';
@@ -7,7 +7,7 @@ import { PLATFORM_REDIS } from '../../infrastructure/redis/redis.constants';
 
 import type { OAuthIdentity } from './oauth.types';
 
-const KEY_PREFIX = 'gmrlog:oauth-state:';
+const OAUTH_KEY_PREFIX = 'gmrlog:oauth-state:';
 
 /**
  * The pending-attempt record `/start` writes and `/callback` consumes
@@ -22,10 +22,10 @@ export interface OAuthStateRecord {
   createdAt: number;
 }
 
-export interface OAuthStateStorePort {
-  put(state: string, record: OAuthStateRecord, ttlSeconds: number): Promise<void>;
+export interface OAuthStateStorePort<T> {
+  put(state: string, record: T, ttlSeconds: number): Promise<void>;
   /** Atomic get-and-delete — a `state` value works exactly once, ever. */
-  consume(state: string): Promise<OAuthStateRecord | null>;
+  consume(state: string): Promise<T | null>;
 }
 
 /**
@@ -62,59 +62,63 @@ export interface OAuthStateStorePort {
  * `INTEGRATION_UNAVAILABLE`) for exactly this reason, so this doesn't add a
  * new failure mode to the auth surface, it reuses the one that already
  * exists there.
+ *
+ * Generic over the record shape (default `OAuthStateRecord`) and the Redis
+ * key prefix so a different single-use, state-bound flow can reuse the exact
+ * same mechanics under its own namespace rather than reimplementing GETDEL/
+ * TTL/malformed-payload handling — task 4.5's `SteamConnectStateStore` below
+ * is that reuse: Steam's OpenID 2.0 return shares none of OAuth2's protocol
+ * (no code, no PKCE verifier), but it needs the identical single-use,
+ * TTL-bound, unguessable-key primitive, so it subclasses this instead of
+ * inventing a second store.
  */
 @Injectable()
-export class OAuthStateStore implements OAuthStateStorePort {
+export class OAuthStateStore<
+  T extends { createdAt: number } = OAuthStateRecord,
+> implements OAuthStateStorePort<T> {
   constructor(
-    @Inject(PLATFORM_REDIS) private readonly redis: Redis,
-    @Inject(ENV) private readonly env: BackendEnv,
+    @Inject(PLATFORM_REDIS) protected readonly redis: Redis,
+    @Inject(ENV) protected readonly env: BackendEnv,
+    // Not a DI token — plain constructor default. `@Optional()` stops Nest
+    // from trying to resolve a provider for the bare `string` design type
+    // (it would otherwise look up a token literally named `String` and
+    // fail); resolving to `undefined` still lets the default apply, since
+    // JS default parameters trigger on an explicit `undefined` argument.
+    @Optional() private readonly keyPrefix: string = OAUTH_KEY_PREFIX,
   ) {}
 
-  async put(state: string, record: OAuthStateRecord, ttlSeconds: number): Promise<void> {
-    await this.redis.set(`${KEY_PREFIX}${state}`, JSON.stringify(record), 'EX', ttlSeconds);
+  async put(state: string, record: T, ttlSeconds: number): Promise<void> {
+    await this.redis.set(`${this.keyPrefix}${state}`, JSON.stringify(record), 'EX', ttlSeconds);
   }
 
-  async consume(state: string): Promise<OAuthStateRecord | null> {
-    const raw = await this.redis.getdel(`${KEY_PREFIX}${state}`);
+  async consume(state: string): Promise<T | null> {
+    const raw = await this.redis.getdel(`${this.keyPrefix}${state}`);
     if (raw === null) return null;
-    return parseRecord(raw);
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
   }
 }
 
 /** In-memory OAuth state store for unit tests. */
-export class MemoryOAuthStateStore implements OAuthStateStorePort {
-  private readonly rows = new Map<string, { record: OAuthStateRecord; expiresAt: number }>();
+export class MemoryOAuthStateStore<
+  T extends { createdAt: number } = OAuthStateRecord,
+> implements OAuthStateStorePort<T> {
+  private readonly rows = new Map<string, { record: T; expiresAt: number }>();
 
-  put(state: string, record: OAuthStateRecord, ttlSeconds: number): Promise<void> {
+  put(state: string, record: T, ttlSeconds: number): Promise<void> {
     this.rows.set(state, { record, expiresAt: Date.now() + ttlSeconds * 1000 });
     return Promise.resolve();
   }
 
-  consume(state: string): Promise<OAuthStateRecord | null> {
+  consume(state: string): Promise<T | null> {
     const row = this.rows.get(state);
     this.rows.delete(state);
     if (row === undefined || row.expiresAt <= Date.now()) {
       return Promise.resolve(null);
     }
     return Promise.resolve(row.record);
-  }
-}
-
-function parseRecord(raw: string): OAuthStateRecord | null {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'provider' in parsed &&
-      'codeVerifier' in parsed &&
-      'redirectUri' in parsed &&
-      'createdAt' in parsed
-    ) {
-      return parsed as OAuthStateRecord;
-    }
-    return null;
-  } catch {
-    return null;
   }
 }

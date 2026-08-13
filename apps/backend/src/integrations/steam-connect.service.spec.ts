@@ -183,6 +183,9 @@ function createPrismaMock() {
         upsert: vi.fn(async () => ({})),
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
+      accountLink: {
+        create: vi.fn(async () => ({})),
+      },
       activityItem: {
         create: vi.fn(async () => ({})),
       },
@@ -269,5 +272,49 @@ describe('SteamConnectService', () => {
 
   it('profile throws when not connected', async () => {
     await expect(service.profile('user-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  describe('connectVerified (task 4.5 — OpenID-verified path)', () => {
+    it('connects an already-proven SteamID64 directly, with no parsing/vanity step', async () => {
+      const result = await service.connectVerified('user-1', steam.fixtures.steamId64);
+      expect(result.externalRef).toBe(steam.fixtures.steamId64);
+      expect(result.status).toBe('connected');
+    });
+
+    it('writes an AccountLink(purpose: connect) audit row — connect() never does', async () => {
+      await service.connectVerified('user-1', steam.fixtures.steamId64);
+      expect(prisma.accountLink.create).toHaveBeenCalledWith({
+        data: {
+          user: { connect: { id: 'user-1' } },
+          provider: 'steam',
+          purpose: 'connect',
+          status: 'completed',
+        },
+      });
+
+      await service.connect('user-2', { steamIdOrUrl: '7656119' + '9'.repeat(10) });
+      expect(prisma.accountLink.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('still rejects a SteamID already linked to another user when verified', async () => {
+      await service.connectVerified('user-1', steam.fixtures.steamId64);
+      await expect(
+        service.connectVerified('user-2', steam.fixtures.steamId64),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('is idempotent: re-verifying the same user/SteamID updates rather than duplicates', async () => {
+      await service.connectVerified('user-1', steam.fixtures.steamId64);
+      await service.connectVerified('user-1', steam.fixtures.steamId64);
+      expect(integrations.size).toBe(1);
+    });
+
+    it('a manual connect() followed by disconnect() and a verified reconnect both leave one row, one active', async () => {
+      await service.connect('user-1', { steamIdOrUrl: steam.fixtures.steamId64 });
+      await service.disconnect('user-1');
+      const result = await service.connectVerified('user-1', steam.fixtures.steamId64);
+      expect(result.status).toBe('connected');
+      expect(integrations.size).toBe(1);
+    });
   });
 });
