@@ -1341,6 +1341,15 @@ export interface UserIntegrationResponse {
   connectedAt: string;
   gamesImported: number;
   achievementsSynced: number;
+  /**
+   * Task 4.5a — durable in the data, not just in whether an
+   * `AccountLink(purpose: 'connect')` row happens to exist. `true` only for
+   * a Steam connection proven via OpenID `check_authentication`
+   * (`SteamConnectService.connectVerified`); `false` for the self-reported
+   * `POST /integrations/steam/connect` path and for providers with no
+   * verification concept. Optional so pre-4.5a consumers keep working.
+   */
+  verified?: boolean;
 }
 
 export interface SteamStatusResponse {

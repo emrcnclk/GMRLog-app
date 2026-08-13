@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
 import {
+  isVerifiedMetadata,
   toSteamProfileResponse,
   toSteamStatusResponse,
   toUserIntegrationResponse,
@@ -84,8 +85,7 @@ export class SteamConnectService {
     const now = new Date();
 
     // One SteamID cannot back two players' connections — checked before
-    // every write, verified or not, so a verified attempt can't steal a
-    // SteamID a manual entry already claimed, or vice versa.
+    // every write, verified or not.
     const existingOther = await this.prisma.userIntegration.findFirst({
       where: {
         provider: 'steam',
@@ -95,7 +95,38 @@ export class SteamConnectService {
       },
     });
     if (existingOther !== null) {
-      throw new ConflictException('Steam account already linked to another user');
+      const otherVerified = isVerifiedMetadata(existingOther.metadata);
+
+      // Task 4.5a — the live exploit: someone else self-reported this
+      // SteamID through the unverified `connect()` path with no proof of
+      // ownership at all, and is now sitting in front of its real owner.
+      // A verified attempt (OpenID `check_authentication` already passed —
+      // by definition the caller *is* this SteamID) must never be blocked
+      // by a claim that was never proven. Evict the squatter's connection
+      // rather than orphaning it silently: it goes through the same
+      // disconnect path a real disconnect would, so nothing about its
+      // imported data changes except the "live" flag.
+      if (otherVerified || !verified) {
+        throw new ConflictException('Steam account already linked to another user');
+      }
+
+      await this.prisma.userIntegration.update({
+        where: { id: existingOther.id },
+        data: { status: 'disconnected', disconnectedAt: now },
+      });
+      await this.prisma.connectedAccount.updateMany({
+        where: { userId: existingOther.userId, provider: 'steam' },
+        data: { status: 'disconnected' },
+      });
+      await this.prisma.activityItem.create({
+        data: {
+          kind: 'integration_disconnected',
+          actorId: existingOther.userId,
+          objectType: 'user',
+          objectId: existingOther.id,
+          occurredAt: now,
+        },
+      });
     }
 
     // Re-connecting (including re-verifying) the same user's own Steam
@@ -112,6 +143,7 @@ export class SteamConnectService {
         syncType: 'manual',
         connectedAt: now,
         disconnectedAt: null,
+        metadata: { verified },
       },
       update: {
         externalRef: steamId64,
@@ -119,6 +151,7 @@ export class SteamConnectService {
         status: 'connected',
         connectedAt: now,
         disconnectedAt: null,
+        metadata: { verified },
       },
     });
 
@@ -254,6 +287,7 @@ export class SteamConnectService {
     syncType: 'manual' | 'daily' | 'weekly' | 'monthly' | 'automatic';
     lastSyncAt: Date | null;
     connectedAt: Date;
+    metadata?: unknown;
   }): Promise<UserIntegrationResponse> {
     const [gamesImported, achievementsSynced] = await Promise.all([
       this.prisma.externalGame.count({ where: { integrationId: integration.id } }),

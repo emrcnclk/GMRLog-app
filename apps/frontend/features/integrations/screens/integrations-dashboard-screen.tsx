@@ -53,6 +53,7 @@ export function IntegrationsDashboardScreen() {
           <SteamConnectForm
             connected={dashboard.steamConnected || steam !== null}
             displayName={displayName}
+            verified={steam?.verified ?? dashboard.steamStatus?.integration?.verified ?? false}
             disabled={!isOnline}
           />
 

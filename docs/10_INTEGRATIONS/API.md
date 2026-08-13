@@ -13,10 +13,11 @@
 | GET | `/integrations/history` |
 | POST | `/integrations/import/csv` |
 | GET | `/integrations/providers` |
-| POST | `/integrations/steam/connect` |
+| POST | `/integrations/steam/connect` | unverified — see `STEAM_IMPORT.md` "Verified vs. unverified" |
 | POST | `/integrations/steam/disconnect` |
 | GET | `/integrations/steam/status` |
 | GET | `/integrations/steam/profile` |
+| POST | `/auth/connect/steam/start`, `/callback` | verified, OpenID 2.0 (task 4.5) |
 
 ## S1 continuity
 

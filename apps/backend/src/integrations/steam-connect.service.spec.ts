@@ -18,6 +18,7 @@ function createPrismaMock() {
       lastSyncAt: Date | null;
       connectedAt: Date;
       disconnectedAt: Date | null;
+      metadata: unknown;
     }
   >();
   const profiles = new Map<
@@ -103,6 +104,7 @@ function createPrismaMock() {
               lastSyncAt: null,
               connectedAt: (create['connectedAt'] as Date) ?? new Date(),
               disconnectedAt: null,
+              metadata: create['metadata'] ?? null,
             };
             integrations.set(row.id, row);
             return row;
@@ -315,6 +317,57 @@ describe('SteamConnectService', () => {
       const result = await service.connectVerified('user-1', steam.fixtures.steamId64);
       expect(result.status).toBe('connected');
       expect(integrations.size).toBe(1);
+    });
+
+    it('marks a verified connection with a durable verified flag', async () => {
+      const result = await service.connectVerified('user-1', steam.fixtures.steamId64);
+      expect(result.verified).toBe(true);
+    });
+
+    it('marks a self-reported connect() as unverified', async () => {
+      const result = await service.connect('user-1', { steamIdOrUrl: steam.fixtures.steamId64 });
+      expect(result.verified).toBe(false);
+    });
+
+    describe('task 4.5a — squatted unverified claim never blocks the real owner', () => {
+      it("evicts a squatter's unverified connect() when the real owner verifies via OpenID", async () => {
+        await service.connect('user-2-squatter', { steamIdOrUrl: steam.fixtures.steamId64 });
+
+        const result = await service.connectVerified('user-1-real-owner', steam.fixtures.steamId64);
+
+        expect(result.status).toBe('connected');
+        expect(result.externalRef).toBe(steam.fixtures.steamId64);
+
+        const squatterStatus = await service.status('user-2-squatter');
+        expect(squatterStatus.connected).toBe(false);
+
+        const ownerStatus = await service.status('user-1-real-owner');
+        expect(ownerStatus.connected).toBe(true);
+        expect(ownerStatus.integration?.verified).toBe(true);
+      });
+
+      it('still rejects a second unverified connect() attempt against an existing unverified claim', async () => {
+        await service.connect('user-2-squatter', { steamIdOrUrl: steam.fixtures.steamId64 });
+        await expect(
+          service.connect('user-3-also-unverified', { steamIdOrUrl: steam.fixtures.steamId64 }),
+        ).rejects.toBeInstanceOf(ConflictException);
+      });
+
+      it('still rejects a verified attempt against an already-verified claim by someone else', async () => {
+        await service.connectVerified('user-1-real-owner', steam.fixtures.steamId64);
+        await expect(
+          service.connectVerified('user-2-impersonator', steam.fixtures.steamId64),
+        ).rejects.toBeInstanceOf(ConflictException);
+      });
+    });
+
+    it('has no path from unverified to verified other than passing OpenID verification', async () => {
+      // connect() is the only write path with no proof of ownership; it must
+      // never itself flip an existing connection's verified flag to true.
+      await service.connect('user-1', { steamIdOrUrl: steam.fixtures.steamId64 });
+      await service.connect('user-1', { steamIdOrUrl: steam.fixtures.steamId64 });
+      const status = await service.status('user-1');
+      expect(status.integration?.verified).toBe(false);
     });
   });
 });

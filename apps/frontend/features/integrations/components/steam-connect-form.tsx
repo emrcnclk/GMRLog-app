@@ -9,6 +9,8 @@ import { useSteamConnectOpenId } from '../hooks/use-steam-connect-openid';
 export interface SteamConnectFormProps {
   connected: boolean;
   displayName?: string | null;
+  /** Task 4.5a — durable per-connection flag, not inferred from anything client-side. */
+  verified?: boolean;
   disabled?: boolean;
   onError?: (message: string) => void;
 }
@@ -16,6 +18,7 @@ export interface SteamConnectFormProps {
 function SteamConnectFormComponent({
   connected,
   displayName,
+  verified = false,
   disabled = false,
   onError,
 }: SteamConnectFormProps) {
@@ -69,6 +72,11 @@ function SteamConnectFormComponent({
           <Text role="body" color="color.text.secondary">
             {displayName ? `Connected as ${displayName}` : 'Steam is connected'}
           </Text>
+          {verified ? null : (
+            <Text role="meta" color="color.text.tertiary">
+              Unverified — self-reported, not signed in via Steam
+            </Text>
+          )}
           <Button
             variant="secondary"
             accessibilityLabel="Disconnect Steam"
@@ -100,7 +108,7 @@ function SteamConnectFormComponent({
             Connect with Steam
           </Button>
           <Text role="meta" color="color.text.tertiary">
-            Or link manually, without signing in
+            Or link manually, without signing in — stays unverified
           </Text>
           <TextField
             label="Steam ID or profile URL"
