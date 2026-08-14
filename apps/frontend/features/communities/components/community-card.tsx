@@ -55,7 +55,12 @@ function CommunityCardComponent({ community, onPress }: CommunityCardProps) {
       style={({ pressed }) => [
         {
           borderRadius: theme.radius('radius.lg'),
-          borderWidth: 1,
+          // 8.3: the muted accent ring and the default hairline render as the
+          // same colour under the `neutral` accent (both resolve close to
+          // `rgba(0,0,0,0.10)`-on-white), so colour alone stopped carrying
+          // membership there. The width step is the geometry channel that
+          // survives monochrome; the colour still helps on a chromatic accent.
+          borderWidth: joined ? 2 : 1,
           // §13's one membership signal. The accent as an edge is the law's own
           // example of what it is for; it never fills the card behind content.
           borderColor: theme.color(joined ? 'color.accent.muted' : 'color.border.default'),

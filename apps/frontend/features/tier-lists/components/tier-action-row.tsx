@@ -40,7 +40,14 @@ export function TierActionRow({
         variant="secondary"
         accessibilityLabel={liked ? 'Unlike this tier list' : 'Like this tier list'}
         loading={likePending}
-        icon={<Heart size={15} color={liked ? likedColor : iconColor} strokeWidth={1.75} />}
+        icon={
+          <Heart
+            size={15}
+            color={liked ? likedColor : iconColor}
+            fill={liked ? likedColor : 'none'}
+            strokeWidth={1.75}
+          />
+        }
         onPress={onLike}
         style={{ flex: 1 }}
       >
