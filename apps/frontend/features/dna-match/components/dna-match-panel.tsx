@@ -22,7 +22,7 @@ import { GmrImage } from '../../../src/assets/gmr-image';
 import { useDnaMatch } from '../hooks/use-dna-match';
 
 import { DnaMatchRing } from './dna-match-ring';
-import { BAND_LABEL } from './dna-match-token';
+import { BAND_LABEL, dnaMatchAccessibilityPhrase } from './dna-match-token';
 
 export interface DnaMatchPanelProps {
   userId: string;
@@ -97,7 +97,7 @@ function DnaMatchHeader({ match, displayName }: { match: DnaMatchResponse; displ
     <View style={{ flexDirection: 'row', gap: theme.space('space.4'), alignItems: 'center' }}>
       <View
         accessible
-        accessibilityLabel={`${String(match.percent)} percent DNA match with ${displayName}, ${bandLabel.toLowerCase()}`}
+        accessibilityLabel={`${displayName}. ${dnaMatchAccessibilityPhrase(match)}`}
         style={{
           width: RING_SIZE,
           height: RING_SIZE,
@@ -327,7 +327,11 @@ export function DnaMatchPanel({
   if (match.percent === 0) {
     return (
       <PanelShell>
-        <EmptyState title={match.verdict} style={{ padding: 0 }} />
+        <EmptyState
+          title={BAND_LABEL[match.band]}
+          description={match.verdict}
+          style={{ padding: 0 }}
+        />
       </PanelShell>
     );
   }

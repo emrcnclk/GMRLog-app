@@ -55,6 +55,9 @@ export function AuthStepIndicator({ count, activeIndex, onSelect }: AuthStepIndi
       accessibilityRole="progressbar"
       accessibilityLabel={`Step ${String(activeIndex + 1)} of ${String(count)}`}
       accessibilityValue={{ min: 1, max: count, now: activeIndex + 1 }}
+      aria-valuemin={1}
+      aria-valuemax={count}
+      aria-valuenow={activeIndex + 1}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -95,6 +98,7 @@ export function AuthStepIndicator({ count, activeIndex, onSelect }: AuthStepIndi
             accessibilityRole="button"
             accessibilityLabel={`Go to step ${String(index + 1)} of ${String(count)}`}
             accessibilityState={{ selected: isActive }}
+            aria-selected={isActive}
             onPress={() => {
               onSelect(index);
             }}

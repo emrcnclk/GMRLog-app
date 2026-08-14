@@ -149,7 +149,11 @@ function ProfilePremiumHeroComponent({
             <ProgressBar
               value={level.points - level.levelFloor}
               target={level.nextLevelAt - level.levelFloor}
-              accessibilityLabel={`Level ${String(level.level)} progress`}
+              accessibilityLabel={`Level ${String(level.level)} progress: ${String(
+                level.points - level.levelFloor,
+              )} of ${String(level.nextLevelAt - level.levelFloor)} to level ${String(
+                level.level + 1,
+              )}`}
             />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text role="meta" color="color.text.tertiary">

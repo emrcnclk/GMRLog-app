@@ -69,6 +69,14 @@ export function ProgressBar({
         max: Math.max(0, target),
         now: Math.max(0, Math.min(value, target)),
       }}
+      // `accessibilityValue` alone never reaches the DOM on web (RNW's
+      // `createDOMProps` doesn't read the legacy prop name) — the `aria-*`
+      // spelling is what actually lands as `aria-valuenow`/min/max, and on
+      // native `View` folds it straight back into `accessibilityValue`
+      // itself, so this is additive, not a second source of truth.
+      aria-valuemin={0}
+      aria-valuemax={Math.max(0, target)}
+      aria-valuenow={Math.max(0, Math.min(value, target))}
       style={[
         {
           height,
