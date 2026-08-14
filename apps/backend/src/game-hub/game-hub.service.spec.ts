@@ -299,6 +299,19 @@ describe('GameHubService.listEvents', () => {
     const result = await service.listEvents('game-1', guest);
     expect(result[0]?.viewerParticipation).toBeNull();
   });
+
+  it('9.4 — reports attendeeCount (going/hosting only) and omits communityName for a gameless event', async () => {
+    // Fixture seeds event-1 with one 'hosting' participation and no communityId.
+    const result = await service.listEvents('game-1', guest);
+    expect(result[0]?.attendeeCount).toBe(1);
+    expect(result[0]?.communityName).toBeUndefined();
+  });
+
+  it('9.4 — reports 0 for an event with no attendees', async () => {
+    eventParticipations.rows.clear();
+    const result = await service.listEvents('game-1', guest);
+    expect(result[0]?.attendeeCount).toBe(0);
+  });
 });
 
 describe('GameHubService.listCommunities', () => {

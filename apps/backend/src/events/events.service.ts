@@ -1,5 +1,6 @@
 import type {
   CommunityMemberRepository,
+  CommunityRepository,
   Event,
   EventInviteRepository,
   EventParticipationRepository,
@@ -24,6 +25,7 @@ import { FeedFanoutPublisher } from '../infrastructure/jobs/feed-fanout.publishe
 
 import {
   EVENT_COMMUNITY_MEMBER_REPOSITORY,
+  EVENT_COMMUNITY_REPOSITORY,
   EVENT_GAME_REPOSITORY,
   EVENT_INVITE_REPOSITORY,
   EVENT_NOTIFICATION_REPOSITORY,
@@ -31,7 +33,11 @@ import {
   EVENT_REPOSITORY,
   EVENT_USER_REPOSITORY,
 } from './events.tokens';
-import { toEventParticipationSummary, toEventResponse } from './mappers/event.mapper';
+import {
+  loadEventResponseExtras,
+  toEventParticipationSummary,
+  toEventResponse,
+} from './mappers/event.mapper';
 
 const NOTIFICATION_KIND_EVENT_INVITE = 'event_invite';
 /** D3.24 NOTIFICATION_MATRIX — Looking for team / need players / hosting peers. */
@@ -62,6 +68,7 @@ export class EventsService {
     @Inject(EVENT_GAME_REPOSITORY) private readonly games: GameRepository,
     @Inject(EVENT_COMMUNITY_MEMBER_REPOSITORY)
     private readonly communityMembers: CommunityMemberRepository,
+    @Inject(EVENT_COMMUNITY_REPOSITORY) private readonly communities: CommunityRepository,
     private readonly reminders: EventReminderPublisher,
     private readonly feedFanout: FeedFanoutPublisher,
   ) {}
@@ -250,14 +257,17 @@ export class EventsService {
   }
 
   private async project(event: Event, viewerId: string | null): Promise<EventResponse> {
-    let viewerParticipation = null;
-    if (viewerId !== null) {
-      const participation = await this.participations.findByEventAndUser(event.id, viewerId);
-      if (participation) {
-        viewerParticipation = toEventParticipationSummary(participation);
-      }
-    }
-    return toEventResponse(event, viewerParticipation);
+    const [participation, extrasByEvent] = await Promise.all([
+      viewerId !== null
+        ? this.participations.findByEventAndUser(event.id, viewerId)
+        : Promise.resolve(null),
+      loadEventResponseExtras([event], {
+        participations: this.participations,
+        communities: this.communities,
+      }),
+    ]);
+    const viewerParticipation = participation ? toEventParticipationSummary(participation) : null;
+    return toEventResponse(event, viewerParticipation, extrasByEvent.get(event.id));
   }
 
   private async requireActiveEvent(eventId: string): Promise<Event> {

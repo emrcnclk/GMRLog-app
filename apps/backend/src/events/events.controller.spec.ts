@@ -11,10 +11,12 @@ import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
 import { EventReminderPublisher } from '../infrastructure/jobs/event-reminder.publisher';
 import { JOBS_CONNECTION } from '../infrastructure/jobs/jobs.constants';
 import { LoggerModule } from '../infrastructure/logging/logger.module';
+import { createFakeCommunityRepository } from '../communities/testing/fake-repositories';
 import { createFakeNotificationRepository } from '../notifications/testing/fake-repositories';
 
 import { EventsModule } from './events.module';
 import {
+  EVENT_COMMUNITY_REPOSITORY,
   EVENT_INVITE_REPOSITORY,
   EVENT_NOTIFICATION_REPOSITORY,
   EVENT_PARTICIPATION_REPOSITORY,
@@ -38,6 +40,7 @@ const users = createFakeUserRepository([
 ]);
 const invites = createFakeEventInviteRepository();
 const notifications = createFakeNotificationRepository();
+const communities = createFakeCommunityRepository();
 
 let app: NestFastifyApplication;
 let accessToken: string;
@@ -58,6 +61,8 @@ beforeAll(async () => {
     .useValue(invites)
     .overrideProvider(EVENT_NOTIFICATION_REPOSITORY)
     .useValue(notifications)
+    .overrideProvider(EVENT_COMMUNITY_REPOSITORY)
+    .useValue(communities)
     .overrideProvider(EventReminderPublisher)
     .useValue({ schedule: async () => undefined, cancel: async () => undefined })
     .overrideProvider(JOBS_CONNECTION)

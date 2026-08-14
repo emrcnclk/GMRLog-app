@@ -1,5 +1,6 @@
 import {
   PrismaCommunityMemberRepository,
+  PrismaCommunityRepository,
   PrismaEventInviteRepository,
   PrismaEventParticipationRepository,
   PrismaEventRepository,
@@ -18,6 +19,7 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import {
   EVENT_COMMUNITY_MEMBER_REPOSITORY,
+  EVENT_COMMUNITY_REPOSITORY,
   EVENT_GAME_REPOSITORY,
   EVENT_INVITE_REPOSITORY,
   EVENT_NOTIFICATION_REPOSITORY,
@@ -67,6 +69,11 @@ import {
       provide: EVENT_COMMUNITY_MEMBER_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaCommunityMemberRepository(prisma),
+    },
+    {
+      provide: EVENT_COMMUNITY_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaCommunityRepository(prisma),
     },
     EventsService,
   ],

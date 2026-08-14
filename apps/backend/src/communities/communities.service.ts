@@ -66,7 +66,7 @@ import type { Redis } from 'ioredis';
 
 import { toActivityItemResponse } from '../activity/mappers/activity.mapper';
 import { isAuthenticatedIdentity, type RequestIdentity } from '../auth/interfaces/identity';
-import { toEventResponse } from '../events/mappers/event.mapper';
+import { loadEventResponseExtras, toEventResponse } from '../events/mappers/event.mapper';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 import { FeedCacheService } from '../infrastructure/redis/feed-cache.service';
@@ -444,8 +444,13 @@ export class CommunitiesService {
         ? encodeEventsCursor({ startsAt: last.startsAt, id: last.id })
         : null;
 
+    const extrasByEvent = await loadEventResponseExtras(page, {
+      participations: this.eventParticipations,
+      communities: this.communities,
+    });
+
     return new PaginatedPayload(
-      page.map((event) => toEventResponse(event)),
+      page.map((event) => toEventResponse(event, null, extrasByEvent.get(event.id))),
       { next },
       hasMore,
       limit,

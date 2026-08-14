@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RequestIdentity } from '../auth/interfaces/identity';
 import {
   createFakeCommunityMemberRepository,
+  createFakeCommunityRepository,
   makeCommunity,
   makeCommunityMember,
 } from '../communities/testing/fake-repositories';
+import { createFakeEventParticipationRepository } from '../events/testing/fake-repositories';
 import type { Event } from '@gmrlog/database';
 
 import { DiscoverService } from './discover.service';
@@ -70,6 +72,8 @@ const eventNewer: Event = {
 
 let discover: ReturnType<typeof createFakeDiscoverRepository>;
 let members: ReturnType<typeof createFakeCommunityMemberRepository>;
+let communities: ReturnType<typeof createFakeCommunityRepository>;
+let eventParticipations: ReturnType<typeof createFakeEventParticipationRepository>;
 let discoveryScores: ReturnType<typeof createFakeDiscoveryScoreService>;
 let similarity: ReturnType<typeof createFakeSimilarityService>;
 let recommendations: ReturnType<typeof createFakeRecommendationService>;
@@ -92,6 +96,8 @@ beforeEach(() => {
       role: 'member',
     }),
   ]);
+  communities = createFakeCommunityRepository([publicCommunity, privateCommunity]);
+  eventParticipations = createFakeEventParticipationRepository();
   discoveryScores = createFakeDiscoveryScoreService();
   similarity = createFakeSimilarityService();
   recommendations = createFakeRecommendationService();
@@ -101,6 +107,8 @@ beforeEach(() => {
   service = new DiscoverService(
     discover,
     members,
+    communities,
+    eventParticipations,
     prisma as never,
     discoveryScores,
     similarity,
@@ -257,6 +265,24 @@ describe('DiscoverService.listEvents', () => {
     await expect(service.listEvents({ cursor: badDate })).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('9.4 — omits communityName and reports 0 attendees for events with no community', async () => {
+    const page = await service.listEvents({ limit: 10 });
+    expect(page.items.every((event) => !('communityName' in event))).toBe(true);
+    expect(page.items.every((event) => event.attendeeCount === 0)).toBe(true);
+  });
+
+  it('9.4 — batches communityName and attendeeCount in one query each for the whole page', async () => {
+    const findManyByIds = vi.spyOn(communities, 'findManyByIds');
+    const countAttendeesByEvents = vi.spyOn(eventParticipations, 'countAttendeesByEvents');
+
+    await service.listEvents({ limit: 10 });
+
+    expect(countAttendeesByEvents).toHaveBeenCalledTimes(1);
+    // No event in this fixture carries a communityId, so the name batch is
+    // skipped entirely rather than firing a query for zero ids.
+    expect(findManyByIds).not.toHaveBeenCalled();
   });
 });
 

@@ -265,6 +265,17 @@ export function createFakeEventParticipationRepository(
       }
       return Promise.resolve([...counts.entries()].map(([userId, count]) => ({ userId, count })));
     },
+    // 9.4 — `attendeeCount`. going/hosting only; see the repository interface's own doc comment.
+    countAttendeesByEvents: (eventIds) => {
+      const idSet = new Set(eventIds);
+      const counts = new Map<string, number>();
+      for (const row of rows.values()) {
+        if (!idSet.has(row.eventId)) continue;
+        if (row.state !== 'going' && row.state !== 'hosting') continue;
+        counts.set(row.eventId, (counts.get(row.eventId) ?? 0) + 1);
+      }
+      return Promise.resolve([...counts.entries()].map(([eventId, count]) => ({ eventId, count })));
+    },
     updateState: (id, state) => {
       const current = rows.get(id);
       if (!current) {

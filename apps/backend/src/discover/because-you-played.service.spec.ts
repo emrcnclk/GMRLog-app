@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BecauseYouPlayedService } from './because-you-played.service';
 
 describe('BecauseYouPlayedService', () => {
+  const communities = {
+    findManyByIds: vi.fn().mockResolvedValue([]),
+  };
+  const eventParticipations = {
+    countAttendeesByEvents: vi.fn().mockResolvedValue([]),
+  };
   const prisma = {
     libraryEntry: {
       findUnique: vi.fn(),
@@ -32,7 +38,12 @@ describe('BecauseYouPlayedService', () => {
     prisma.community.findMany.mockResolvedValue([]);
     prisma.event.findMany.mockResolvedValue([]);
     prisma.post.findMany.mockResolvedValue([]);
-    service = new BecauseYouPlayedService(prisma as never, recommendations as never);
+    service = new BecauseYouPlayedService(
+      prisma as never,
+      recommendations as never,
+      communities as never,
+      eventParticipations as never,
+    );
   });
 
   it('requires authentication', async () => {

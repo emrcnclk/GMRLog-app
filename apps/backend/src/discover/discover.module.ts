@@ -1,4 +1,9 @@
-import { PrismaCommunityMemberRepository, PrismaDiscoverRepository } from '@gmrlog/database';
+import {
+  PrismaCommunityMemberRepository,
+  PrismaCommunityRepository,
+  PrismaDiscoverRepository,
+  PrismaEventParticipationRepository,
+} from '@gmrlog/database';
 import { Module } from '@nestjs/common';
 
 import { ArchetypesModule } from '../archetypes/archetypes.module';
@@ -9,7 +14,12 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { BecauseYouPlayedService } from './because-you-played.service';
 import { DiscoverController } from './discover.controller';
 import { DiscoverService } from './discover.service';
-import { DISCOVER_COMMUNITY_MEMBER_REPOSITORY, DISCOVER_REPOSITORY } from './discover.tokens';
+import {
+  DISCOVER_COMMUNITY_MEMBER_REPOSITORY,
+  DISCOVER_COMMUNITY_REPOSITORY,
+  DISCOVER_EVENT_PARTICIPATION_REPOSITORY,
+  DISCOVER_REPOSITORY,
+} from './discover.tokens';
 import { DiscoveryScoreService } from './discovery-score.service';
 import { DnaMatchController } from './dna-match.controller';
 import { DnaMatchService } from './dna-match.service';
@@ -34,6 +44,16 @@ import { TrendingService } from './trending.service';
       provide: DISCOVER_COMMUNITY_MEMBER_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaCommunityMemberRepository(prisma),
+    },
+    {
+      provide: DISCOVER_COMMUNITY_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaCommunityRepository(prisma),
+    },
+    {
+      provide: DISCOVER_EVENT_PARTICIPATION_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaEventParticipationRepository(prisma),
     },
     DiscoveryScoreService,
     SimilarityService,

@@ -1,3 +1,4 @@
+import type { CommunityRepository, EventParticipationRepository } from '@gmrlog/database';
 import type {
   BecauseYouPlayedResponse,
   CollectionResponse,
@@ -9,7 +10,7 @@ import type {
 } from '@gmrlog/types';
 import type { BecauseYouPlayedQueryInput } from '@gmrlog/validators';
 import { DISCOVER_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { isAuthenticatedIdentity, type RequestIdentity } from '../auth/interfaces/identity';
 import { toCollectionResponse } from '../collections/mappers/collection.mapper';
@@ -17,11 +18,15 @@ import {
   toCommunityMembershipSummary,
   toCommunityResponse,
 } from '../communities/mappers/community.mapper';
-import { toEventResponse } from '../events/mappers/event.mapper';
+import { loadEventResponseExtras, toEventResponse } from '../events/mappers/event.mapper';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { toPostResponse } from '../posts/mappers/post.mapper';
 import { toReviewResponse } from '../reviews/mappers/review.mapper';
 
+import {
+  DISCOVER_COMMUNITY_REPOSITORY,
+  DISCOVER_EVENT_PARTICIPATION_REPOSITORY,
+} from './discover.tokens';
 import { toGameCardResponse } from './mappers/game-card.mapper';
 import { loadDiscoverGameRecords } from './mappers/load-discover-games';
 import { RecommendationService } from './recommendation.service';
@@ -39,6 +44,9 @@ export class BecauseYouPlayedService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly recommendations: RecommendationService,
+    @Inject(DISCOVER_COMMUNITY_REPOSITORY) private readonly communities: CommunityRepository,
+    @Inject(DISCOVER_EVENT_PARTICIPATION_REPOSITORY)
+    private readonly eventParticipations: EventParticipationRepository,
   ) {}
 
   async build(
@@ -223,7 +231,11 @@ export class BecauseYouPlayedService {
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
       take: SECTION_LIMIT,
     });
-    return events.map((event) => toEventResponse(event, null));
+    const extrasByEvent = await loadEventResponseExtras(events, {
+      participations: this.eventParticipations,
+      communities: this.communities,
+    });
+    return events.map((event) => toEventResponse(event, null, extrasByEvent.get(event.id)));
   }
 
   private async loadGuides(gameIds: readonly string[]): Promise<PostResponse[]> {

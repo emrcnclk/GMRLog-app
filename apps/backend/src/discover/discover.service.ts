@@ -1,10 +1,12 @@
 import type {
   Community,
   CommunityMemberRepository,
+  CommunityRepository,
   DiscoverGamesListCursor,
   DiscoverGamesSort,
   DiscoverListCursor,
   DiscoverRepository,
+  EventParticipationRepository,
 } from '@gmrlog/database';
 import type {
   BecauseYouPlayedResponse,
@@ -36,10 +38,15 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 
 import { BecauseYouPlayedService } from './because-you-played.service';
-import { DISCOVER_COMMUNITY_MEMBER_REPOSITORY, DISCOVER_REPOSITORY } from './discover.tokens';
+import {
+  DISCOVER_COMMUNITY_MEMBER_REPOSITORY,
+  DISCOVER_COMMUNITY_REPOSITORY,
+  DISCOVER_EVENT_PARTICIPATION_REPOSITORY,
+  DISCOVER_REPOSITORY,
+} from './discover.tokens';
 import { DiscoveryScoreService } from './discovery-score.service';
 import { toDiscoverHubResponse } from './mappers/discover.mapper';
-import { toEventResponse } from './mappers/event.mapper';
+import { loadEventResponseExtras, toEventResponse } from './mappers/event.mapper';
 import { toGameCardResponse } from './mappers/game-card.mapper';
 import { RecommendationService } from './recommendation.service';
 import { SimilarityService } from './similarity.service';
@@ -56,6 +63,9 @@ export class DiscoverService {
     @Inject(DISCOVER_REPOSITORY) private readonly discover: DiscoverRepository,
     @Inject(DISCOVER_COMMUNITY_MEMBER_REPOSITORY)
     private readonly communityMembers: CommunityMemberRepository,
+    @Inject(DISCOVER_COMMUNITY_REPOSITORY) private readonly communities: CommunityRepository,
+    @Inject(DISCOVER_EVENT_PARTICIPATION_REPOSITORY)
+    private readonly eventParticipations: EventParticipationRepository,
     private readonly prisma: PrismaService,
     private readonly discoveryScores: DiscoveryScoreService,
     private readonly similarity: SimilarityService,
@@ -92,8 +102,13 @@ export class DiscoverService {
         ? encodeCursor({ orderedAt: last.startsAt, id: last.id })
         : null;
 
+    const extrasByEvent = await loadEventResponseExtras(page, {
+      participations: this.eventParticipations,
+      communities: this.communities,
+    });
+
     return new PaginatedPayload(
-      page.map((event) => toEventResponse(event)),
+      page.map((event) => toEventResponse(event, null, extrasByEvent.get(event.id))),
       { next },
       hasMore,
       limit,

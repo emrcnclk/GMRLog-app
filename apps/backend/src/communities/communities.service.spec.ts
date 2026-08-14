@@ -1276,6 +1276,50 @@ describe('CommunitiesService.listEvents (3b.2a)', () => {
   });
 });
 
+describe('CommunitiesService.listEvents communityName / attendeeCount (9.4)', () => {
+  beforeEach(() => {
+    events = createFakeCommunityEventRepository([
+      { id: 'event-empty', communityId: 'community-1', title: 'Empty Lobby' },
+      { id: 'event-full', communityId: 'community-1', title: 'Packed House' },
+    ]);
+    eventParticipations = createFakeCommunityEventParticipationRepository([
+      { eventId: 'event-full', userId: 'user-1', state: 'going' },
+      { eventId: 'event-full', userId: 'user-2', state: 'hosting' },
+      // Not commitments to attend — must not inflate the count.
+      { eventId: 'event-full', userId: 'user-3', state: 'interested' },
+      { eventId: 'event-full', userId: 'user-4', state: 'not_going' },
+      { eventId: 'event-full', userId: 'user-5', state: 'looking_for_team' },
+      { eventId: 'event-full', userId: 'user-6', state: 'need_players' },
+    ]);
+    service = buildService();
+  });
+
+  it('denormalizes the community name onto every row', async () => {
+    const page = await service.listEvents('community-1', guest);
+    expect(page.items.every((event) => event.communityName === 'Culture Room')).toBe(true);
+  });
+
+  it('reports 0 for an event with no attendees', async () => {
+    const page = await service.listEvents('community-1', guest);
+    expect(page.items.find((event) => event.id === 'event-empty')?.attendeeCount).toBe(0);
+  });
+
+  it('counts only going/hosting, not interested, not_going or the LFG states', async () => {
+    const page = await service.listEvents('community-1', guest);
+    expect(page.items.find((event) => event.id === 'event-full')?.attendeeCount).toBe(2);
+  });
+
+  it('batches communityName and attendeeCount in one query each, not per row', async () => {
+    const findManyByIds = vi.spyOn(communities, 'findManyByIds');
+    const countAttendeesByEvents = vi.spyOn(eventParticipations, 'countAttendeesByEvents');
+
+    await service.listEvents('community-1', guest);
+
+    expect(findManyByIds).toHaveBeenCalledTimes(1);
+    expect(countAttendeesByEvents).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('CommunitiesService followers visibility', () => {
   it('allows followers-only communities when viewer follows the owner', async () => {
     communities.rows.set(

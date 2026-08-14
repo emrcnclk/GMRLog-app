@@ -36,7 +36,12 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 
 import { isAuthenticatedIdentity, type RequestIdentity } from '../auth/interfaces/identity';
 import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
-import { toEventParticipationSummary, toEventResponse } from '../events/mappers/event.mapper';
+import type { EventResponseExtras } from '../events/mappers/event.mapper';
+import {
+  loadEventResponseExtras,
+  toEventParticipationSummary,
+  toEventResponse,
+} from '../events/mappers/event.mapper';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 import { canViewerReadPost, toPostResponse } from '../posts/mappers/post.mapper';
@@ -249,7 +254,13 @@ export class GameHubService {
     await this.requireGame(gameId);
     const rows = await this.events.listByGame(gameId);
     const viewerId = viewerIdOf(identity);
-    return Promise.all(rows.map((event) => this.projectEvent(event, viewerId)));
+    const extrasByEvent = await loadEventResponseExtras(rows, {
+      participations: this.eventParticipations,
+      communities: this.communities,
+    });
+    return Promise.all(
+      rows.map((event) => this.projectEvent(event, viewerId, extrasByEvent.get(event.id))),
+    );
   }
 
   /** `GET /games/:id/communities` — name/tag heuristic union community posts about the game. */
@@ -300,14 +311,19 @@ export class GameHubService {
     });
   }
 
-  private async projectEvent(event: Event, viewerId: string | null): Promise<EventResponse> {
+  private async projectEvent(
+    event: Event,
+    viewerId: string | null,
+    extras?: EventResponseExtras,
+  ): Promise<EventResponse> {
     if (viewerId === null) {
-      return toEventResponse(event);
+      return toEventResponse(event, null, extras);
     }
     const participation = await this.eventParticipations.findByEventAndUser(event.id, viewerId);
     return toEventResponse(
       event,
       participation !== null ? toEventParticipationSummary(participation) : null,
+      extras,
     );
   }
 

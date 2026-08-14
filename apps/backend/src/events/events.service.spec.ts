@@ -11,8 +11,11 @@ import {
 import { createFakeNotificationRepository } from '../notifications/testing/fake-repositories';
 import {
   createFakeCommunityMemberRepository,
+  createFakeCommunityRepository,
+  makeCommunity,
   makeCommunityMember,
   type FakeCommunityMemberRepository,
+  type FakeCommunityRepository,
 } from '../communities/testing/fake-repositories';
 import {
   createFakeGameRepository,
@@ -45,6 +48,7 @@ let invites: FakeEventInviteRepository;
 let notifications: ReturnType<typeof createFakeNotificationRepository>;
 let games: FakeGameRepository;
 let communityMembers: FakeCommunityMemberRepository;
+let communities: FakeCommunityRepository;
 let feedFanout: FakeFeedFanoutPublisher;
 let reminders: {
   schedule: ReturnType<typeof vi.fn>;
@@ -84,6 +88,9 @@ beforeEach(() => {
       role: 'member',
     }),
   ]);
+  communities = createFakeCommunityRepository([
+    makeCommunity({ id: 'community-1', name: 'Raid Central' }),
+  ]);
   feedFanout = createFakeFeedFanoutPublisher();
   reminders = {
     schedule: vi.fn().mockResolvedValue(undefined),
@@ -97,6 +104,7 @@ beforeEach(() => {
     notifications,
     games,
     communityMembers,
+    communities,
     reminders as unknown as EventReminderPublisher,
     asFeedFanoutPublisher(feedFanout),
   );
@@ -325,5 +333,50 @@ describe('EventsService.invite', () => {
     await expect(
       service.invite('event-deleted', 'user-1', { userIds: ['user-2'] }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('EventsService communityName / attendeeCount (9.4)', () => {
+  it('omits communityName for an event with no community', async () => {
+    const detail = await service.getEvent('event-1', guest);
+    expect('communityName' in detail).toBe(false);
+    expect(detail.attendeeCount).toBe(0);
+  });
+
+  it('denormalizes the community name for a community event', async () => {
+    const detail = await service.getEvent('event-community', guest);
+    expect(detail.communityName).toBe('Raid Central');
+  });
+
+  it('counts only going/hosting, excluding interested/not_going/looking_for_team/need_players', async () => {
+    participations.rows.set(
+      'p-going',
+      makeParticipation({ id: 'p-going', eventId: 'event-1', userId: 'user-1', state: 'going' }),
+    );
+    participations.rows.set(
+      'p-hosting',
+      makeParticipation({
+        id: 'p-hosting',
+        eventId: 'event-1',
+        userId: 'user-2',
+        state: 'hosting',
+      }),
+    );
+    participations.rows.set(
+      'p-interested',
+      makeParticipation({
+        id: 'p-interested',
+        eventId: 'event-1',
+        userId: 'user-host',
+        state: 'interested',
+      }),
+    );
+
+    const detail = await service.getEvent('event-1', guest);
+    expect(detail.attendeeCount).toBe(2);
+
+    await service.rsvp('event-1', 'user-1', { state: 'not_going' });
+    const afterDecline = await service.getEvent('event-1', guest);
+    expect(afterDecline.attendeeCount).toBe(1);
   });
 });

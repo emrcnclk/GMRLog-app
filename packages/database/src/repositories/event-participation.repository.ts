@@ -20,6 +20,15 @@ export interface EventParticipationRepository {
     state: EventParticipationState,
     since: Date,
   ): Promise<{ userId: string; count: number }[]>;
+  /**
+   * 9.4 — `attendeeCount` on `EventResponse`. `going`/`hosting` only: `interested`
+   * and the LFG states (`looking_for_team`/`need_players`) are intent, not a
+   * commitment to attend, and `not_going` is an explicit decline — none belong
+   * in a count of attendees. One `groupBy` per page, keyed by `eventId`.
+   */
+  countAttendeesByEvents(
+    eventIds: readonly string[],
+  ): Promise<{ eventId: string; count: number }[]>;
   updateState(id: string, state: EventParticipationState): Promise<EventParticipation>;
   delete(id: string): Promise<EventParticipation>;
   deleteByEventAndUser(eventId: string, userId: string): Promise<EventParticipation | null>;
@@ -59,6 +68,20 @@ export class PrismaEventParticipationRepository implements EventParticipationRep
       _count: { _all: true },
     });
     return rows.map((row) => ({ userId: row.userId, count: row._count._all }));
+  }
+
+  async countAttendeesByEvents(
+    eventIds: readonly string[],
+  ): Promise<{ eventId: string; count: number }[]> {
+    if (eventIds.length === 0) {
+      return [];
+    }
+    const rows = await this.db.eventParticipation.groupBy({
+      by: ['eventId'],
+      where: { eventId: { in: [...eventIds] }, state: { in: ['going', 'hosting'] } },
+      _count: { _all: true },
+    });
+    return rows.map((row) => ({ eventId: row.eventId, count: row._count._all }));
   }
 
   updateState(id: string, state: EventParticipationState): Promise<EventParticipation> {

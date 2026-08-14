@@ -5,6 +5,7 @@ import {
   eventDatePlateDay,
   eventDatePlateMonth,
   eventKindLabel,
+  eventRowMeta,
   eventRowTime,
   filterEventsByKind,
   formatEventStartsAt,
@@ -163,6 +164,21 @@ describe('event-model', () => {
         hour: 'numeric',
         minute: '2-digit',
       }),
+    );
+  });
+
+  it('9.4 — degrades to time-only when attendeeCount is absent (pre-9.4 response)', () => {
+    const withoutField = event();
+    expect('attendeeCount' in withoutField).toBe(false);
+    expect(eventRowMeta(withoutField)).toBe(eventRowTime(withoutField.startsAt));
+  });
+
+  it('9.4 — appends the attendee count, including zero, once present', () => {
+    expect(eventRowMeta(event({ attendeeCount: 0 }))).toBe(
+      `${eventRowTime('2026-07-28T18:00:00.000Z')} · 0 attending`,
+    );
+    expect(eventRowMeta(event({ attendeeCount: 12 }))).toBe(
+      `${eventRowTime('2026-07-28T18:00:00.000Z')} · 12 attending`,
     );
   });
 });

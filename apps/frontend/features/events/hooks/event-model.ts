@@ -278,11 +278,24 @@ export function eventDatePlateMonth(startsAt: string): string {
   return PLATE_MONTH_FORMATTER.format(new Date(starts)).toUpperCase();
 }
 
-/** The row's monospace "time" figure — §21's line drops to time-only; see event-card.tsx for why. */
+/** The row's monospace "time" figure. */
 export function eventRowTime(startsAt: string): string {
   const starts = Date.parse(startsAt);
   if (Number.isNaN(starts)) {
     return '';
   }
   return new Date(starts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * §21's monospace "time · attendees" row line. `attendeeCount` is 9.4's
+ * additive field — absent on a response from before the backend shipped it,
+ * so the line degrades to time alone rather than showing "undefined".
+ */
+export function eventRowMeta(event: EventResponse): string {
+  const time = eventRowTime(event.startsAt);
+  if (event.attendeeCount === undefined) {
+    return time;
+  }
+  return `${time} · ${String(event.attendeeCount)} attending`;
 }

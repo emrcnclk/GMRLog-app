@@ -12,16 +12,26 @@ import { AuthModule } from '../auth/auth.module';
 import { TokenService } from '../auth/jwt/token.service';
 import {
   createFakeCommunityMemberRepository,
+  createFakeCommunityRepository,
   makeCommunity,
   makeCommunityMember,
 } from '../communities/testing/fake-repositories';
+import {
+  createFakeEventParticipationRepository,
+  makeParticipation,
+} from '../events/testing/fake-repositories';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
 import { LoggerModule } from '../infrastructure/logging/logger.module';
 
 import { DiscoverModule } from './discover.module';
-import { DISCOVER_COMMUNITY_MEMBER_REPOSITORY, DISCOVER_REPOSITORY } from './discover.tokens';
+import {
+  DISCOVER_COMMUNITY_MEMBER_REPOSITORY,
+  DISCOVER_COMMUNITY_REPOSITORY,
+  DISCOVER_EVENT_PARTICIPATION_REPOSITORY,
+  DISCOVER_REPOSITORY,
+} from './discover.tokens';
 import { createFakeDiscoverRepository } from './testing/fake-repositories';
 import { GAME_CATALOG_DEFAULTS } from '../games/game-catalog.defaults';
 
@@ -58,6 +68,12 @@ const members = createFakeCommunityMemberRepository([
     userId: 'user-1',
     role: 'owner',
   }),
+]);
+const communities = createFakeCommunityRepository([
+  makeCommunity({ id: 'community-1', name: 'Culture Room', slug: 'culture-room' }),
+]);
+const eventParticipations = createFakeEventParticipationRepository([
+  makeParticipation({ id: 'p-1', eventId: 'event-1', userId: 'user-1', state: 'going' }),
 ]);
 
 let app: NestFastifyApplication;
@@ -99,6 +115,10 @@ beforeAll(async () => {
     .useValue(discover)
     .overrideProvider(DISCOVER_COMMUNITY_MEMBER_REPOSITORY)
     .useValue(members)
+    .overrideProvider(DISCOVER_COMMUNITY_REPOSITORY)
+    .useValue(communities)
+    .overrideProvider(DISCOVER_EVENT_PARTICIPATION_REPOSITORY)
+    .useValue(eventParticipations)
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -271,6 +291,8 @@ describe('GET /discover/events', () => {
       title: 'Launch Night',
       viewerParticipation: null,
       communityId: 'community-1',
+      communityName: 'Culture Room',
+      attendeeCount: 1,
     });
   });
 });

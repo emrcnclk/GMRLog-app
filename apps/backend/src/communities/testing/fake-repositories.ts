@@ -826,12 +826,12 @@ export function createFakeCommunityEventRepository(
 
 export interface FakeCommunityEventParticipationRepository extends Pick<
   EventParticipationRepository,
-  'countByEventsGroupedByUserSince'
+  'countByEventsGroupedByUserSince' | 'countAttendeesByEvents'
 > {
   rows: { eventId: string; userId: string; state: string; createdAt: Date }[];
 }
 
-/** 7.1 — leaderboard "events hosted" points. */
+/** 7.1 — leaderboard "events hosted" points. 9.4 adds `countAttendeesByEvents`. */
 export function createFakeCommunityEventParticipationRepository(
   seed: { eventId: string; userId: string; state: string; createdAt?: Date }[] = [],
 ): FakeCommunityEventParticipationRepository {
@@ -852,6 +852,18 @@ export function createFakeCommunityEventParticipationRepository(
       }
       return Promise.resolve(
         [...grouped.entries()].map(([userId, count]) => ({ userId, count })) as never,
+      );
+    },
+    countAttendeesByEvents: (eventIds) => {
+      const idSet = new Set(eventIds);
+      const grouped = new Map<string, number>();
+      for (const row of rows) {
+        if (!idSet.has(row.eventId)) continue;
+        if (row.state !== 'going' && row.state !== 'hosting') continue;
+        grouped.set(row.eventId, (grouped.get(row.eventId) ?? 0) + 1);
+      }
+      return Promise.resolve(
+        [...grouped.entries()].map(([eventId, count]) => ({ eventId, count })),
       );
     },
   };

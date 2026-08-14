@@ -845,6 +845,10 @@ export interface EventResponse {
   viewerParticipation: EventParticipationSummary | null;
   gameId?: string;
   communityId?: string;
+  /** 9.4 — denormalized so §21's row doesn't need a second fetch. Absent when `communityId` is absent. */
+  communityName?: string | null;
+  /** 9.4 — count of `going`/`hosting` participants. Server-derived only. */
+  attendeeCount?: number;
 }
 
 /** S1 §15.15 — search hit type vocabulary (closed set). D3.22 Search++ additives. */

@@ -1071,6 +1071,53 @@ describe('EventParticipationRepository', () => {
     expect(left?.id).toBe(row.id);
     expect(await participations.findByEventAndUser(event.id, user.id)).toBeNull();
   });
+
+  /** 9.4 — `attendeeCount` on `EventResponse`. going/hosting only, batched by eventId. */
+  it('counts only going/hosting participants, batched by eventId', async () => {
+    const events = new PrismaEventRepository(db.prisma);
+    const participations = new PrismaEventParticipationRepository(db.prisma);
+    const going = await createUser(db.prisma);
+    const hosting = await createUser(db.prisma);
+    const interested = await createUser(db.prisma);
+    const declined = await createUser(db.prisma);
+
+    const full = await events.create({
+      title: 'Packed House',
+      kind: 'game',
+      startsAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const empty = await events.create({
+      title: 'Empty Lobby',
+      kind: 'game',
+      startsAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+
+    await participations.create({
+      event: { connect: { id: full.id } },
+      user: { connect: { id: going.id } },
+      state: 'going',
+    });
+    await participations.create({
+      event: { connect: { id: full.id } },
+      user: { connect: { id: hosting.id } },
+      state: 'hosting',
+    });
+    await participations.create({
+      event: { connect: { id: full.id } },
+      user: { connect: { id: interested.id } },
+      state: 'interested',
+    });
+    await participations.create({
+      event: { connect: { id: full.id } },
+      user: { connect: { id: declined.id } },
+      state: 'not_going',
+    });
+
+    const counts = await participations.countAttendeesByEvents([full.id, empty.id]);
+    expect(counts.find((row) => row.eventId === full.id)?.count).toBe(2);
+    expect(counts.some((row) => row.eventId === empty.id)).toBe(false);
+    expect(await participations.countAttendeesByEvents([])).toEqual([]);
+  });
 });
 
 describe('UploadRepository', () => {

@@ -6,7 +6,7 @@ import { Pressable, View } from 'react-native';
 import {
   eventDatePlateDay,
   eventDatePlateMonth,
-  eventRowTime,
+  eventRowMeta,
   isEventLive,
 } from '../hooks/event-model';
 
@@ -20,16 +20,12 @@ const LIVE_DOT_SIZE = 7;
 
 /**
  * §21's event row. A left date plate (or, for a live event, a pulsing accent
- * dot + "LIVE") beside title and a monospace time line.
- *
- * **Circle name and attendee count are not rendered.** §21's line reads
- * "time · attendees" and asks for the circle name beside the title, but
- * `EventResponse` (`packages/types`) carries neither — only `communityId`
- * (an FK, no denormalized name) and no attendee-count field anywhere in the
- * schema. Scores and counts are server-side per CLAUDE.md, so this line
- * shows the one real fact it has: `startsAt`. Backend follow-up, same shape
- * as 3.1's `holderPercent`: a denormalized `communityName` and an
- * `attendeeCount` on `EventResponse` would let this row match §21 in full.
+ * dot + "LIVE") beside title, circle name and a monospace "time · attendees"
+ * line. `communityName`/`attendeeCount` are 9.4's additive fields — both are
+ * server-derived (CLAUDE.md's "scores are server-side"), so the client only
+ * renders what the response carries; a response without a community shows no
+ * circle-name slot at all, and a response from before 9.4 shipped shows time
+ * alone via `eventRowMeta`'s own fallback.
  *
  * **The dot pulses, off `opacity` and a plain re-render.** CLAUDE.md's trap is
  * specific — `Animated.timing` driving `interpolate(transform)` never advances
@@ -43,7 +39,7 @@ function EventCardComponent({ event, onPress }: EventCardProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const live = isEventLive(event);
-  const time = eventRowTime(event.startsAt);
+  const meta = eventRowMeta(event);
   const pulse = usePulseOpacity(live, reduceMotion);
 
   const body = (
@@ -104,14 +100,19 @@ function EventCardComponent({ event, onPress }: EventCardProps) {
         <Text role="label" color="color.text.primary" numberOfLines={2}>
           {event.title}
         </Text>
+        {event.communityName != null ? (
+          <Text role="bodySm" color="color.text.secondary" numberOfLines={1}>
+            {event.communityName}
+          </Text>
+        ) : null}
         <Text role="meta" color="color.text.tertiary">
-          {time}
+          {meta}
         </Text>
       </View>
     </View>
   );
 
-  const label = `${event.title}${live ? '. Live now' : ''}. ${time}`;
+  const label = `${event.title}${live ? '. Live now' : ''}. ${meta}`;
 
   if (!onPress) {
     return (
