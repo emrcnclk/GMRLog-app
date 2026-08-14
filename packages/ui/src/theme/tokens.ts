@@ -194,6 +194,17 @@ export interface TypographyStyle {
 
 export type SemanticTypographyScale = Record<SemanticTypeRole, TypographyStyle>;
 
+/**
+ * Tablet breakpoint (8.1 Cross-platform pass) — pixels, `useWindowDimensions`
+ * width compared with `>=`. The one value every screen and shared primitive
+ * branches on; nothing may inline its own comparison number. Not
+ * scheme-dependent, so it lives as a plain export rather than inside
+ * `ThemeTokens` alongside `color`/`space`/`radius`. 768 matches the low end of
+ * the standard 10" tablet/iPad-mini viewport class, and the app's own
+ * `resize_window` "tablet" preset (768×1024).
+ */
+export const TABLET_BREAKPOINT = 768;
+
 export interface ThemeTokens {
   scheme: ResolvedColorScheme;
   /** D3.27 — accent identity currently remapped into `color.accent.*`. */

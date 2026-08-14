@@ -17,6 +17,8 @@ export type {
   ThemeTokens,
   TypographyStyle,
 } from './theme/tokens';
+export { TABLET_BREAKPOINT } from './theme/tokens';
+export { useIsTabletUp } from './theme/use-breakpoint';
 export {
   ACCENT_KEYS,
   ACCENT_LABELS,

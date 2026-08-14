@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '../theme/theme-provider';
+import { useIsTabletUp } from '../theme/use-breakpoint';
 
 import { SCREEN_GUTTER } from './screen-title';
 import { SectionKicker } from './section-kicker';
@@ -40,6 +41,17 @@ export interface RailProps {
  *
  * The header is a `SectionKicker`: the redesign has no bold section headings,
  * and a rail is a section like any other.
+ *
+ * **8.1 — above the tablet breakpoint (web today; see `useIsTabletUp`'s own
+ * doc for why this isn't `Platform.OS`-gated) a rail stops scrolling and wraps
+ * into a grid instead**, one shared change here rather than each of the ten-plus
+ * call sites re-deriving it. It takes `gaming-insights.tsx`'s existing
+ * wrapping-grid convention (2.1/3.9): a top-and-bottom hairline, no vertical
+ * dividers — a vertical rule that stops at a wrap point claims a column that
+ * does not continue, which is exactly the lie a wrap must not tell. The bleed
+ * (content overflowing the screen edge, the entire point of the scrolling
+ * form) has no meaning once the row wraps, so the grid is inset symmetrically
+ * by the same gutter instead.
  */
 export function Rail({
   title,
@@ -54,6 +66,7 @@ export function Rail({
   style,
 }: RailProps) {
   const theme = useTheme();
+  const isTabletUp = useIsTabletUp();
   const resolvedGap = gap ?? theme.space('space.3');
   const gutter = theme.space(SCREEN_GUTTER);
 
@@ -75,6 +88,21 @@ export function Rail({
 
       {isEmpty ? (
         <View style={{ paddingHorizontal: gutter }}>{emptyState}</View>
+      ) : isTabletUp ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            paddingHorizontal: gutter,
+            paddingVertical: theme.space('space.1'),
+            gap: resolvedGap,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: theme.color('color.border.default'),
+          }}
+        >
+          {children}
+        </View>
       ) : (
         <ScrollView
           horizontal

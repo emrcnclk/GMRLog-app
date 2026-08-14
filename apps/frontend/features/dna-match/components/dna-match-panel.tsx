@@ -12,6 +12,7 @@ import {
   SectionKicker,
   Skeleton,
   Text,
+  useIsTabletUp,
   useTheme,
 } from '@gmrlog/ui';
 import type { ReactNode } from 'react';
@@ -147,6 +148,36 @@ function DnaMatchBars({ dimensions }: { dimensions: DnaDimension[] }) {
   );
 }
 
+/**
+ * The "breakdown" half of 8.1's gauge/breakdown split — bars plus trait
+ * pills, everything `DnaMatchHeader`'s gauge does not already carry. Kept as
+ * its own component so the full-state render and the tablet-up two-column
+ * layout below can both point at the exact same content, not two copies of it.
+ */
+function DnaMatchBreakdown({ match }: { match: DnaMatchResponse }) {
+  const theme = useTheme();
+  return (
+    <View style={{ gap: theme.space('space.4'), flex: 1 }}>
+      {breakdownAvailable(match) ? (
+        <DnaMatchBars dimensions={match.dimensions} />
+      ) : (
+        <Text role="meta" color="color.text.tertiary">
+          The breakdown fills in on the next recompute.
+        </Text>
+      )}
+      {match.traits.length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
+          {match.traits.map((trait) => (
+            <Chip key={trait} interactive={false}>
+              {trait}
+            </Chip>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 const SHARED_GAME_WIDTH = 88;
 
 function SharedGamesRail({
@@ -222,6 +253,7 @@ export function DnaMatchPanel({
   onPressGame,
 }: DnaMatchPanelProps) {
   const theme = useTheme();
+  const isTabletUp = useIsTabletUp();
   const dna = useDnaMatch(userId, !isSelf && !isBlocked);
 
   if (isSelf) {
@@ -239,20 +271,45 @@ export function DnaMatchPanel({
   }
 
   if (dna.isPending) {
+    const gaugeSkeleton = (
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: theme.space('space.4'),
+          alignItems: 'center',
+          flex: 1,
+        }}
+      >
+        <Skeleton shape="circle" width={RING_SIZE} height={RING_SIZE} />
+        <View style={{ flex: 1, gap: theme.space('space.2') }}>
+          <Skeleton width="50%" />
+          <Skeleton width="85%" />
+        </View>
+      </View>
+    );
+    const breakdownSkeleton = (
+      <View style={{ gap: theme.space('space.3'), flex: 1 }}>
+        {DIMENSION_ORDER.map((key) => (
+          <Skeleton key={key} height={2} />
+        ))}
+      </View>
+    );
+
     return (
       <PanelShell>
-        <View style={{ flexDirection: 'row', gap: theme.space('space.4'), alignItems: 'center' }}>
-          <Skeleton shape="circle" width={RING_SIZE} height={RING_SIZE} />
-          <View style={{ flex: 1, gap: theme.space('space.2') }}>
-            <Skeleton width="50%" />
-            <Skeleton width="85%" />
+        {isTabletUp ? (
+          <View
+            style={{ flexDirection: 'row', gap: theme.space('space.6'), alignItems: 'flex-start' }}
+          >
+            {gaugeSkeleton}
+            {breakdownSkeleton}
           </View>
-        </View>
-        <View style={{ gap: theme.space('space.3') }}>
-          {DIMENSION_ORDER.map((key) => (
-            <Skeleton key={key} height={2} />
-          ))}
-        </View>
+        ) : (
+          <>
+            {gaugeSkeleton}
+            {breakdownSkeleton}
+          </>
+        )}
       </PanelShell>
     );
   }
@@ -275,26 +332,30 @@ export function DnaMatchPanel({
     );
   }
 
+  const gauge = <DnaMatchHeader match={match} displayName={displayName} />;
+  const breakdown = <DnaMatchBreakdown match={match} />;
+
   return (
     <View style={{ gap: theme.space('space.4') }}>
       <PanelShell>
-        <DnaMatchHeader match={match} displayName={displayName} />
-        {breakdownAvailable(match) ? (
-          <DnaMatchBars dimensions={match.dimensions} />
-        ) : (
-          <Text role="meta" color="color.text.tertiary">
-            The breakdown fills in on the next recompute.
-          </Text>
-        )}
-        {match.traits.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
-            {match.traits.map((trait) => (
-              <Chip key={trait} interactive={false}>
-                {trait}
-              </Chip>
-            ))}
+        {isTabletUp ? (
+          // 8.1 — above the tablet breakpoint the gauge and the score
+          // breakdown sit side by side rather than stacked. Neither half is
+          // re-solved: `DnaMatchHeader` (the ring, 6.3) and the bars/traits
+          // (6.4) render exactly as they do stacked, just placed in two flex
+          // columns instead of one flex column.
+          <View
+            style={{ flexDirection: 'row', gap: theme.space('space.6'), alignItems: 'flex-start' }}
+          >
+            <View style={{ flex: 1 }}>{gauge}</View>
+            {breakdown}
           </View>
-        ) : null}
+        ) : (
+          <>
+            {gauge}
+            {breakdown}
+          </>
+        )}
       </PanelShell>
       <SharedGamesRail sharedGames={match.sharedGames} onPressGame={onPressGame} />
     </View>
