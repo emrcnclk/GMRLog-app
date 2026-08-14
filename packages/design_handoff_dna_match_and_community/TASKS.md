@@ -787,7 +787,22 @@ One commit per screen. Layout only — every data hook, form, validator and stat
 
 ## Phase 9 — Deferred backend follow-ups
 
-- [ ] **9.1 Schema drift reconciliation.** `games.franchise_id`'s FK is still missing from the live dev DB relative to schema, plus a `default Now()` → `None` mismatch on `updated_at` across five tables (found during 5.2, flagged not fixed). Do this first — every task below runs a migration, and each one currently inherits a dirty `migrate diff`. Report; fix only the two named drifts.
+- [x] **9.1 Schema drift reconciliation.** `games.franchise_id`'s FK is still missing from the live dev DB relative to schema, plus a `default Now()` → `None` mismatch on `updated_at` across five tables (found during 5.2, flagged not fixed). Do this first — every task below runs a migration, and each one currently inherits a dirty `migrate diff`. Report; fix only the two named drifts. — **Done 2026-08-15.**
+  - **Both drifts confirmed exactly as 5.2/5.4 described them**, via `prisma migrate diff --from-url <live> --to-schema-datamodel prisma/schema.prisma --exit-code` (exit 2, six tables listed): `games` missing the `games_franchise_id_fkey` FK entirely (`\d games` showed the column and its index present, "Foreign-key constraints:" empty underneath), and `updated_at` on `friend_requests`, `friendships`, `profile_pins`, `user_archetypes`, `user_presence` carrying a live `DEFAULT CURRENT_TIMESTAMP` the schema doesn't ask for.
+  - **Decided schema wins on both, for different reasons — checked, not assumed.** For the FK: `20260727130000_discover_games_catalog/migration.sql` (lines 14-17) already contains the exact `ADD CONSTRAINT ... FOREIGN KEY (franchise_id) REFERENCES franchises(id) ON DELETE SET NULL ON UPDATE CASCADE` statement, and `_prisma_migrations` shows that migration `finished_at`-stamped but with `applied_steps_count: 0` — the signature of a migration hand-`resolve --applied`'d after a partial manual run (the same workaround pattern 5.2/5.4 document), where this one statement apparently never actually executed. Zero orphaned `games.franchise_id` values against `franchises.id` confirmed the FK is safe to add now. For `updated_at`: checked whether the DB default was the norm or the outlier by grepping every other migration file for `updated_at` — `0_init/migration.sql` and every later one declare it `TIMESTAMP(3) NOT NULL` with no default, matching what `@updatedAt` (no `@default`) in schema.prisma actually generates. Only `20260729220000_d3_21_social_platform_core/migration.sql` deviated, hand-adding `DEFAULT CURRENT_TIMESTAMP` to exactly these five tables' `updated_at` columns when it created them — an inconsistency in that one migration, not a considered schema decision, and not load-bearing since Prisma's `@updatedAt` always sets the value from the client on every write regardless of any DB-level default.
+  - **Fix applied by hand SQL against the live DB, not a new migration file** — no schema.prisma change and no new migration is needed here since the target state was already fully described by existing, applied-in-the-repo migrations; this was reconciling broken DB state back to what those migrations already say, the same class of fix 5.2's own `20260802090000_d3_29_profile_theme` reconciliation used. `ALTER TABLE games ADD CONSTRAINT games_franchise_id_fkey FOREIGN KEY (franchise_id) REFERENCES franchises(id) ON DELETE SET NULL ON UPDATE CASCADE;` plus `ALTER TABLE <table> ALTER COLUMN updated_at DROP DEFAULT;` on each of the five tables.
+  - **No `prisma migrate dev` and no reset run**, per the standing instruction — every statement above is additive/corrective on already-migrated tables, nothing dropped.
+  - **Third drift: none found.** `prisma migrate diff --exit-code` reported exactly these two after the fix landed clean ("No difference detected", exit 0) — nothing else was hiding behind them.
+  - **Verified:**
+    ```
+    $ prisma migrate status
+    Database schema is up to date!
+
+    $ prisma migrate diff --from-url <live> --to-schema-datamodel prisma/schema.prisma --exit-code
+    No difference detected.
+    (exit code 0)
+    ```
+    No backend process was running this session, so nothing held the query-engine DLL; not rebuilt or restarted since no `.ts`/`.prisma` source changed, only live DB state.
 
 - [ ] **9.2 `unreadCount` (3.4).** `messaging.mapper.ts:46` hardcodes `0`; no conversation in any state can produce a non-zero count today. `toConversationResponse` compares `ConversationParticipant.lastReadAt` against `lastMessage`'s timestamp. The unread pill's colour branch (accent hairline vs filled) has never been measurable — this is what makes 3.4's design verifiable, so re-measure that branch after.
 
