@@ -785,6 +785,27 @@ One commit per screen. Layout only — every data hook, form, validator and stat
 
 ---
 
+## Phase 9 — Deferred backend follow-ups
+
+- [ ] **9.1 Schema drift reconciliation.** `games.franchise_id`'s FK is still missing from the live dev DB relative to schema, plus a `default Now()` → `None` mismatch on `updated_at` across five tables (found during 5.2, flagged not fixed). Do this first — every task below runs a migration, and each one currently inherits a dirty `migrate diff`. Report; fix only the two named drifts.
+
+- [ ] **9.2 `unreadCount` (3.4).** `messaging.mapper.ts:46` hardcodes `0`; no conversation in any state can produce a non-zero count today. `toConversationResponse` compares `ConversationParticipant.lastReadAt` against `lastMessage`'s timestamp. The unread pill's colour branch (accent hairline vs filled) has never been measurable — this is what makes 3.4's design verifiable, so re-measure that branch after.
+
+- [ ] **9.3 `holderPercent` on `AchievementResponse` (3.1, oldest open gap).** Additive, optional. Server-derived only — CLAUDE.md forbids deriving a holder share on the client, so the client change is display, not arithmetic. Unlocks §8's "0.4% of players" row treatment, currently replaced by tier word + unlock date.
+
+- [ ] **9.4 `EventResponse` gaps (3b.9).** Denormalized `communityName` and an additive `attendeeCount` — §21's row line is currently time-only and the circle-name slot is omitted furniture. One task, both fields, same mapper.
+
+- [ ] **9.5 `UserStatisticsResponse` cluster (3.9, largest).** `cardNumber`, an equipped-badge slot, per-entry completion%/platinum flag, `favoriteGenreCounts`. Note the genre weights ALREADY EXIST server-side and are discarded — that one is plumbing, not new computation. Scope-check before starting: this may deserve splitting.
+
+- [ ] **9.6 The ~20 `accessibilityState` consumers (8.2).** Mechanical: apply 8.2's standing aria-* alias decision, already written into CLAUDE.md with its source citations. One diff, no new decisions. Verify from the emitted DOM, not from props.
+
+- [ ] **9.7 Player-screen max-width cap (8.1).** README asks `Container` to cap content width above the breakpoint; `Container` has no cap and `public-profile-screen.tsx` doesn't use it. Decide once, on Container, and let every screen inherit — a per-screen cap is the drift §2 warns about.
+
+**Deliberately NOT in Phase 9** — these are scoping passes, not follow-ups:
+subscription/billing + entitlement (3b.5/3b.6, `BACKEND_CHANGES.md` §8 says so explicitly), sponsored/partnership DTOs (8.3c), feed `projection` (3.7), tier-list likes/forks (3b.8). Each needs a product decision before a task can be written.
+
+---
+
 ## Notes
 
 Append findings here as you go — decisions taken, doc corrections, anything the next session needs to know.
