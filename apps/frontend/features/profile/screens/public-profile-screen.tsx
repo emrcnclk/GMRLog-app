@@ -10,6 +10,7 @@ import { useAuthStore } from '../../../src/state/auth-store';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { SimilarUsersSection } from '../../discover/components/similar-users-section';
 import { useSimilarUsers } from '../../discover/hooks/use-discover';
+import { DnaMatchPanel } from '../../dna-match/components/dna-match-panel';
 import { AchievementShowcase } from '../components/premium/achievement-showcase';
 import { ArchetypeSection } from '../components/premium/archetype-card';
 import { GamingInsights } from '../components/premium/gaming-insights';
@@ -48,6 +49,13 @@ export function PublicProfileScreen({ userId }: PublicProfileScreenProps) {
   const openUser = useCallback(
     (id: string) => {
       router.push(`/(app)/user/${id}`);
+    },
+    [router],
+  );
+
+  const openGame = useCallback(
+    (gameId: string) => {
+      router.push(`/(app)/game/${gameId}`);
     },
     [router],
   );
@@ -150,6 +158,16 @@ export function PublicProfileScreen({ userId }: PublicProfileScreenProps) {
             }}
           />
         </View>
+
+        <DnaMatchPanel
+          userId={userId}
+          displayName={user.displayName}
+          isSelf={isSelf}
+          isBlocked={
+            profile.relationship?.isBlocked === true || profile.relationship?.blockedBy === true
+          }
+          onPressGame={openGame}
+        />
 
         <ProfileStatsGrid statistics={profile.statistics} isPending={false} />
 

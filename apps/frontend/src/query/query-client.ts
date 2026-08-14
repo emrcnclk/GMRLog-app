@@ -118,6 +118,8 @@ export const queryKeys = {
     achievements: (userId: string) => ['users', 'achievements', userId] as const,
     archetypes: (userId: string) => ['users', 'archetypes', userId] as const,
     relationship: (userId: string) => ['users', 'relationship', userId] as const,
+    /** 6.4 — `GET /users/:id/dna-match`. */
+    dnaMatch: (userId: string) => ['users', 'dna-match', userId] as const,
   },
   bookmarks: {
     all: ['bookmarks'] as const,

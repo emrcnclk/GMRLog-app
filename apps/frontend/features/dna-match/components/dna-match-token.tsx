@@ -22,7 +22,8 @@ export interface DnaMatchTokenProps {
   variant?: DnaMatchTokenVariant;
 }
 
-const BAND_LABEL: Record<DnaBand, string> = {
+/** Shared with `DnaMatchPanel` (6.4) so the panel's band label never drifts from the token's. */
+export const BAND_LABEL: Record<DnaBand, string> = {
   'near-identical': 'Near-identical DNA',
   strong: 'Strong overlap',
   partial: 'Partial overlap',

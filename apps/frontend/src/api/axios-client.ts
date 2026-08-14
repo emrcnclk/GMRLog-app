@@ -17,6 +17,7 @@ import type {
   ConversationResponse,
   CsvImportPreviewResponse,
   DiscoverHubResponse,
+  DnaMatchResponse,
   BlockResponse,
   EventResponse,
   FollowResponse,
@@ -1256,6 +1257,11 @@ export class AxiosApiClient {
   /** `GET /users/{userId}/creator` — Creator Profile surface (D3.24). */
   getCreatorProfile(userId: string): Promise<ApiEnvelope<CreatorProfileResponse>> {
     return this.get<CreatorProfileResponse>(`/users/${userId}/creator`);
+  }
+
+  /** `GET /users/{userId}/dna-match` — the DNA match panel (5.4). */
+  getDnaMatch(userId: string): Promise<ApiEnvelope<DnaMatchResponse>> {
+    return this.get<DnaMatchResponse>(`/users/${userId}/dna-match`);
   }
 
   /** `POST /auth/oauth/{provider}/start` — OAuth flow entry (D4.3 / D4.4 / OAUTH.md §2 step 1). */
