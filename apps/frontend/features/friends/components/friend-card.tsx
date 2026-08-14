@@ -1,16 +1,27 @@
-import type { FriendshipResponse } from '@gmrlog/types';
+import type { DnaMatch, FriendshipResponse } from '@gmrlog/types';
 import { Avatar, Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
+import {
+  DnaMatchToken,
+  dnaMatchAccessibilityPhrase,
+} from '../../dna-match/components/dna-match-token';
 import { formatFriendsSince, initialsFromDisplayName } from '../hooks/friends-model';
 
 export interface FriendCardProps {
   friendship: FriendshipResponse;
   onPress: (userId: string) => void;
+  /**
+   * Optional because `FriendshipResponse` carries no match data yet — none
+   * of the friends hooks fetch it. A future backend task can thread it
+   * through; until then this is always absent and the token renders nothing,
+   * per README.md §1's "no match means unavailable" rule.
+   */
+  match?: DnaMatch;
 }
 
-function FriendCardComponent({ friendship, onPress }: FriendCardProps) {
+function FriendCardComponent({ friendship, onPress, match }: FriendCardProps) {
   const theme = useTheme();
   const user = friendship.user;
   const since = formatFriendsSince(friendship.friendsSince);
@@ -20,7 +31,9 @@ function FriendCardComponent({ friendship, onPress }: FriendCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${user.displayName}. ${since}`}
+      accessibilityLabel={`${user.displayName}. ${since}${
+        match ? `. ${dnaMatchAccessibilityPhrase(match)}` : ''
+      }`}
       onPress={() => {
         onPress(user.id);
       }}
@@ -50,6 +63,7 @@ function FriendCardComponent({ friendship, onPress }: FriendCardProps) {
           {since ? ` · ${since}` : ''}
           {mutual ? ` · ${mutual}` : ''}
         </Text>
+        <DnaMatchToken match={match} />
       </View>
     </Pressable>
   );

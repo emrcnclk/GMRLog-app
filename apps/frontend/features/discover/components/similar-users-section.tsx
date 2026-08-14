@@ -3,6 +3,11 @@ import { Avatar, Text, useTheme } from '@gmrlog/ui';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
+import {
+  DnaMatchToken,
+  dnaMatchAccessibilityPhrase,
+} from '../../dna-match/components/dna-match-token';
+
 export interface SimilarUsersSectionProps {
   items: SimilarUserResponse[];
   isPending: boolean;
@@ -67,7 +72,9 @@ function SimilarUsersSectionComponent({ items, isPending, onPressUser }: Similar
         <Pressable
           key={row.user.id}
           accessibilityRole="button"
-          accessibilityLabel={`Open ${row.user.displayName}`}
+          accessibilityLabel={`Open ${row.user.displayName}${
+            row.match ? `. ${dnaMatchAccessibilityPhrase(row.match)}` : ''
+          }`}
           onPress={() => {
             onPressUser(row.user.id);
           }}
@@ -95,6 +102,7 @@ function SimilarUsersSectionComponent({ items, isPending, onPressUser }: Similar
             <Text role="meta" color="color.text.secondary" numberOfLines={1}>
               @{row.user.handle}
             </Text>
+            <DnaMatchToken match={row.match} />
           </View>
         </Pressable>
       ))}

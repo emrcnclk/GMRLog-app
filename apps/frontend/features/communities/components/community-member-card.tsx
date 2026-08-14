@@ -1,16 +1,27 @@
-import type { CommunityMemberResponse } from '@gmrlog/types';
+import type { CommunityMemberResponse, DnaMatch } from '@gmrlog/types';
 import { Avatar, Badge, Text, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { memo, useCallback } from 'react';
 import { Pressable, View } from 'react-native';
 
+import {
+  DnaMatchToken,
+  dnaMatchAccessibilityPhrase,
+} from '../../dna-match/components/dna-match-token';
 import { formatJoinedDate, initialsFromName, roleLabel } from '../hooks/community-model';
 
 export interface CommunityMemberCardProps {
   member: CommunityMemberResponse;
+  /**
+   * Optional because `CommunityMemberResponse` carries no embedded score
+   * yet — README.md's "State & data" section calls this out as a gap still
+   * open. A future backend task can thread it through; until then this is
+   * always absent and the token renders nothing.
+   */
+  match?: DnaMatch;
 }
 
-function CommunityMemberCardComponent({ member }: CommunityMemberCardProps) {
+function CommunityMemberCardComponent({ member, match }: CommunityMemberCardProps) {
   const theme = useTheme();
   const router = useRouter();
   const { user, role, joinedAt } = member;
@@ -23,7 +34,9 @@ function CommunityMemberCardComponent({ member }: CommunityMemberCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${user.displayName}, @${user.handle}, ${roleLabel(role)}`}
+      accessibilityLabel={`Open ${user.displayName}, @${user.handle}, ${roleLabel(role)}${
+        match ? `. ${dnaMatchAccessibilityPhrase(match)}` : ''
+      }`}
       onPress={openProfile}
       style={{
         flexDirection: 'row',
@@ -57,6 +70,7 @@ function CommunityMemberCardComponent({ member }: CommunityMemberCardProps) {
         </View>
         <Text role="meta" color="color.text.secondary">
           @{user.handle}
+          <DnaMatchToken match={match} variant="inline" />
         </Text>
         <Text role="caption" color="color.text.tertiary">
           Joined {formatJoinedDate(joinedAt)}
