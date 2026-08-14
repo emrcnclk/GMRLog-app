@@ -109,7 +109,8 @@ export class SimilarityService {
       if (other === undefined) {
         return [];
       }
-      const match = buildDnaMatch(pair.components, pair.score);
+      const match =
+        other.accountKind === 'individual' ? buildDnaMatch(pair.components, pair.score) : undefined;
       return [
         {
           user: toUserPublicResponse(other),

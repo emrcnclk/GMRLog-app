@@ -32,6 +32,7 @@ const sampleUser = {
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   deletedAt: null,
+  accountKind: 'individual',
 };
 
 describe('SimilarityService', () => {
@@ -245,6 +246,32 @@ describe('SimilarityService', () => {
         { key: 'completion', score: 90 },
       ],
     });
+  });
+
+  it('omits `match` for an organisation account, even with a real cached breakdown (8.3b)', async () => {
+    prisma.user.findUnique.mockResolvedValue(sampleUser);
+    prisma.userSimilarity.findMany.mockResolvedValue([
+      {
+        id: '1',
+        userAId: 'u1',
+        userBId: 'u2',
+        score: 0.634,
+        library: 0.5,
+        genre: 0.25,
+        reviewRating: 0.75,
+        wishlist: 0.1,
+        completion: 0.9,
+      },
+    ]);
+    prisma.user.findMany.mockResolvedValue([
+      { ...sampleUser, id: 'u2', handle: 'bob', displayName: 'Bob', accountKind: 'organisation' },
+    ]);
+
+    const rows = await service.getSimilarUsers('u1', 5);
+
+    expect(rows[0]?.user.id).toBe('u2');
+    expect(rows[0]?.score).toBe(0.634);
+    expect(rows[0]?.match).toBeUndefined();
   });
 
   it('omits `match` for a pre-5.2 cached row with score but all components 0', async () => {
