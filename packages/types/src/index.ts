@@ -1242,6 +1242,13 @@ export interface AchievementResponse {
   isRare: boolean;
   progress: AchievementProgressSummary;
   awardedAt: string | null;
+  /**
+   * 9.3 — share of eligible players (individual, active, with library
+   * activity) who hold this achievement, one decimal, server-rounded.
+   * Optional per CLAUDE.md's additive-DTO rule. `null`/omitted when the
+   * denominator is unavailable or the row is redacted.
+   */
+  holderPercent?: number | null;
 }
 
 export interface UserStatisticsResponse {

@@ -5,6 +5,7 @@ import {
   achievementRarity,
   achievementTotals,
   buildShowcaseGroups,
+  formatHolderPercent,
   presentAchievement,
   showcaseGroupForCategory,
 } from './achievement-showcase-model';
@@ -129,6 +130,28 @@ describe('buildShowcaseGroups', () => {
       achievement({ id: 'near', progress: { current: 9, target: 10, state: 'in_progress' } }),
     ]);
     expect(groups[0]?.achievements[0]?.id).toBe('near');
+  });
+});
+
+describe('formatHolderPercent (9.3)', () => {
+  it('returns null for the fallback row (field absent)', () => {
+    expect(formatHolderPercent(undefined)).toBeNull();
+  });
+
+  it('returns null when the server sends null (redacted or no denominator)', () => {
+    expect(formatHolderPercent(null)).toBeNull();
+  });
+
+  it('formats a 0-holder achievement', () => {
+    expect(formatHolderPercent(0)).toBe('0.0% of players');
+  });
+
+  it('formats a 100%-holder achievement', () => {
+    expect(formatHolderPercent(100)).toBe('100.0% of players');
+  });
+
+  it('does not re-round a server rounding boundary value', () => {
+    expect(formatHolderPercent(6.3)).toBe('6.3% of players');
   });
 });
 

@@ -14,7 +14,11 @@ import { Lock, Trophy } from 'lucide-react-native';
 import { memo } from 'react';
 import { View } from 'react-native';
 
-import { achievementRarity, formatAwardedAt } from '../hooks/achievement-showcase-model';
+import {
+  achievementRarity,
+  formatAwardedAt,
+  formatHolderPercent,
+} from '../hooks/achievement-showcase-model';
 
 export interface AchievementPlateProps {
   achievement: AchievementResponse;
@@ -54,13 +58,15 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
   const plate = rarityGeometry(rarity);
   const unlockedAt = formatAwardedAt(achievement.awardedAt);
 
-  // The trailing fact §8 asks for is "0.4% of players". The wire type carries no
-  // holder share and the client must never derive one — scores are server-side —
-  // so the row states the fact it does have: when it was unlocked, or how far
-  // off it is. Raised as an additive DTO field in TASKS.md.
+  // 9.3 supplied the field §8 asked for: a server-computed holder share, never
+  // derived here. The unlock-date/progress fact stays as the fallback — it's
+  // the correct behaviour when holderPercent is absent (older data, or a
+  // redacted hidden row), not a placeholder being replaced.
   const fact = awarded
     ? (unlockedAt ?? 'Unlocked')
     : `${String(achievement.progress.current)} / ${String(achievement.progress.target)}`;
+  const holderText = formatHolderPercent(achievement.holderPercent);
+  const metaText = holderText != null ? `${fact} · ${holderText}` : fact;
 
   return (
     <View
@@ -147,7 +153,7 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
         >
           <RarityBadge tier={rarity} />
           <Text role="meta" color="color.text.tertiary" numberOfLines={1}>
-            {fact}
+            {metaText}
           </Text>
         </View>
       </View>

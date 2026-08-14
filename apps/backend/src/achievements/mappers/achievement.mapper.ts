@@ -7,7 +7,7 @@ const HIDDEN_LOCKED_DESCRIPTION = 'Keep playing to uncover this achievement.';
 export function toAchievementResponse(
   definition: Achievement,
   progress: AchievementProgress | null,
-  options: { redactHidden: boolean },
+  options: { redactHidden: boolean; holderPercent?: number | null },
 ): AchievementResponse {
   const target = progress?.target ?? definition.target;
   const current = progress?.current ?? 0;
@@ -29,5 +29,9 @@ export function toAchievementResponse(
       state: shouldRedact ? 'locked' : state,
     },
     awardedAt: progress?.awardedAt?.toISOString() ?? null,
+    // A hidden row that's still redacted must not leak its rarity through a
+    // holder share either — the whole point of hiding it is that nothing
+    // about it is knowable until it's unlocked.
+    holderPercent: shouldRedact ? null : (options.holderPercent ?? null),
   };
 }

@@ -29,6 +29,19 @@ export interface AchievementRepository {
     awardedAt?: Date | null;
   }): Promise<AchievementProgress>;
   countAwarded(userId: string): Promise<number>;
+  /**
+   * 9.3 — one query, however many ids are passed. Holders are restricted to
+   * active, individual accounts (same exclusion as `countEligiblePlayers`),
+   * so the numerator and denominator of `holderPercent` never disagree about
+   * who counts as a player.
+   */
+  countHoldersByAchievementIds(achievementIds: string[]): Promise<Map<string, number>>;
+  /**
+   * 9.3's denominator: active, individual accounts with at least one library
+   * entry — an account that could never unlock anything is excluded so it
+   * doesn't make every achievement look rarer than it is.
+   */
+  countEligiblePlayers(): Promise<number>;
 }
 
 export class PrismaAchievementRepository implements AchievementRepository {
@@ -119,6 +132,36 @@ export class PrismaAchievementRepository implements AchievementRepository {
   countAwarded(userId: string): Promise<number> {
     return this.db.achievementProgress.count({
       where: { userId, state: 'awarded' },
+    });
+  }
+
+  async countHoldersByAchievementIds(achievementIds: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (achievementIds.length === 0) {
+      return counts;
+    }
+    const rows = await this.db.achievementProgress.groupBy({
+      by: ['achievementId'],
+      where: {
+        achievementId: { in: achievementIds },
+        state: 'awarded',
+        user: { accountKind: 'individual', deletedAt: null },
+      },
+      _count: { _all: true },
+    });
+    for (const row of rows) {
+      counts.set(row.achievementId, row._count._all);
+    }
+    return counts;
+  }
+
+  countEligiblePlayers(): Promise<number> {
+    return this.db.user.count({
+      where: {
+        accountKind: 'individual',
+        deletedAt: null,
+        libraryEntries: { some: {} },
+      },
     });
   }
 }

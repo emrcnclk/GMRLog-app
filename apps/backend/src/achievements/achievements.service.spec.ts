@@ -82,6 +82,7 @@ describe('AchievementsService.listForViewer', () => {
     const hidden = forOther.find((row) => row.key === 'hidden.secret_dropper');
     expect(hidden?.title).toBe('Hidden achievement');
     expect(hidden?.progress.state).toBe('locked');
+    expect(hidden?.holderPercent).toBeNull();
   });
 
   it('lazy-refreshes for the owner when refresh=true', async () => {
@@ -93,6 +94,101 @@ describe('AchievementsService.listForViewer', () => {
     expect(
       list.some((row) => row.key === 'logging.first_game' && row.progress.state === 'awarded'),
     ).toBe(true);
+  });
+});
+
+describe('AchievementsService holderPercent (9.3)', () => {
+  const AWARDED_AT = new Date('2026-08-10T00:00:00.000Z');
+
+  function seedAwarded(achievementId: string, userId: string): void {
+    achievements.progress.set(`${achievementId}:${userId}`, {
+      id: `p-${achievementId}-${userId}`,
+      achievementId,
+      userId,
+      current: 1,
+      target: 1,
+      state: 'awarded',
+      awardedAt: AWARDED_AT,
+      createdAt: AWARDED_AT,
+      updatedAt: AWARDED_AT,
+    });
+  }
+
+  function achievementId(key: string): string {
+    const definition = [...achievements.definitions.values()].find((row) => row.key === key);
+    if (definition == null) {
+      throw new Error(`fixture achievement missing: ${key}`);
+    }
+    return definition.id;
+  }
+
+  it('reads 0.0 for an achievement no eligible player holds', async () => {
+    achievements.userFacts.set('user-1', {
+      accountKind: 'individual',
+      deletedAt: null,
+      hasLibraryActivity: true,
+    });
+    const list = await service.listForViewer('user-1', 'user-1', { refresh: false });
+    const untouched = list.find((row) => row.key === 'logging.first_game');
+    expect(untouched?.holderPercent).toBe(0);
+  });
+
+  it('reads 100.0 when every eligible player holds it', async () => {
+    achievements.userFacts.set('user-1', {
+      accountKind: 'individual',
+      deletedAt: null,
+      hasLibraryActivity: true,
+    });
+    seedAwarded(achievementId('logging.first_game'), 'user-1');
+    const list = await service.listForViewer('user-1', 'user-1', { refresh: false });
+    const first = list.find((row) => row.key === 'logging.first_game');
+    expect(first?.holderPercent).toBe(100);
+  });
+
+  it('rounds to one decimal at a non-exact boundary (1/16 -> 6.3, not 6.2 or 6.25)', async () => {
+    const id = achievementId('logging.first_game');
+    for (let i = 1; i <= 16; i += 1) {
+      const userId = `player-${String(i)}`;
+      achievements.userFacts.set(userId, {
+        accountKind: 'individual',
+        deletedAt: null,
+        hasLibraryActivity: true,
+      });
+      users.rows.set(userId, makeUser({ id: userId, handle: userId }));
+    }
+    seedAwarded(id, 'player-1');
+    const list = await service.listForViewer('player-1', 'player-1', { refresh: false });
+    const first = list.find((row) => row.key === 'logging.first_game');
+    expect(first?.holderPercent).toBeCloseTo(6.3, 5);
+  });
+
+  it('excludes organisation and soft-deleted accounts from both holders and the denominator', async () => {
+    achievements.userFacts.set('user-1', {
+      accountKind: 'individual',
+      deletedAt: null,
+      hasLibraryActivity: true,
+    });
+    achievements.userFacts.set('org-1', {
+      accountKind: 'organisation',
+      deletedAt: null,
+      hasLibraryActivity: true,
+    });
+    achievements.userFacts.set('gone-1', {
+      accountKind: 'individual',
+      deletedAt: new Date('2026-07-01T00:00:00.000Z'),
+      hasLibraryActivity: true,
+    });
+    const id = achievementId('logging.first_game');
+    seedAwarded(id, 'user-1');
+    seedAwarded(id, 'org-1');
+    seedAwarded(id, 'gone-1');
+
+    const list = await service.listForViewer('user-1', 'user-1', { refresh: false });
+    const first = list.find((row) => row.key === 'logging.first_game');
+    // Denominator is the one eligible player (user-1); org-1 and gone-1 count
+    // toward neither the holder total nor the eligible-player total, so the
+    // share is 100%, not 33.3%.
+    expect(first?.holderPercent).toBe(100);
   });
 });
 

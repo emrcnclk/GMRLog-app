@@ -70,10 +70,12 @@ export class AchievementsService {
     ]);
     const progressById = new Map(progressRows.map((row) => [row.achievementId, row]));
     const isOwner = viewerUserId === subjectUserId;
+    const holderPercentById = await this.computeHolderPercents(definitions.map((row) => row.id));
 
     return definitions.map((definition) =>
       toAchievementResponse(definition, progressById.get(definition.id) ?? null, {
         redactHidden: !isOwner,
+        holderPercent: holderPercentById.get(definition.id) ?? null,
       }),
     );
   }
@@ -89,9 +91,40 @@ export class AchievementsService {
       progress = await this.achievements.findProgress(achievementId, viewerUserId);
     }
 
+    const holderPercentById = await this.computeHolderPercents([achievementId]);
+
     return toAchievementResponse(definition, progress, {
       redactHidden: progress?.state !== 'awarded',
+      holderPercent: holderPercentById.get(achievementId) ?? null,
     });
+  }
+
+  /**
+   * 9.3 — batched to two queries total regardless of how many achievement ids
+   * are passed in, the same shape 9.2's `computeUnreadCounts` established:
+   * never one aggregate query per row. Holders and the eligible-player
+   * denominator both exclude organisation and soft-deleted accounts, and the
+   * denominator additionally excludes anyone with no library activity — an
+   * account that could never unlock anything shouldn't make every
+   * achievement look rarer than it is. Rounded to one decimal, server-side.
+   */
+  private async computeHolderPercents(achievementIds: string[]): Promise<Map<string, number>> {
+    const percents = new Map<string, number>();
+    if (achievementIds.length === 0) {
+      return percents;
+    }
+    const [holderCounts, eligiblePlayers] = await Promise.all([
+      this.achievements.countHoldersByAchievementIds(achievementIds),
+      this.achievements.countEligiblePlayers(),
+    ]);
+    if (eligiblePlayers <= 0) {
+      return percents;
+    }
+    for (const id of achievementIds) {
+      const holders = holderCounts.get(id) ?? 0;
+      percents.set(id, Math.round((holders / eligiblePlayers) * 1000) / 10);
+    }
+    return percents;
   }
 
   /**

@@ -53,9 +53,23 @@ export function emptySnapshot(overrides: Partial<PlayerMetricSnapshot> = {}): Pl
   };
 }
 
+/**
+ * 9.3 — the facts `countHoldersByAchievementIds`/`countEligiblePlayers` need
+ * about a user that plain `AchievementProgress` rows don't carry. A user
+ * absent from this map is treated as an eligible, individual, active player
+ * with library activity, so existing tests that never seed it keep behaving
+ * exactly as before.
+ */
+export interface FakeAchievementUserFacts {
+  accountKind: 'individual' | 'organisation';
+  deletedAt: Date | null;
+  hasLibraryActivity: boolean;
+}
+
 export interface FakeAchievementRepository extends AchievementRepository {
   definitions: Map<string, Achievement>;
   progress: Map<string, AchievementProgress>;
+  userFacts: Map<string, FakeAchievementUserFacts>;
 }
 
 export function createFakeAchievementRepository(
@@ -63,11 +77,17 @@ export function createFakeAchievementRepository(
 ): FakeAchievementRepository {
   const definitions = new Map(seed.map((row) => [row.id, row]));
   const progress = new Map<string, AchievementProgress>();
+  const userFacts = new Map<string, FakeAchievementUserFacts>();
   const key = (achievementId: string, userId: string): string => `${achievementId}:${userId}`;
+  const isEligibleHolder = (userId: string): boolean => {
+    const facts = userFacts.get(userId);
+    return facts === undefined || (facts.accountKind === 'individual' && facts.deletedAt === null);
+  };
 
   return {
     definitions,
     progress,
+    userFacts,
     async listDefinitions(): Promise<Achievement[]> {
       return [...definitions.values()].sort((a, b) => a.key.localeCompare(b.key));
     },
@@ -121,6 +141,33 @@ export function createFakeAchievementRepository(
     async countAwarded(userId: string): Promise<number> {
       return [...progress.values()].filter(
         (row) => row.userId === userId && row.state === ('awarded' satisfies AchievementState),
+      ).length;
+    },
+    async countHoldersByAchievementIds(achievementIds: string[]): Promise<Map<string, number>> {
+      const counts = new Map(achievementIds.map((id) => [id, 0]));
+      for (const row of progress.values()) {
+        if (
+          row.state === ('awarded' satisfies AchievementState) &&
+          counts.has(row.achievementId) &&
+          isEligibleHolder(row.userId)
+        ) {
+          counts.set(row.achievementId, (counts.get(row.achievementId) ?? 0) + 1);
+        }
+      }
+      return counts;
+    },
+    async countEligiblePlayers(): Promise<number> {
+      if (userFacts.size === 0) {
+        // No facts seeded — fall back to the distinct users who have any
+        // progress row, since that's the only population these tests know
+        // about and mirrors "an eligible player is one who could act".
+        return new Set([...progress.values()].map((row) => row.userId)).size;
+      }
+      return [...userFacts.values()].filter(
+        (facts) =>
+          facts.accountKind === 'individual' &&
+          facts.deletedAt === null &&
+          facts.hasLibraryActivity,
       ).length;
     },
   };

@@ -115,6 +115,17 @@ export function presentAchievement(achievement: AchievementResponse): Achievemen
   };
 }
 
+/**
+ * 9.3 — server-rounded to one decimal already; this only formats the string,
+ * it never re-rounds (5.3's precedent: the server owns its own rounding).
+ */
+export function formatHolderPercent(holderPercent: number | null | undefined): string | null {
+  if (holderPercent == null) {
+    return null;
+  }
+  return `${holderPercent.toFixed(1)}% of players`;
+}
+
 export function formatAwardedAt(iso: string | null): string | null {
   if (iso === null) {
     return null;
