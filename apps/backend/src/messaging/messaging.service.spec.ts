@@ -207,6 +207,98 @@ describe('MessagingService.sendMessage', () => {
   });
 });
 
+describe('MessagingService unread counts (9.2)', () => {
+  it('counts a message from someone else as unread when lastReadAt is null (never opened)', async () => {
+    messages.rows.set(
+      'message-2',
+      makeMessage({
+        id: 'message-2',
+        conversationId: 'conversation-1',
+        senderId: 'user-2',
+        body: 'Hey there',
+        createdAt: new Date('2026-01-03T00:00:00.000Z'),
+      }),
+    );
+    const detail = await service.getConversation('conversation-1', 'user-1');
+    expect(detail.unreadCount).toBe(1);
+    const inbox = await service.listConversations('user-1');
+    expect(inbox.find((row) => row.id === 'conversation-1')?.unreadCount).toBe(1);
+  });
+
+  it("never counts the viewer's own messages, even with a null lastReadAt", async () => {
+    // Seeded message-1 is sent by user-1 (the viewer here) and lastReadAt starts null.
+    const detail = await service.getConversation('conversation-1', 'user-1');
+    expect(detail.unreadCount).toBe(0);
+  });
+
+  it('drops back to 0 once lastReadAt covers every message from the other participant', async () => {
+    messages.rows.set(
+      'message-2',
+      makeMessage({
+        id: 'message-2',
+        conversationId: 'conversation-1',
+        senderId: 'user-2',
+        body: 'Hey there',
+        createdAt: new Date('2026-01-03T00:00:00.000Z'),
+      }),
+    );
+    await participants.updateLastReadAt(
+      'conversation-1',
+      'user-1',
+      new Date('2026-01-03T00:00:00.000Z'),
+    );
+    const detail = await service.getConversation('conversation-1', 'user-1');
+    expect(detail.unreadCount).toBe(0);
+  });
+
+  it('is viewer-relative in a multi-participant conversation, past lastReadAt only, excluding the viewer', async () => {
+    // conversation-2: user-1 and user-3. user-1 last read between the two messages
+    // below, so only the second (sent after) should count — and never the viewer's own.
+    messages.rows.set(
+      'message-before',
+      makeMessage({
+        id: 'message-before',
+        conversationId: 'conversation-2',
+        senderId: 'user-3',
+        body: 'Before',
+        createdAt: new Date('2026-01-05T00:00:00.000Z'),
+      }),
+    );
+    await participants.updateLastReadAt(
+      'conversation-2',
+      'user-1',
+      new Date('2026-01-05T12:00:00.000Z'),
+    );
+    messages.rows.set(
+      'message-after',
+      makeMessage({
+        id: 'message-after',
+        conversationId: 'conversation-2',
+        senderId: 'user-3',
+        body: 'After',
+        createdAt: new Date('2026-01-06T00:00:00.000Z'),
+      }),
+    );
+    messages.rows.set(
+      'message-own',
+      makeMessage({
+        id: 'message-own',
+        conversationId: 'conversation-2',
+        senderId: 'user-1',
+        body: 'My own reply',
+        createdAt: new Date('2026-01-07T00:00:00.000Z'),
+      }),
+    );
+    const viewerDetail = await service.getConversation('conversation-2', 'user-1');
+    expect(viewerDetail.unreadCount).toBe(1);
+
+    // user-3 never read anything (lastReadAt still null) and sent both non-own
+    // messages themselves — only user-1's reply is unread from their side.
+    const otherDetail = await service.getConversation('conversation-2', 'user-3');
+    expect(otherDetail.unreadCount).toBe(1);
+  });
+});
+
 describe('MessagingService.listMessages pagination', () => {
   it('paginates messages with cursors', async () => {
     for (let index = 3; index <= 4; index += 1) {

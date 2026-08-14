@@ -24,6 +24,15 @@ export interface MessageRepository {
   /** Oldest → newest page. Returns up to `limit` rows (caller may fetch limit+1 for hasMore). */
   listByConversationCursor(conversationId: string, params: MessageListParams): Promise<Message[]>;
   findLatestActiveByConversation(conversationId: string): Promise<Message | null>;
+  /**
+   * Active messages sent by someone other than `actorId`, across the given
+   * conversations — `{ conversationId, createdAt }` only, batched into one query
+   * regardless of conversation count, for computing per-viewer unread counts.
+   */
+  listActiveFromOthers(
+    actorId: string,
+    conversationIds: string[],
+  ): Promise<{ conversationId: string; createdAt: Date }[]>;
 }
 
 export class PrismaMessageRepository implements MessageRepository {
@@ -74,6 +83,23 @@ export class PrismaMessageRepository implements MessageRepository {
     return this.db.message.findFirst({
       where: { conversationId, deletedAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
+  listActiveFromOthers(
+    actorId: string,
+    conversationIds: string[],
+  ): Promise<{ conversationId: string; createdAt: Date }[]> {
+    if (conversationIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.db.message.findMany({
+      where: {
+        conversationId: { in: conversationIds },
+        senderId: { not: actorId },
+        deletedAt: null,
+      },
+      select: { conversationId: true, createdAt: true },
     });
   }
 }

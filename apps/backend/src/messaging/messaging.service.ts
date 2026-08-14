@@ -46,11 +46,17 @@ export class MessagingService {
   async listConversations(actorId: string): Promise<ConversationResponse[]> {
     await this.requireActiveUser(actorId);
     const rows = await this.conversations.listByParticipant(actorId);
-    return Promise.all(rows.map((row) => this.projectConversation(row)));
+    const unreadCounts = await this.computeUnreadCounts(
+      actorId,
+      rows.map((row) => row.id),
+    );
+    return Promise.all(
+      rows.map((row) => this.projectConversation(row, actorId, unreadCounts.get(row.id) ?? 0)),
+    );
   }
   async getConversation(conversationId: string, actorId: string): Promise<ConversationResponse> {
     const conversation = await this.requireParticipantConversation(conversationId, actorId);
-    return this.projectConversation(conversation);
+    return this.projectConversation(conversation, actorId);
   }
   async createConversation(
     actorId: string,
@@ -74,7 +80,7 @@ export class MessagingService {
         user: { connect: { id: userId } },
       });
     }
-    return this.projectConversation(conversation);
+    return this.projectConversation(conversation, actorId);
   }
   async listMessages(
     conversationId: string,
@@ -114,9 +120,13 @@ export class MessagingService {
       body: input.body,
     });
     const touched = await this.conversations.touchLastMessage(conversation.id, message.createdAt);
-    return this.projectConversation(touched);
+    return this.projectConversation(touched, actorId);
   }
-  private async projectConversation(conversation: Conversation): Promise<ConversationResponse> {
+  private async projectConversation(
+    conversation: Conversation,
+    actorId: string,
+    unreadCount?: number,
+  ): Promise<ConversationResponse> {
     const participantRows = await this.participants.listByConversation(conversation.id);
     const loaded = await this.users.findManyByIds(participantRows.map((row) => row.userId));
     const byId = new Map(loaded.map((user) => [user.id, user]));
@@ -129,7 +139,39 @@ export class MessagingService {
     });
     const latest = await this.messages.findLatestActiveByConversation(conversation.id);
     const lastMessage = latest ? toMessageSummary(latest) : null;
-    return toConversationResponse(conversation, participants, lastMessage);
+    const resolvedUnreadCount =
+      unreadCount ??
+      (await this.computeUnreadCounts(actorId, [conversation.id])).get(conversation.id) ??
+      0;
+    return toConversationResponse(conversation, participants, lastMessage, resolvedUnreadCount);
+  }
+  /**
+   * Viewer-relative unread counts, batched to two queries regardless of how many
+   * conversations are passed in — never one count query per conversation. A missing
+   * or null `lastReadAt` (never opened) counts every message from someone else as
+   * unread; the viewer's own messages never count, read or not.
+   */
+  private async computeUnreadCounts(
+    actorId: string,
+    conversationIds: string[],
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (conversationIds.length === 0) {
+      return counts;
+    }
+    const [memberships, candidates] = await Promise.all([
+      this.participants.findManyByUserAndConversations(actorId, conversationIds),
+      this.messages.listActiveFromOthers(actorId, conversationIds),
+    ]);
+    const lastReadById = new Map(memberships.map((row) => [row.conversationId, row.lastReadAt]));
+    for (const candidate of candidates) {
+      const lastReadAt = lastReadById.get(candidate.conversationId) ?? null;
+      if (lastReadAt !== null && candidate.createdAt <= lastReadAt) {
+        continue;
+      }
+      counts.set(candidate.conversationId, (counts.get(candidate.conversationId) ?? 0) + 1);
+    }
+    return counts;
   }
   private async requireParticipantConversation(
     conversationId: string,

@@ -996,7 +996,8 @@ export interface MessageSummary {
 
 /**
  * S1 §15.10 ConversationResponse.
- * `unreadCount` is projected as `0` until read-tracking is product-governed (D2.13).
+ * `unreadCount` is viewer-relative — the count of the requesting participant's own
+ * `ConversationParticipant.lastReadAt` against messages from everyone else (9.2).
  */
 export interface ConversationResponse {
   id: string;

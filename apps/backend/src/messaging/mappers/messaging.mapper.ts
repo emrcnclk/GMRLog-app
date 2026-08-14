@@ -37,12 +37,13 @@ export function toConversationResponse(
   conversation: Conversation,
   participants: UserPublicResponse[],
   lastMessage: MessageSummary | null,
+  unreadCount: number,
 ): ConversationResponse {
   return {
     id: conversation.id,
     participants,
     lastMessage,
     updatedAt: conversation.updatedAt.toISOString(),
-    unreadCount: 0,
+    unreadCount,
   };
 }

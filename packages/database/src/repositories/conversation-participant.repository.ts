@@ -12,6 +12,11 @@ export interface ConversationParticipantRepository {
     userId: string,
   ): Promise<ConversationParticipant | null>;
   listByConversation(conversationId: string): Promise<ConversationParticipant[]>;
+  /** Batched: one query for `userId`'s membership row across many conversations (unread-count support). */
+  findManyByUserAndConversations(
+    userId: string,
+    conversationIds: string[],
+  ): Promise<ConversationParticipant[]>;
   updateLastReadAt(
     conversationId: string,
     userId: string,
@@ -39,6 +44,18 @@ export class PrismaConversationParticipantRepository implements ConversationPart
     return this.db.conversationParticipant.findMany({
       where: { conversationId },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  findManyByUserAndConversations(
+    userId: string,
+    conversationIds: string[],
+  ): Promise<ConversationParticipant[]> {
+    if (conversationIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.db.conversationParticipant.findMany({
+      where: { userId, conversationId: { in: conversationIds } },
     });
   }
 

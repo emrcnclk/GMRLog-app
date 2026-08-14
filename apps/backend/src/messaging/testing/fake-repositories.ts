@@ -210,6 +210,12 @@ export function createFakeConversationParticipantRepository(
             return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
           }),
       ),
+    findManyByUserAndConversations: (userId, conversationIds) =>
+      Promise.resolve(
+        [...rows.values()].filter(
+          (row) => row.userId === userId && conversationIds.includes(row.conversationId),
+        ),
+      ),
     updateLastReadAt: async (conversationId, userId, at) => {
       const existing = await findByConversationAndUser(conversationId, userId);
       if (!existing) {
@@ -291,5 +297,16 @@ export function createFakeMessageRepository(seed: Message[] = []): FakeMessageRe
       });
       return Promise.resolve(sorted[0] ?? null);
     },
+    listActiveFromOthers: (actorId, conversationIds) =>
+      Promise.resolve(
+        [...rows.values()]
+          .filter(
+            (row) =>
+              row.deletedAt == null &&
+              row.senderId !== actorId &&
+              conversationIds.includes(row.conversationId),
+          )
+          .map((row) => ({ conversationId: row.conversationId, createdAt: row.createdAt })),
+      ),
   };
 }
