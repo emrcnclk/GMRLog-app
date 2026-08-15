@@ -28,6 +28,7 @@ function NotificationCardComponent({ notification, onPress }: NotificationCardPr
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: unread }}
+      aria-selected={unread}
       accessibilityLabel={`${unread ? 'Unread. ' : ''}${actorName}. ${message}. ${timeLabel}`}
       onPress={() => {
         onPress(notification);

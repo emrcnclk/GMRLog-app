@@ -27,6 +27,7 @@ export function VisibilitySelector({ value, onChange, disabled = false }: Visibi
               key={option}
               accessibilityRole="button"
               accessibilityState={{ selected, disabled }}
+              aria-selected={selected}
               accessibilityLabel={`Visibility ${visibilityLabel(option)}`}
               disabled={disabled}
               onPress={() => {

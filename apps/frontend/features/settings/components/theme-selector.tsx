@@ -28,6 +28,7 @@ function ThemeSelectorComponent({ value, disabled, onChange }: ThemeSelectorProp
           variant={value === option ? 'primary' : 'secondary'}
           accessibilityLabel={`${themeLabel(option)} theme`}
           accessibilityState={{ selected: value === option }}
+          aria-selected={value === option}
           disabled={disabled}
           onPress={() => {
             onChange(option);

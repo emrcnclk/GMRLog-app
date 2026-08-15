@@ -25,6 +25,7 @@ function TierGameChipComponent({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      aria-selected={selected}
       accessibilityLabel={`${game.title}${selected ? ', selected for drag' : ''}`}
       onPress={() => {
         onPress(game.gameId);

@@ -73,6 +73,7 @@ function CsvImportPanelComponent({ disabled = false, onError, onImported }: CsvI
                 key={option}
                 accessibilityRole="button"
                 accessibilityState={{ selected, disabled: busy || disabled }}
+                aria-selected={selected}
                 accessibilityLabel={`CSV format ${csvFormatLabel(option)}`}
                 disabled={busy || disabled}
                 onPress={() => {

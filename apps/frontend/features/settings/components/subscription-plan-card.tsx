@@ -23,6 +23,7 @@ function SubscriptionPlanCardComponent({ plan, selected, onSelect }: Subscriptio
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
+      aria-selected={selected}
       accessibilityLabel={`${plan.label} plan, ${formatPlanPrice(plan.priceCents)} ${plan.period}${selected ? ', selected' : ''}`}
       onPress={onSelect}
       style={{

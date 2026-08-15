@@ -103,6 +103,7 @@ export function SegmentedTabs<T extends string>({
               key={item.id}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
+              aria-selected={selected}
               accessibilityLabel={labelWithCount}
               onLayout={(event) => {
                 recordLayout(item.id, event);

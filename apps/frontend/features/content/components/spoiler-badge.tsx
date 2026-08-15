@@ -28,6 +28,7 @@ export function SpoilerBadge({ active, onChange, disabled = false }: SpoilerBadg
       <Pressable
         accessibilityRole="switch"
         accessibilityState={{ checked: active, disabled }}
+        aria-checked={active}
         accessibilityLabel="Contains spoilers"
         disabled={disabled}
         onPress={() => {

@@ -35,6 +35,7 @@ export function ProfileTabs({ activeTab, onChange }: ProfileTabsProps) {
               key={tab}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
+              aria-selected={selected}
               accessibilityLabel={PROFILE_TAB_LABELS[tab]}
               onPress={() => {
                 onChange(tab);

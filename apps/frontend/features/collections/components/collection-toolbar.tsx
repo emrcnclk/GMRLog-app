@@ -74,6 +74,7 @@ function CollectionToolbarComponent({
         <IconButton
           accessibilityLabel={nextLayout === 'grid' ? 'Switch to grid view' : 'Switch to list view'}
           accessibilityState={{ checked: layout === 'grid' }}
+          aria-checked={layout === 'grid'}
           size="lg"
           onPress={() => {
             onChangeLayout(nextLayout);

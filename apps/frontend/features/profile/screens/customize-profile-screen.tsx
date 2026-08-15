@@ -537,8 +537,7 @@ function AccentSwatch({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      // `accessibilityState` does not reach the DOM on a web `Pressable`
-      // (CLAUDE.md's documented RNW trap) — the state is said in the label too.
+      aria-selected={selected}
       accessibilityLabel={`${ACCENT_LABELS[accent]} accent${selected ? ', selected' : ''}`}
       onPress={onPress}
       style={{
@@ -624,6 +623,7 @@ function CardStyleTile({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
+      aria-selected={selected}
       accessibilityLabel={`${CARD_STYLE_LABELS[cardStyle]} card style${selected ? ', selected' : ''}`}
       onPress={onPress}
       style={{ width: theme.space('space.16'), alignItems: 'center', gap: theme.space('space.1') }}
@@ -673,6 +673,7 @@ function BannerStyleRow({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
+      aria-selected={selected}
       accessibilityLabel={`${BANNER_STYLE_LABELS[bannerStyle]} banner${selected ? ', selected' : ''}`}
       onPress={onPress}
       style={{ gap: theme.space('space.1') }}
@@ -847,6 +848,7 @@ function IconAction({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled, selected }}
+      aria-selected={selected}
       disabled={disabled}
       onPress={onPress}
       hitSlop={6}

@@ -242,6 +242,7 @@ export function PostComposer({
               <Pressable
                 accessibilityRole="switch"
                 accessibilityState={{ checked: value }}
+                aria-checked={value}
                 accessibilityLabel="Attach poll"
                 disabled={saving || deleting || mode === 'edit'}
                 onPress={() => {

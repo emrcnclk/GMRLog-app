@@ -35,6 +35,7 @@ export function StarRating({ value, onChange, disabled = false, error }: StarRat
                 key={star}
                 accessibilityRole="button"
                 accessibilityState={{ selected: lit, disabled }}
+                aria-selected={lit}
                 accessibilityLabel={`Rate ${String(ratingForStar(star))} of 10`}
                 disabled={disabled}
                 hitSlop={4}
