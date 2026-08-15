@@ -4,7 +4,7 @@ import type {
   ProfilePinResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useApiClient } from '../../../src/api/api-provider';
@@ -136,4 +136,48 @@ export function useMePins() {
     isRefreshing: query.isRefetching,
     refetch: query.refetch,
   };
+}
+
+/**
+ * 9.5e — `PUT /me/pins`, `kind: 'achievement'`. Equips a badge or re-positions
+ * an already-equipped one; the same endpoint does both (9.5d). Not
+ * offline-durable like `usePatchProfileTheme` — the picker only makes sense
+ * online (it renders the achievement list itself), so a real failure (the
+ * cap, an org account, a race with the achievement being un-awarded) surfaces
+ * through `mutate`'s `onError` for the caller to show verbatim rather than
+ * queuing a write nothing yet confirmed was valid.
+ */
+export function useEquipAchievementPin() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { achievementId: string; position: number }) => {
+      const envelope = await api.putMyPin({
+        kind: 'achievement',
+        objectId: input.achievementId,
+        position: input.position,
+      });
+      return envelope.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.me() });
+    },
+  });
+}
+
+/** 9.5e — `DELETE /me/pins`, `kind: 'achievement'`. Unequips a badge. */
+export function useUnequipAchievementPin() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (achievementId: string) => {
+      await api.deleteMyPin('achievement', achievementId);
+      return achievementId;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.pins.me() });
+    },
+  });
 }

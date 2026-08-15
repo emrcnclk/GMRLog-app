@@ -12,7 +12,7 @@ import {
 } from '@gmrlog/ui';
 import { Lock, Trophy } from 'lucide-react-native';
 import { memo } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import {
   achievementRarity,
@@ -20,8 +20,23 @@ import {
   formatHolderPercent,
 } from '../hooks/achievement-showcase-model';
 
+/**
+ * 9.5e — the picker's per-row state. `order` is the 1-based equip slot
+ * (`null` when this row isn't equipped), the second, colour-independent
+ * carrier 8.3's neutral pass requires alongside the border-weight change:
+ * a number reads in monochrome, a colour shift alone would not.
+ */
+export interface AchievementPlatePickerState {
+  selected: boolean;
+  order: number | null;
+  /** Locked, or the three-slot cap is already full and this row isn't in it. */
+  disabled: boolean;
+  onPress: () => void;
+}
+
 export interface AchievementPlateProps {
   achievement: AchievementResponse;
+  picker?: AchievementPlatePickerState;
 }
 
 /** Locked rows dim their content, never their geometry (SCREEN_REDESIGNS.md §8). */
@@ -49,7 +64,7 @@ const ICON_PLATE = RARITY_PLATE_MIN + 8;
  * table in this file, because the rest of the app reuses it — this component is
  * its first consumer, not its owner.
  */
-function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
+function AchievementPlateComponent({ achievement, picker }: AchievementPlateProps) {
   const theme = useTheme();
 
   const awarded = achievement.progress.state === 'awarded';
@@ -68,12 +83,27 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
   const holderText = formatHolderPercent(achievement.holderPercent);
   const metaText = holderText != null ? `${fact} · ${holderText}` : fact;
 
-  return (
+  // 9.5e — at the three-slot cap, an unselected-but-awarded row stays tappable
+  // (the parent shows the cap notice) but visibly recedes, distinct from the
+  // locked dim above it and from the plain "not chosen yet" case.
+  const cappedDim = picker !== undefined && picker.disabled && awarded && !picker.selected;
+
+  const rowLabel = `${achievement.title}. ${achievement.description} ${
+    awarded ? `Unlocked ${unlockedAt ?? ''}` : `Locked, ${fact}`
+  }. ${RARITY_LABELS[rarity]}.${
+    picker !== undefined
+      ? picker.selected
+        ? ` Equipped, slot ${String(picker.order ?? 0)}.`
+        : awarded
+          ? ' Tap to equip.'
+          : ''
+      : ''
+  }`;
+
+  const plateBody = (
     <View
-      accessibilityRole="summary"
-      accessibilityLabel={`${achievement.title}. ${achievement.description} ${
-        awarded ? `Unlocked ${unlockedAt ?? ''}` : `Locked, ${fact}`
-      }. ${RARITY_LABELS[rarity]}.`}
+      accessibilityRole={picker === undefined ? 'summary' : undefined}
+      accessibilityLabel={picker === undefined ? rowLabel : undefined}
       style={{
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -81,8 +111,12 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
         padding: theme.space('space.4'),
         borderRadius: theme.radius('radius.lg'),
         backgroundColor: theme.color('color.surface.secondary'),
-        borderWidth: 1,
-        borderColor: theme.color(plate.border),
+        borderWidth: picker?.selected === true ? 2 : 1,
+        borderColor:
+          picker?.selected === true
+            ? theme.color('color.accent.default')
+            : theme.color(plate.border),
+        opacity: cappedDim ? 0.55 : 1,
         // The glow is ambient, so it takes the accent and drops the elevation
         // token's downward offset — a lift would read as a card, not a plate.
         ...theme.elevation(plate.elevation),
@@ -90,6 +124,29 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
         shadowOffset: { width: 0, height: 0 },
       }}
     >
+      {picker?.selected === true ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: -theme.space('space.2'),
+            right: -theme.space('space.2'),
+            minWidth: theme.space('space.6'),
+            height: theme.space('space.6'),
+            paddingHorizontal: theme.space('space.1'),
+            borderRadius: theme.radius('radius.full'),
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.color('color.background.elevated'),
+            borderWidth: 1,
+            borderColor: theme.color('color.accent.default'),
+          }}
+        >
+          <Text role="label" color="color.accent.default">
+            {picker.order ?? ''}
+          </Text>
+        </View>
+      ) : null}
+
       {plate.cornerNotch !== null ? (
         <CornerNotch length={plate.cornerNotch} vertical={plate.cornerNotchVertical} />
       ) : null}
@@ -158,6 +215,24 @@ function AchievementPlateComponent({ achievement }: AchievementPlateProps) {
         </View>
       </View>
     </View>
+  );
+
+  if (picker === undefined) {
+    return plateBody;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={rowLabel}
+      accessibilityState={{ selected: picker.selected, disabled: !awarded }}
+      aria-selected={picker.selected}
+      disabled={!awarded}
+      onPress={picker.onPress}
+      style={({ pressed }) => ({ opacity: pressed && awarded ? 0.85 : 1 })}
+    >
+      {plateBody}
+    </Pressable>
   );
 }
 

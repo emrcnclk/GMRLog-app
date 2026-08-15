@@ -80,9 +80,12 @@ export function ProfileScreen() {
     router.push('/(app)/followers?tab=following');
   }, [router]);
 
-  /** §6's "tapping opens the badge case" — the Achievements screen from 3.1. */
-  const openAchievements = useCallback(() => {
-    router.push('/(app)/achievements');
+  /**
+   * §6's "tapping opens the badge case" — the Achievements screen from 3.1.
+   * 9.5e: opens straight into the equip picker rather than the plain list.
+   */
+  const openBadgePicker = useCallback(() => {
+    router.push('/(app)/achievements?mode=pick');
   }, [router]);
 
   const openGame = useCallback(
@@ -221,7 +224,7 @@ export function ProfileScreen() {
           achievements={data.achievements.items}
           pins={data.pins.items}
           isPending={data.statistics.isPending}
-          onPressBadgeCase={openAchievements}
+          onPressBadgeCase={openBadgePicker}
         />
       ) : customization.heroStyle === 'monolith' ? (
         <ProfileMonolithHero user={user} hero={hero.hero} />
