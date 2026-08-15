@@ -1255,6 +1255,11 @@ export interface AchievementResponse {
   holderPercent?: number | null;
 }
 
+export interface FavoriteGenreCount {
+  genre: string;
+  count: number;
+}
+
 export interface UserStatisticsResponse {
   gamesLogged: number;
   gamesPlayed: number;
@@ -1276,6 +1281,7 @@ export interface UserStatisticsResponse {
   tierListCount: number;
   achievementCount: number;
   favoriteGenres: string[];
+  favoriteGenreCounts?: FavoriteGenreCount[];
   favoritePlatform: string | null;
   favoriteDeveloper: string | null;
   favoritePublisher: string | null;

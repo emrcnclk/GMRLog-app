@@ -2,6 +2,7 @@ import type { StatisticsHistoryResponse, UserStatisticsResponse } from '@gmrlog/
 import {
   ActivityHeatmap,
   Chip,
+  DistributionBars,
   SCREEN_GUTTER,
   SectionKicker,
   StatTile,
@@ -31,6 +32,7 @@ function GamingInsightsComponent({ statistics }: GamingInsightsProps) {
   const theme = useTheme();
   const insights = useMemo(() => buildGamingInsights(statistics), [statistics]);
   const genres = statistics?.favoriteGenres ?? [];
+  const genreCounts = statistics?.favoriteGenreCounts ?? [];
 
   if (insights.length === 0 && genres.length === 0) {
     return null;
@@ -70,16 +72,27 @@ function GamingInsightsComponent({ statistics }: GamingInsightsProps) {
         </View>
       ) : null}
 
-      {genres.length > 0 ? (
+      {genreCounts.length > 0 ? (
         <View
           style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.3') }}
         >
-          {/* §6 asks for "Genre DNA bars". There are no weights to draw:
-              `statistics.favoriteGenres` is a bare top-three list, and the
-              backend's own `genreCounts` — the numbers a bar needs — is thrown
-              away one line before the DTO is built (`statistics.service.ts`).
-              Deriving a share on the client would be inventing a score, so the
-              real list stands as a list. Backend follow-up in TASKS.md. */}
+          {/* §6's "Genre DNA bars" (9.5a) — `favoriteGenreCounts` carries the
+              weights `genreCounts` always had server-side; the bar widths come
+              from `DistributionBars` scaling each count against the peak, the
+              same relative-length rule the Reviews rating histogram already
+              uses, not a percentage the client invents. */}
+          <SectionKicker title="Genre DNA" counter={String(genreCounts.length)} />
+          <DistributionBars
+            rows={genreCounts.map((entry) => ({ label: entry.genre, count: entry.count }))}
+            accessibilityLabel="Favourite genres by play count"
+          />
+        </View>
+      ) : genres.length > 0 ? (
+        <View
+          style={{ paddingHorizontal: theme.space(SCREEN_GUTTER), gap: theme.space('space.3') }}
+        >
+          {/* Fallback for a cached response from before 9.5a — no counts, so a
+              plain list stands in for the bars rather than fabricating widths. */}
           <SectionKicker title="Genre DNA" counter={String(genres.length)} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space('space.2') }}>
             {genres.slice(0, 8).map((genre) => (

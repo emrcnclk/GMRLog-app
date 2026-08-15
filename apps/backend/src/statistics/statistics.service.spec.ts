@@ -162,6 +162,10 @@ describe('StatisticsService.build', () => {
       friendCount: 1,
       achievementCount: 2,
       favoriteGenres: ['RPG', 'Indie'],
+      favoriteGenreCounts: [
+        { genre: 'RPG', count: 3 },
+        { genre: 'Indie', count: 1 },
+      ],
       favoritePlatform: 'PC',
       favoriteDeveloper: 'FromSoftware',
       favoritePublisher: null,
@@ -210,6 +214,8 @@ describe('StatisticsService.build', () => {
     expect(stats.commentCount).toBe(0);
     expect(stats.tierListCount).toBe(0);
     expect(stats.profileCompletionPercent).toBe(25);
+    expect(stats.favoriteGenres).toEqual([]);
+    expect(stats.favoriteGenreCounts).toEqual([]);
   });
 
   it('returns 404 when snapshot or user is missing', async () => {

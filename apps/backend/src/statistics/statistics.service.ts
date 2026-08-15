@@ -6,6 +6,7 @@ import type {
   UserRepository,
 } from '@gmrlog/database';
 import type {
+  FavoriteGenreCount,
   StatisticsHistoryResponse,
   StatisticsSeriesPoint,
   UserStatisticsResponse,
@@ -87,6 +88,7 @@ export class StatisticsService {
       gamesLogged === 0 ? 0 : Math.round((gamesCompleted / gamesLogged) * 100);
 
     const profileCompletionPercent = computeProfileCompletionPercent(snapshot);
+    const topGenres = topEntries(snapshot.genreCounts, 3);
 
     return {
       gamesLogged,
@@ -108,7 +110,11 @@ export class StatisticsService {
       collectionCount: collections.length,
       tierListCount: period === 'lifetime' ? snapshot.tierListCount : 0,
       achievementCount: snapshot.achievementAwardedCount,
-      favoriteGenres: topKeys(snapshot.genreCounts, 3),
+      favoriteGenres: topGenres.map(([genre]) => genre),
+      favoriteGenreCounts: topGenres.map(([genre, count]): FavoriteGenreCount => ({
+        genre,
+        count,
+      })),
       favoritePlatform: topKeys(snapshot.platformCounts, 1)[0] ?? null,
       favoriteDeveloper: topKeys(snapshot.franchiseCounts, 1)[0] ?? null,
       favoritePublisher: null,
@@ -202,10 +208,11 @@ function computeProfileCompletionPercent(snapshot: PlayerMetricSnapshot): number
 }
 
 function topKeys(map: ReadonlyMap<string, number>, limit: number): string[] {
-  return [...map.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([key]) => key);
+  return topEntries(map, limit).map(([key]) => key);
+}
+
+function topEntries(map: ReadonlyMap<string, number>, limit: number): [string, number][] {
+  return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit);
 }
 
 function bucketSeries(

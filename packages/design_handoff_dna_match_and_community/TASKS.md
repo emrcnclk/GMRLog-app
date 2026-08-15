@@ -836,7 +836,24 @@ One commit per screen. Layout only — every data hook, form, validator and stat
   - **`EventsController` still has no `DELETE /events/:id`** — checked, still true, same standing gap 3b.9/3b.10/8.1 already recorded. Out of scope here, not built.
   - **Verified:** `pnpm --filter @gmrlog/database run build` (backend loads it from `dist`), then `pnpm turbo run typecheck lint test build` unfiltered — **33/33 tasks green**, backend **1447/1447** (1436 + 11 new), no regressions. No backend process was running this session, so nothing held the query-engine DLL.
 
-- [ ] **9.5 `UserStatisticsResponse` cluster (3.9, largest).** `cardNumber`, an equipped-badge slot, per-entry completion%/platinum flag, `favoriteGenreCounts`. Note the genre weights ALREADY EXIST server-side and are discarded — that one is plumbing, not new computation. Scope-check before starting: this may deserve splitting.
+**9.5 `UserStatisticsResponse` cluster (3.9) — scoped and split, 2026-08-15.** 3.9 flagged four gaps as one line item, but they are not one change — they differ in whether a product decision is needed before code can be written:
+
+- (a) plumbing only: the weights already exist server-side (`genreCounts`) and are thrown away one line before the DTO is built. No new decision, no new query.
+- (b) a real query against an existing, unambiguous fact (row creation order) — one decision (what the serial counts), no storage change.
+- (c) blocked on a product decision: "platinum" is rarity-adjacent language (CLAUDE.md: rarity is geometry, never colour/label), and a flag vs. a percent are different schema shapes — cannot be split further until that's picked.
+- (d) blocked on a bigger product decision: an "equipped" concept is user-selected, persisted state with no entitlement system behind it (3b.5/3b.6 already closed that door) — a write path, a limit of three, and un-equip-on-loss behaviour all need deciding first. Largest and most feature-shaped of the four; not attempted without a dedicated decision pass.
+
+Split into four ordered sub-tasks so each ships independently and additively:
+
+- [x] **9.5a `favoriteGenreCounts` on `UserStatisticsResponse` (plumbing).** — **Done 2026-08-15.**
+  - `FavoriteGenreCount { genre: string; count: number }` added to `packages/types`; `favoriteGenreCounts?: FavoriteGenreCount[]` added to `UserStatisticsResponse`, additive/optional.
+  - `statistics.service.ts`: `topKeys` split into a new `topEntries` (sorted `[key, count]` pairs) that both `favoriteGenres` and `favoriteGenreCounts` now derive from — same top-3 `genreCounts` entries, no new query, no second sort.
+  - Frontend (`gaming-insights.tsx`): "Genre DNA" renders `DistributionBars` (peak-relative bar width, the same relative-length rule the Reviews rating histogram already uses — not a client-computed percentage) when `favoriteGenreCounts` is present, falling back to the pre-existing `Chip` list for a cached response with no counts yet.
+  - Tests: `statistics.service.spec.ts` — lifetime case asserts `favoriteGenreCounts` ordering/values alongside `favoriteGenres`; empty-snapshot case asserts `[]`.
+  - **Verified:** `pnpm turbo run typecheck lint test build` — 33/33 tasks green (29 cached, 4 new for this diff), backend **1447/1447** (unchanged count — existing tests extended, no new cases). No backend process running beforehand.
+- [ ] **9.5b `cardNumber` on the profile DTO (serial, one decision).**
+- [ ] **9.5c Per-entry completion% or platinum flag on library entries (needs a product decision: which shape, and how it interacts with the rarity-is-geometry rule).**
+- [ ] **9.5d Equipped-badge slot (needs a decision pass: storage, write endpoint, limit-of-three, un-equip-on-loss behaviour — largest, do last).**
 
 - [ ] **9.6 The ~20 `accessibilityState` consumers (8.2).** Mechanical: apply 8.2's standing aria-* alias decision, already written into CLAUDE.md with its source citations. One diff, no new decisions. Verify from the emitted DOM, not from props.
 
