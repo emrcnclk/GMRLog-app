@@ -45,8 +45,11 @@ jobs:
           --health-retries 5
 
     env:
+      # APP_ENV is deliberately left unset (schema default 'development'):
+      # packages/config's z.enum for APP_ENV only accepts
+      # development/staging/production, not 'test' — NODE_ENV: test already
+      # carries the test signal and IS in that enum.
       NODE_ENV: test
-      APP_ENV: test
       LOG_LEVEL: error
       DATABASE_URL: postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public
       REDIS_URL: redis://localhost:6379
