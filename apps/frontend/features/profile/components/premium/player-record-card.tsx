@@ -28,6 +28,7 @@ import { resolveArchetypePair } from '../../hooks/archetype-catalog';
 import {
   buildRecordStats,
   buildRecordTraits,
+  formatRecordHeaderSlot,
   formatRecordSince,
   selectRecordBadges,
   type RecordBadge,
@@ -79,6 +80,7 @@ function PlayerRecordCardComponent({
   const badges = useMemo(() => selectRecordBadges(achievements), [achievements]);
   const stats = useMemo(() => buildRecordStats(statistics), [statistics]);
   const since = formatRecordSince(hero?.memberSince ?? user.createdAt);
+  const headerSlot = formatRecordHeaderSlot(hero?.cardNumber, since);
 
   return (
     <View
@@ -121,9 +123,9 @@ function PlayerRecordCardComponent({
           <Text role="metaSm" color="color.text.tertiary">
             Player record
           </Text>
-          {since !== null ? (
+          {headerSlot !== null ? (
             <Text role="metaSm" color="color.text.tertiary">
-              {`Since ${since}`}
+              {headerSlot}
             </Text>
           ) : null}
         </View>

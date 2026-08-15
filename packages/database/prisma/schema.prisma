@@ -680,6 +680,12 @@ model User {
   /// 5.4 — BACKEND_CHANGES.md §4. Gates the DNA match panel: `applicable: false`
   /// for any non-individual account. Every row backfills to `individual`.
   accountKind     AccountKind @default(individual) @map("account_kind")
+  /// 9.5b — the profile card's serial (§6's "№ 0042"). Stable and permanent:
+  /// assigned once via a DB sequence, never recomputed from a live ordering,
+  /// so it cannot renumber when another account is deleted. Every account —
+  /// individual and organisation alike — consumes one; there is no gating by
+  /// `accountKind` here, only account-creation order.
+  cardNumber      Int       @unique @default(autoincrement()) @map("card_number")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")

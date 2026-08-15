@@ -36,6 +36,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     privacyId: null,
     creatorFeatured: false,
     accountKind: 'individual',
+    cardNumber: 1,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,

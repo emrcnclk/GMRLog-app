@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildRecordStats,
   buildRecordTraits,
+  formatRecordHeaderSlot,
   formatRecordSince,
   rarityRank,
   selectCompletedCase,
@@ -222,5 +223,20 @@ describe('formatRecordSince', () => {
 
   it('formats a real timestamp', () => {
     expect(formatRecordSince('2025-03-04T00:00:00.000Z')).not.toBeNull();
+  });
+});
+
+describe('formatRecordHeaderSlot', () => {
+  it('prefers the card serial when present, over a real tenure fact', () => {
+    expect(formatRecordHeaderSlot('0042', 'Mar 2025')).toBe('№ 0042');
+  });
+
+  it('falls back to the tenure fact when cardNumber is absent (pre-9.5b cache)', () => {
+    expect(formatRecordHeaderSlot(undefined, 'Mar 2025')).toBe('Since Mar 2025');
+    expect(formatRecordHeaderSlot(null, 'Mar 2025')).toBe('Since Mar 2025');
+  });
+
+  it('renders nothing when neither fact is available', () => {
+    expect(formatRecordHeaderSlot(undefined, null)).toBeNull();
   });
 });

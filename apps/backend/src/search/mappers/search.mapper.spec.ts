@@ -52,6 +52,7 @@ describe('search.mapper', () => {
           privacyId: null,
           creatorFeatured: false,
           accountKind: 'individual',
+          cardNumber: 1,
           createdAt: orderedAt,
           updatedAt: orderedAt,
           deletedAt: null,

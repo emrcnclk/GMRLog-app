@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ProfileHeroService } from './profile-hero.service';
+import { formatCardNumber, ProfileHeroService } from './profile-hero.service';
 
 describe('ProfileHeroService', () => {
   const users = { findById: vi.fn() };
@@ -24,6 +24,7 @@ describe('ProfileHeroService', () => {
       createdAt: new Date('2025-06-01T00:00:00.000Z'),
       deletedAt: null,
       creatorFeatured: false,
+      cardNumber: 42,
     });
     metrics.loadSnapshot.mockResolvedValue({
       libraryEntries: [
@@ -89,7 +90,29 @@ describe('ProfileHeroService', () => {
       totalHours: 42,
       reputationBadges: ['helpful_reviewer'],
       creatorBadge: true,
+      cardNumber: '0042',
     });
+  });
+
+  it('pads a card number below the 4-digit floor and leaves a wider one untouched', () => {
+    expect(formatCardNumber(1)).toBe('0001');
+    expect(formatCardNumber(42)).toBe('0042');
+    expect(formatCardNumber(9999)).toBe('9999');
+    expect(formatCardNumber(100147)).toBe('100147');
+  });
+
+  it('formats a card number the same way for an organisation account — no gating by accountKind', async () => {
+    users.findById.mockResolvedValue({
+      id: 'org-1',
+      createdAt: new Date('2025-06-01T00:00:00.000Z'),
+      deletedAt: null,
+      creatorFeatured: false,
+      accountKind: 'organisation',
+      cardNumber: 7,
+    });
+
+    const hero = await service.getHero('org-1');
+    expect(hero.cardNumber).toBe('0007');
   });
 
   it('returns zero completion and nulls when library/pins/genres empty', async () => {
@@ -130,6 +153,7 @@ describe('ProfileHeroService', () => {
       createdAt: new Date('2025-06-01T00:00:00.000Z'),
       deletedAt: null,
       creatorFeatured: true,
+      cardNumber: 3,
     });
 
     const hero = await service.getHero('user-1');

@@ -40,6 +40,7 @@ function makeUser(overrides: Partial<{ id: string; handle: string }> = {}) {
     privacyId: null,
     creatorFeatured: false,
     accountKind: 'individual' as const,
+    cardNumber: 1,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

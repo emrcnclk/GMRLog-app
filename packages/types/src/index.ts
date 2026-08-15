@@ -1524,6 +1524,13 @@ export interface ProfileHeroResponse {
   totalHours: number | null;
   reputationBadges: ReputationBadgeValue[];
   creatorBadge: boolean;
+  /**
+   * 9.5b — the profile card's serial (§6's "№ 0042"), zero-padded to 4
+   * digits server-side and never reformatted on the client. Additive:
+   * absent on a pre-9.5b cached response, degrading to the card's prior
+   * "Since <date>" slot.
+   */
+  cardNumber?: string;
 }
 
 /** D3.24 — Game Hub summary */

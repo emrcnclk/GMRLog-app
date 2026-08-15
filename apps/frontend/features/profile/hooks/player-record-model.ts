@@ -233,15 +233,8 @@ export function selectCompletedCase(
 }
 
 /**
- * The record card's header line, right-aligned opposite "PLAYER RECORD".
- *
- * §6 puts a serial number there (`№ 0042`). Nothing on the wire carries one —
- * `UserSelfResponse` has a uuid and a created-at, and minting an ordinal from a
- * uuid on the client would be an identity claim two clients could disagree
- * about. The slot takes the real tenure fact instead, in the same monospace.
- *
- * **Backend follow-up (TASKS.md):** an additive `cardNumber` on the profile DTO
- * would let the card carry the serial §6 actually asks for.
+ * The tenure fact §6's header slot fell back to before `cardNumber` existed
+ * (9.5b), and still falls back to on a pre-9.5b cached response.
  */
 export function formatRecordSince(iso: string | null | undefined): string | null {
   if (iso == null) {
@@ -252,6 +245,26 @@ export function formatRecordSince(iso: string | null | undefined): string | null
     return null;
   }
   return new Date(parsed).toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+}
+
+/**
+ * The record card's header line, right-aligned opposite "PLAYER RECORD".
+ *
+ * §6 puts a serial number there (`№ 0042`) — now real, via `ProfileHeroResponse.
+ * cardNumber` (9.5b), already zero-padded server-side, so this only prepends
+ * the glyph. `cardNumber` is additive and absent on a pre-9.5b cached
+ * response, which is exactly when this degrades to the tenure fact that used
+ * to occupy the slot — never both, and never a blank slot when either fact is
+ * available.
+ */
+export function formatRecordHeaderSlot(
+  cardNumber: string | null | undefined,
+  since: string | null,
+): string | null {
+  if (cardNumber != null) {
+    return `№ ${cardNumber}`;
+  }
+  return since != null ? `Since ${since}` : null;
 }
 
 function compareByRarityThenRecency(a: RecordBadge, b: RecordBadge): number {

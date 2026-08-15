@@ -22,6 +22,16 @@ import {
 } from './profile-hero.tokens';
 
 /**
+ * 9.5b — the profile card's serial, formatted once, server-side, so the
+ * client never re-derives padding width. Padded to a floor of 4 digits
+ * (§6's "№ 0042"); a card number past 9999 grows naturally past the floor
+ * rather than truncating.
+ */
+export function formatCardNumber(cardNumber: number): string {
+  return String(cardNumber).padStart(4, '0');
+}
+
+/**
  * Profile Hero composition (D3.24 / PROFILE_V2.md).
  * First glance = player character — Statistics · Library · Archetypes ·
  * ProfilePins · Steam (when linked) · UserReputation · Creator badge.
@@ -100,6 +110,7 @@ export class ProfileHeroService {
       totalHours: snapshot.sessionLogCount,
       reputationBadges,
       creatorBadge,
+      cardNumber: formatCardNumber(user.cardNumber),
     };
   }
 

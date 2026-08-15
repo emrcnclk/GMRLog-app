@@ -135,6 +135,11 @@ export class SearchIndexService {
             privacyId: null,
             creatorFeatured: false,
             accountKind: 'individual',
+            // Reconstructed from a Meili hit, which never carries this
+            // column — placeholder only, and `toUserPublicResponse` never
+            // reads it (`cardNumber` is exposed on `ProfileHeroResponse`,
+            // not `UserPublicResponse`).
+            cardNumber: 0,
             createdAt: orderedAt,
             updatedAt: orderedAt,
             deletedAt: null,
