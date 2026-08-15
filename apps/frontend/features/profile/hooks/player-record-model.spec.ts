@@ -4,6 +4,7 @@ import type {
   LibraryStatusValue,
   PlayerArchetypeKey,
   PlayerArchetypeResponse,
+  ProfilePinResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
 import { describe, expect, it } from 'vitest';
@@ -35,6 +36,15 @@ function achievement(overrides: Partial<AchievementResponse> = {}): AchievementR
 
 function archetype(key: PlayerArchetypeKey, score: number): PlayerArchetypeResponse {
   return { key, score, awardedAt: '2026-01-01T00:00:00.000Z' };
+}
+
+function pin(overrides: Partial<ProfilePinResponse> = {}): ProfilePinResponse {
+  return {
+    id: overrides.id ?? 'pin-1',
+    kind: overrides.kind ?? 'achievement',
+    objectId: overrides.objectId ?? 'a1',
+    position: overrides.position ?? 0,
+  };
 }
 
 function entry(
@@ -153,6 +163,69 @@ describe('selectRecordBadges', () => {
     ]);
 
     expect(badges.map((badge) => badge.achievement.id)).toEqual(['newer', 'older']);
+  });
+
+  it('9.5d — an equipped pin set overrides the rarity auto-selection, in the player’s own slot order', () => {
+    const achievements = [
+      achievement({ id: 'legendary', isRare: true, isHidden: true }),
+      achievement({ id: 'common' }),
+      achievement({ id: 'epic', isRare: true }),
+    ];
+    const pins = [
+      pin({ id: 'p1', objectId: 'common', position: 0 }),
+      pin({ id: 'p2', objectId: 'legendary', position: 1 }),
+    ];
+
+    const badges = selectRecordBadges(achievements, pins);
+
+    // Equipped order (common, legendary) wins over rarity order
+    // (legendary would otherwise lead) — the player's own choice, not a
+    // re-derived ranking.
+    expect(badges.map((badge) => badge.achievement.id)).toEqual(['common', 'legendary']);
+  });
+
+  it('9.5d — falls back to rarity auto-selection when nothing is equipped', () => {
+    const achievements = [achievement({ id: 'common' }), achievement({ id: 'epic', isRare: true })];
+
+    expect(selectRecordBadges(achievements, []).map((badge) => badge.achievement.id)).toEqual(
+      selectRecordBadges(achievements).map((badge) => badge.achievement.id),
+    );
+  });
+
+  it('9.5d — drops an equipped pin whose achievement is missing or not awarded, without falling back', () => {
+    const achievements = [
+      achievement({ id: 'awarded-1' }),
+      achievement({ id: 'locked', progress: { current: 0, target: 1, state: 'locked' } }),
+    ];
+    const pins = [
+      pin({ id: 'p1', objectId: 'awarded-1', position: 0 }),
+      pin({ id: 'p2', objectId: 'locked', position: 1 }),
+      pin({ id: 'p3', objectId: 'does-not-exist', position: 2 }),
+    ];
+
+    const badges = selectRecordBadges(achievements, pins);
+
+    expect(badges.map((badge) => badge.achievement.id)).toEqual(['awarded-1']);
+  });
+
+  it('9.5d — ignores pins of other kinds and caps the equipped set at the slot limit', () => {
+    const achievements = [
+      achievement({ id: 'a' }),
+      achievement({ id: 'b' }),
+      achievement({ id: 'c' }),
+      achievement({ id: 'd' }),
+    ];
+    const pins = [
+      pin({ kind: 'game', objectId: 'a', position: 0 }),
+      pin({ objectId: 'a', position: 1 }),
+      pin({ objectId: 'b', position: 2 }),
+      pin({ objectId: 'c', position: 3 }),
+      pin({ objectId: 'd', position: 4 }),
+    ];
+
+    const badges = selectRecordBadges(achievements, pins);
+
+    expect(badges.map((badge) => badge.achievement.id)).toEqual(['a', 'b', 'c']);
   });
 });
 

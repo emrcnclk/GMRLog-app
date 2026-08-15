@@ -2,19 +2,14 @@ import type { ProfilePin } from '@gmrlog/database';
 import type { ProfilePinResponse } from '@gmrlog/types';
 
 /**
- * `profile_pin_kind` carries a fourth value, `achievement`, added by the
- * D3.29 migration (badge equip/pin) — schema-only, ahead of the feature that
- * writes it. `ProfilePinUpsertInput`/`ProfilePinResponse` stay at the three
- * kinds `ProfilePinsService.requirePinTarget` actually validates against;
- * widening them here would accept an `achievement` pin with no matching
- * ownership check (it would silently fall through to the collection branch).
- * No current write path can produce that row — this rejects it explicitly
- * rather than mistyping it past `ProfilePinResponse`.
+ * `profile_pin_kind`'s fourth value, `achievement` (D3.29), is now a real,
+ * validated write path — `ProfilePinsService.requirePinTarget` checks the
+ * achievement exists and is awarded to the pinning user before a row can be
+ * created (9.5d). The shape carries nothing beyond `objectId`, same as the
+ * other three kinds; the frontend resolves it against the achievement it
+ * already has loaded.
  */
 export function toProfilePinResponse(pin: ProfilePin): ProfilePinResponse {
-  if (pin.kind === 'achievement') {
-    throw new Error('Achievement profile pins are not supported yet (D3.29 Phase 2)');
-  }
   return {
     id: pin.id,
     kind: pin.kind,

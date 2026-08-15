@@ -34,6 +34,8 @@ import type {
   GameRelatedGameResponse,
   GameResponse,
   ProfileHeroResponse,
+  ProfilePinKindValue,
+  ProfilePinResponse,
   ProfileThemeResponse,
   IntegrationProviderInfo,
   LibraryEntryResponse,
@@ -251,8 +253,8 @@ export class AxiosApiClient {
     return this.request<T>({ method: 'PATCH', path, body });
   }
 
-  delete<T>(path: string): Promise<ApiEnvelope<T>> {
-    return this.request<T>({ method: 'DELETE', path });
+  delete<T>(path: string, query?: ApiRequestOptions['query']): Promise<ApiEnvelope<T>> {
+    return this.request<T>({ method: 'DELETE', path, query });
   }
 
   /** Typed resource helpers — DTOs from `@gmrlog/types` only. */
@@ -1197,6 +1199,30 @@ export class AxiosApiClient {
   /** `GET /users/{userId}/archetypes` — user archetype badges. */
   getUserArchetypes(userId: string): Promise<ApiEnvelope<PlayerArchetypeResponse[]>> {
     return this.get<PlayerArchetypeResponse[]>(`/users/${userId}/archetypes`);
+  }
+
+  /** `GET /me/pins` — self profile showcase pins (9.5d: includes equipped badges). */
+  getMyPins(): Promise<ApiEnvelope<ProfilePinResponse[]>> {
+    return this.get<ProfilePinResponse[]>('/me/pins');
+  }
+
+  /** `GET /users/{userId}/pins` — the public read side of a profile's pins. */
+  getUserPins(userId: string): Promise<ApiEnvelope<ProfilePinResponse[]>> {
+    return this.get<ProfilePinResponse[]>(`/users/${userId}/pins`);
+  }
+
+  /** `PUT /me/pins` — equip/reposition a pin. */
+  putMyPin(body: {
+    kind: ProfilePinKindValue;
+    objectId: string;
+    position?: number;
+  }): Promise<ApiEnvelope<ProfilePinResponse>> {
+    return this.put<ProfilePinResponse>('/me/pins', body);
+  }
+
+  /** `DELETE /me/pins` — unequip a pin. */
+  deleteMyPin(kind: ProfilePinKindValue, objectId: string): Promise<ApiEnvelope<null>> {
+    return this.delete<null>('/me/pins', { kind, objectId });
   }
 
   /** `POST /reactions` — create reaction / like (idempotent). */

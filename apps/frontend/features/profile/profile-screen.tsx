@@ -219,6 +219,7 @@ export function ProfileScreen() {
           statistics={data.statistics.statistics}
           archetypes={data.archetypes.items}
           achievements={data.achievements.items}
+          pins={data.pins.items}
           isPending={data.statistics.isPending}
           onPressBadgeCase={openAchievements}
         />

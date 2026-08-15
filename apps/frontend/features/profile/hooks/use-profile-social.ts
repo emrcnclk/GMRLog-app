@@ -1,6 +1,7 @@
 import type {
   AchievementResponse,
   PlayerArchetypeResponse,
+  ProfilePinResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
 import { useQuery } from '@tanstack/react-query';
@@ -100,6 +101,35 @@ export function useMeArchetypes() {
 
   return {
     items: sorted,
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+    isRefreshing: query.isRefetching,
+    refetch: query.refetch,
+  };
+}
+
+/** 9.5d — `GET /me/pins`, empty when route missing (same degrade as the two above). */
+export function useMePins() {
+  const api = useApiClient();
+
+  const query = useQuery({
+    queryKey: queryKeys.pins.me(),
+    queryFn: async (): Promise<ProfilePinResponse[]> => {
+      try {
+        const envelope = await api.getMyPins();
+        return envelope.data;
+      } catch (error) {
+        if (isMissingRoute(error)) {
+          return [];
+        }
+        throw error;
+      }
+    },
+  });
+
+  return {
+    items: query.data ?? [],
     isPending: query.isPending,
     isError: query.isError,
     error: query.error,

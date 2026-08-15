@@ -2,6 +2,7 @@ import type {
   AchievementResponse,
   LibraryEntryResponse,
   PlayerArchetypeResponse,
+  ProfilePinResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
 import type { RarityTier } from '@gmrlog/ui';
@@ -93,22 +94,41 @@ export interface RecordBadge {
 }
 
 /**
- * The three equal-width badge slots. §6 does not say which badges are equipped
- * and no equip endpoint exists — `ProfilePinResponse` covers game, review and
- * collection only — so the card shows the player's strongest awarded badges by
- * rarity, ties broken on the most recent unlock and then on id for a stable
- * order between renders and between devices.
- *
- * **Backend follow-up (TASKS.md):** an equipped-badge slot on the profile DTO
- * would let the player choose these three, which is what the prototype's badge
- * picker does.
+ * The three equal-width badge slots. `ProfilePinResponse` now carries an
+ * `achievement` kind (9.5d) — the player's own equipped choice, in the order
+ * they set it (`position`, ascending). When they've equipped at least one,
+ * that choice wins outright; when they haven't (or the server had nothing to
+ * equip, e.g. a route the client couldn't reach), the card falls back to the
+ * previous behaviour — the strongest awarded badges by rarity, ties broken on
+ * the most recent unlock and then on id for a stable order between renders and
+ * between devices. Never both, and a pin whose achievement isn't (or no longer
+ * is) awarded is silently dropped rather than shown — defence in depth on top
+ * of the server's own read-time filter, not a second source of truth.
  */
 export function selectRecordBadges(
   achievements: readonly AchievementResponse[],
+  pins: readonly ProfilePinResponse[] = [],
   limit = RECORD_BADGE_SLOTS,
 ): RecordBadge[] {
-  return achievements
-    .filter((item) => item.progress.state === 'awarded')
+  const awardedById = new Map(
+    achievements
+      .filter((item) => item.progress.state === 'awarded')
+      .map((item) => [item.id, item] as const),
+  );
+
+  const equipped = [...pins]
+    .filter((pin) => pin.kind === 'achievement')
+    .sort((a, b) => a.position - b.position)
+    .map((pin) => awardedById.get(pin.objectId))
+    .filter((achievement): achievement is AchievementResponse => achievement !== undefined)
+    .slice(0, limit)
+    .map((achievement) => ({ achievement, rarity: achievementRarity(achievement) }));
+
+  if (equipped.length > 0) {
+    return equipped;
+  }
+
+  return [...awardedById.values()]
     .map((achievement) => ({ achievement, rarity: achievementRarity(achievement) }))
     .sort(compareByRarityThenRecency)
     .slice(0, limit);
@@ -194,15 +214,16 @@ export function buildRecordStats(
 export const RAREST_UNLOCK_LIMIT = 3;
 
 /**
- * §6's "Rarest unlocks". Awarded badges only, strongest tier first — the same
- * ordering `selectRecordBadges` uses, so the card's slots and this section never
- * contradict each other about which badge is the player's best.
+ * §6's "Rarest unlocks". Awarded badges only, strongest tier first — always
+ * the rarity ordering, never the player's equipped choice, so this section
+ * keeps answering "what's rarest" even when the card above is showing a
+ * deliberately-chosen (not necessarily rarest) set of equipped badges.
  */
 export function selectRarestUnlocks(
   achievements: readonly AchievementResponse[],
   limit = RAREST_UNLOCK_LIMIT,
 ): AchievementResponse[] {
-  return selectRecordBadges(achievements, limit).map((badge) => badge.achievement);
+  return selectRecordBadges(achievements, [], limit).map((badge) => badge.achievement);
 }
 
 /**

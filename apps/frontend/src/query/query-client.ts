@@ -203,6 +203,12 @@ export const queryKeys = {
     me: () => ['archetypes', 'me'] as const,
     user: (userId: string) => ['archetypes', 'user', userId] as const,
   },
+  /** 9.5d — `GET|PUT|DELETE /me/pins`, `GET /users/:id/pins`. */
+  pins: {
+    all: ['pins'] as const,
+    me: () => ['pins', 'me'] as const,
+    user: (userId: string) => ['pins', 'user', userId] as const,
+  },
   integrations: {
     all: ['integrations'] as const,
     providers: () => ['integrations', 'providers'] as const,
@@ -225,6 +231,7 @@ export async function invalidateProfileQueries(client: QueryClient): Promise<voi
     client.invalidateQueries({ queryKey: queryKeys.statistics.all }),
     client.invalidateQueries({ queryKey: queryKeys.achievements.all }),
     client.invalidateQueries({ queryKey: queryKeys.archetypes.all }),
+    client.invalidateQueries({ queryKey: queryKeys.pins.all }),
     client.invalidateQueries({ queryKey: queryKeys.friends.all }),
     client.invalidateQueries({ queryKey: ['profile', 'hero'] }),
   ]);

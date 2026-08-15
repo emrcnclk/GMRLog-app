@@ -1,4 +1,5 @@
 import {
+  PrismaAchievementRepository,
   PrismaCollectionRepository,
   PrismaGameRepository,
   PrismaProfilePinRepository,
@@ -14,19 +15,22 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { MeProfilePinsController } from './me-profile-pins.controller';
 import { ProfilePinsService } from './profile-pins.service';
 import {
+  PROFILE_PIN_ACHIEVEMENT_REPOSITORY,
   PROFILE_PIN_COLLECTION_REPOSITORY,
   PROFILE_PIN_GAME_REPOSITORY,
   PROFILE_PIN_REPOSITORY,
   PROFILE_PIN_REVIEW_REPOSITORY,
   PROFILE_PIN_USER_REPOSITORY,
 } from './profile-pins.tokens';
+import { UserProfilePinsController } from './user-profile-pins.controller';
 
 /**
  * Profile pins domain (D3.21). Controllers → ProfilePinsService → repositories.
+ * 9.5d added the `achievement` kind (badge equip) and its public read side.
  */
 @Module({
   imports: [AuthModule, PrismaModule],
-  controllers: [MeProfilePinsController],
+  controllers: [MeProfilePinsController, UserProfilePinsController],
   providers: [
     {
       provide: PROFILE_PIN_REPOSITORY,
@@ -52,6 +56,11 @@ import {
       provide: PROFILE_PIN_COLLECTION_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaCollectionRepository(prisma),
+    },
+    {
+      provide: PROFILE_PIN_ACHIEVEMENT_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaAchievementRepository(prisma),
     },
     ProfilePinsService,
   ],

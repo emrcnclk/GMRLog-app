@@ -18,7 +18,12 @@ import {
 import { useCollections } from './use-collections';
 import { useLibrary } from './use-library';
 import { useProfileActivity } from './use-profile-activity';
-import { useMeAchievements, useMeArchetypes, useMeStatistics } from './use-profile-social';
+import {
+  useMeAchievements,
+  useMeArchetypes,
+  useMePins,
+  useMeStatistics,
+} from './use-profile-social';
 import { useTierLists } from './use-tier-lists';
 
 export function useProfileTab(storage?: SecureStorage) {
@@ -111,6 +116,7 @@ export function useProfileScreenData() {
   const statistics = useMeStatistics();
   const achievements = useMeAchievements();
   const archetypes = useMeArchetypes();
+  const pins = useMePins();
 
   const stats = useMemo(
     () =>
@@ -144,7 +150,8 @@ export function useProfileScreenData() {
     activity.isRefreshing ||
     statistics.isRefreshing ||
     achievements.isRefreshing ||
-    archetypes.isRefreshing;
+    archetypes.isRefreshing ||
+    pins.isRefreshing;
 
   const refresh = useCallback(async () => {
     await invalidateProfileQueries(queryClient);
@@ -159,6 +166,7 @@ export function useProfileScreenData() {
     statistics,
     achievements,
     archetypes,
+    pins,
     stats,
     overview,
     isRefreshing,

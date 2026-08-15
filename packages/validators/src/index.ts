@@ -1168,7 +1168,7 @@ export const friendRequestStatusSchema = z.enum(['pending', 'accepted', 'rejecte
 
 export const presenceStatusSchema = z.enum(['online', 'away', 'offline', 'invisible']);
 
-export const profilePinKindSchema = z.enum(['game', 'review', 'collection']);
+export const profilePinKindSchema = z.enum(['game', 'review', 'collection', 'achievement']);
 
 export const FRIEND_REQUEST_MESSAGE_MAX = 280;
 

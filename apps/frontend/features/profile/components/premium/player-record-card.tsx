@@ -2,6 +2,7 @@ import type {
   AchievementResponse,
   PlayerArchetypeResponse,
   ProfileHeroResponse,
+  ProfilePinResponse,
   UserSelfResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
@@ -41,6 +42,8 @@ export interface PlayerRecordCardProps {
   statistics: UserStatisticsResponse | null;
   archetypes: readonly PlayerArchetypeResponse[];
   achievements: readonly AchievementResponse[];
+  /** 9.5d — the player's equipped badges, if any (`kind: 'achievement'` pins). */
+  pins?: readonly ProfilePinResponse[];
   isPending: boolean;
   /** §6: "Tapping opens the badge case" — the Achievements screen from 3.1. */
   onPressBadgeCase: () => void;
@@ -70,6 +73,7 @@ function PlayerRecordCardComponent({
   statistics,
   archetypes,
   achievements,
+  pins = [],
   isPending,
   onPressBadgeCase,
 }: PlayerRecordCardProps) {
@@ -77,7 +81,7 @@ function PlayerRecordCardComponent({
 
   const primary = useMemo(() => resolveArchetypePair(archetypes).primary, [archetypes]);
   const traits = useMemo(() => buildRecordTraits(archetypes), [archetypes]);
-  const badges = useMemo(() => selectRecordBadges(achievements), [achievements]);
+  const badges = useMemo(() => selectRecordBadges(achievements, pins), [achievements, pins]);
   const stats = useMemo(() => buildRecordStats(statistics), [statistics]);
   const since = formatRecordSince(hero?.memberSince ?? user.createdAt);
   const headerSlot = formatRecordHeaderSlot(hero?.cardNumber, since);

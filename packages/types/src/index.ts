@@ -1116,7 +1116,7 @@ export type FriendRequestStatusValue = 'pending' | 'accepted' | 'rejected' | 'ca
 
 export type PresenceStatusValue = 'online' | 'away' | 'offline' | 'invisible';
 
-export type ProfilePinKindValue = 'game' | 'review' | 'collection';
+export type ProfilePinKindValue = 'game' | 'review' | 'collection' | 'achievement';
 
 export type PlayerArchetypeKey =
   | 'collector'

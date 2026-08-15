@@ -2,6 +2,7 @@ import type {
   AchievementResponse,
   PlayerArchetypeResponse,
   ProfileHeroResponse,
+  ProfilePinResponse,
   UserSelfResponse,
   UserStatisticsResponse,
 } from '@gmrlog/types';
@@ -53,7 +54,12 @@ import {
 import { useProfile } from '../hooks/use-profile';
 import { useProfileCustomization, useCustomizationStore } from '../hooks/use-profile-customization';
 import { useProfileHero } from '../hooks/use-profile-hero';
-import { useMeAchievements, useMeArchetypes, useMeStatistics } from '../hooks/use-profile-social';
+import {
+  useMeAchievements,
+  useMeArchetypes,
+  useMePins,
+  useMeStatistics,
+} from '../hooks/use-profile-social';
 import { usePatchProfileTheme, useProfileTheme } from '../hooks/use-profile-theme';
 
 /** §18's card preview renders at a fraction of the record card's natural
@@ -87,6 +93,7 @@ export function CustomizeProfileScreen() {
   const statistics = useMeStatistics();
   const achievements = useMeAchievements();
   const archetypes = useMeArchetypes();
+  const pins = useMePins();
 
   const serverTheme = useProfileTheme();
   const localCustomization = useProfileCustomization();
@@ -251,6 +258,7 @@ export function CustomizeProfileScreen() {
             statistics={statistics.statistics}
             archetypes={archetypes.items}
             achievements={achievements.items}
+            pins={pins.items}
             isPending={statistics.isPending}
           />
         </ThemeProvider>
@@ -452,6 +460,7 @@ interface ScaledPlayerRecordCardProps {
   statistics: UserStatisticsResponse | null;
   archetypes: readonly PlayerArchetypeResponse[];
   achievements: readonly AchievementResponse[];
+  pins: readonly ProfilePinResponse[];
   isPending: boolean;
 }
 
@@ -463,6 +472,7 @@ function ScaledPlayerRecordCard({
   statistics,
   archetypes,
   achievements,
+  pins,
   isPending,
 }: ScaledPlayerRecordCardProps) {
   const [height, setHeight] = useState<number | null>(null);
@@ -498,6 +508,7 @@ function ScaledPlayerRecordCard({
           statistics={statistics}
           archetypes={archetypes}
           achievements={achievements}
+          pins={pins}
           isPending={isPending}
           onPressBadgeCase={() => {
             // Decorative preview — badges aren't tappable here.
