@@ -18,9 +18,17 @@ export class JobsService implements OnApplicationShutdown {
   getQueue(name: string): Queue {
     const existing = this.queues.get(name);
     if (existing) return existing;
-    if (this.connection.status !== 'ready' && this.connection.status !== 'connecting') {
-      void this.connection.connect();
-    }
+    // `new Queue(...)` already brings the shared connection up via BullMQ's
+    // own RedisConnection/waitUntilReady, which is race-safe: it checks
+    // status once and either calls connect() (only from 'wait') or awaits
+    // the 'ready'/'error'/'end' events. A second, hand-rolled connect() call
+    // here raced that internal one — ioredis's own 'connect' status (the
+    // instant between TCP connect and the 'ready' event) isn't 'ready' or
+    // 'connecting', so this guard let a second connect() through during that
+    // window, and ioredis throws "Redis is already connecting/connected" —
+    // as an unhandled rejection, since the call was fire-and-forget. Found
+    // by reproducing the exact race directly against ioredis + a real BullMQ
+    // Worker sharing this connection (10.1).
     const queue = new Queue(name, { connection: this.connection });
     this.queues.set(name, queue);
     return queue;
