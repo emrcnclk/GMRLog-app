@@ -20,6 +20,7 @@ export function TextField({
   secureTextEntry,
   editable = true,
   style,
+  accessibilityLabel,
   ...rest
 }: TextFieldProps) {
   const theme = useTheme();
@@ -36,6 +37,12 @@ export function TextField({
         {...rest}
         editable={editable}
         secureTextEntry={secureTextEntry}
+        // The visible label above is a plain sibling `<Text>`, not a `<label
+        // for>`/`aria-labelledby` association — nothing programmatically ties
+        // "Email" to this input on native (a screen reader) or web (found
+        // while writing 10.4's E2E suite: `getByLabel` had nothing to match).
+        // A caller-supplied `accessibilityLabel` still wins.
+        accessibilityLabel={accessibilityLabel ?? label}
         placeholderTextColor={theme.color('color.text.tertiary')}
         style={{
           color: theme.color(editable ? 'color.text.primary' : 'color.text.disabled'),

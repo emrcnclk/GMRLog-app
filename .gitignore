@@ -41,6 +41,14 @@ pnpm-debug.log*
 # Measurement fixtures (3b.1f) — local, per-machine state
 scripts/dev/.fixture-state.json
 
+# 10.4 E2E — real access/refresh tokens for the fixture accounts, plus
+# Playwright's own run artifacts. Never committed, regenerated every run.
+apps/frontend/e2e/.fixture-state.json
+apps/frontend/e2e/.auth-state.json
+apps/frontend/test-results/
+apps/frontend/playwright-report/
+apps/frontend/blob-report/
+
 # Local database dumps (D3.20)
 backups/
 

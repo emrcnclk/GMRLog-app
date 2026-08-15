@@ -121,3 +121,110 @@ jobs:
       # PostgreSQL), independent of the service container above.
       - name: Migration replay check (real PostgreSQL, from empty)
         run: pnpm db:validate:pg
+
+  # 10.4 — E2E over the five critical paths (sign up, sign in, log a game,
+  # view a profile, send a message), against the real backend and the real
+  # RNW web build, not the unit-test graph above. Deliberately NOT a turbo
+  # task and NOT folded into `quality`'s task-count assertion: Playwright
+  # drives a live server pair rather than turbo's cacheable, isolated task
+  # graph, and folding it in would either inflate EXPECTED_TASK_COUNT for a
+  # non-turbo run or silently exempt E2E from ever failing the build.
+  e2e:
+    name: E2E (critical paths)
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gmrlog
+          POSTGRES_PASSWORD: gmrlog
+          POSTGRES_DB: gmrlog
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gmrlog -d gmrlog"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: production
+      LOG_LEVEL: error
+      DATABASE_URL: postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm db:migrate:deploy
+
+      # Every workspace package here ships from `dist` (types, validators,
+      # api-sdk, config, ui, database — same trap CLAUDE.md's "Known
+      # environment traps" already names for @gmrlog/database locally), so
+      # both the backend and the web bundle need their real deps built, not
+      # picked up from source. The leading "..." in --filter=...pkg means
+      # "this package plus everything it depends on" (turbo's own syntax for
+      # walking upstream), so this builds both apps' full dependency chains.
+      - name: Build the backend and frontend, and everything they depend on
+        run: pnpm turbo run build --filter=...@gmrlog/backend --filter=...@gmrlog/frontend
+
+      - name: Install Playwright's browser
+        working-directory: apps/frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start the backend
+        working-directory: apps/backend
+        run: |
+          nohup node dist/main.js > backend.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/api/v1/health > /dev/null; then
+              echo "Backend is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend never became healthy:"
+          cat backend.log
+          exit 1
+
+      # Playwright's own `webServer` config starts and supervises the
+      # frontend web build (apps/frontend/e2e/playwright.config.ts).
+      - name: Run the E2E suite
+        working-directory: apps/frontend
+        run: pnpm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/frontend/playwright-report/
+          retention-days: 7
