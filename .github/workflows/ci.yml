@@ -14,12 +14,42 @@ jobs:
   quality:
     name: Lint, Typecheck, Test, Build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+
+    # 10.1's Redis-race fix and the backend's integration specs both run
+    # against a real Postgres/Redis, not mocks — a mocked Redis would not
+    # have caught the bug 10.1 fixed. Native GH Actions services, matching
+    # the ports env.schema.ts already defaults to (localhost:5432 / :6379).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gmrlog
+          POSTGRES_PASSWORD: gmrlog
+          POSTGRES_DB: gmrlog
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gmrlog -d gmrlog"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       NODE_ENV: test
-      APP_ENV: development
+      APP_ENV: test
       LOG_LEVEL: error
+      DATABASE_URL: postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - name: Checkout
@@ -39,14 +69,52 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      # Backend/database tests run against the real schema (D3.19/D3.20
+      # defaults point at this same service), so the migrations must be
+      # applied before the graph below can pass.
+      - name: Apply migrations
+        run: pnpm db:migrate:deploy
 
-      - name: Typecheck
-        run: pnpm typecheck
+      # One command, uncached (--force), covering the whole graph — not the
+      # filtered `--filter` runs that undercounted in 9.3/9.5e. The count is
+      # asserted below so a filtered or misconfigured run fails loudly
+      # instead of reporting a plausible-looking green.
+      - name: Run full graph (typecheck, lint, test, build)
+        run: |
+          set -o pipefail
+          pnpm turbo run typecheck lint test build --force --continue 2>&1 | tee turbo-run.log
 
-      - name: Test
-        run: pnpm test
+      - name: Assert the full task graph ran
+        run: |
+          # 33 is the known-good count (8 packages x {typecheck,lint,test,build}
+          # + @gmrlog/database's prisma `generate`), confirmed by 10.1's own run.
+          # Update this constant deliberately in the same PR that adds or removes
+          # a package/task — an unexplained change here means the graph shrank
+          # (a filtered/misconfigured run) or grew unnoticed, not a passing build.
+          EXPECTED_TASK_COUNT=33
+          SUMMARY_LINE=$(grep -E "Tasks:[[:space:]]+[0-9]+ successful" turbo-run.log | tail -1)
+          if [ -z "$SUMMARY_LINE" ]; then
+            echo "No turbo task summary line found in output — treating as failure."
+            exit 1
+          fi
+          echo "$SUMMARY_LINE"
+          SUCCESSFUL=$(echo "$SUMMARY_LINE" | grep -oE "Tasks:[[:space:]]+[0-9]+" | grep -oE "[0-9]+")
+          TOTAL=$(echo "$SUMMARY_LINE" | grep -oE "[0-9]+ total" | grep -oE "[0-9]+")
+          if [ "$SUCCESSFUL" != "$TOTAL" ]; then
+            echo "$TOTAL tasks ran but only $SUCCESSFUL succeeded."
+            exit 1
+          fi
+          if [ "$TOTAL" != "$EXPECTED_TASK_COUNT" ]; then
+            echo "Expected exactly $EXPECTED_TASK_COUNT tasks, turbo ran $TOTAL."
+            echo "If a package/task was deliberately added or removed, update EXPECTED_TASK_COUNT in this step."
+            exit 1
+          fi
 
-      - name: Build
-        run: pnpm build
+      # Migration replay from scratch, not a diff against the already-applied
+      # dev database: 9.1 found a migration marked applied whose last statement
+      # never ran, and 9.5b found a setval that only failed on an empty DB —
+      # both invisible to a diff against a live database, both caught by
+      # `prisma migrate dev` against a fresh one. Self-contained (embedded
+      # PostgreSQL), independent of the service container above.
+      - name: Migration replay check (real PostgreSQL, from empty)
+        run: pnpm db:validate:pg
