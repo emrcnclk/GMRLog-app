@@ -205,6 +205,19 @@ export type SemanticTypographyScale = Record<SemanticTypeRole, TypographyStyle>;
  */
 export const TABLET_BREAKPOINT = 768;
 
+/**
+ * Reading-corridor cap for `Container` (9.7 Player-screen max-width) — pixels,
+ * only applied at and above `TABLET_BREAKPOINT`; below it `Container` stays
+ * `width: '100%'` as it always has. 1200 is deliberately narrower than the
+ * `1232px` full-bleed column this app's own auth screens (3.10/3.11) already
+ * measure at the app's standard 1280px "very wide" test viewport, so the cap
+ * visibly does something at that same viewport rather than being inert; it is
+ * also wide enough that `DnaMatchPanel`'s two `flex: 1` columns (8.1) keep
+ * their room. Like `TABLET_BREAKPOINT`, this is a layout constant rather than
+ * a design token (colour/space/radius/type), so it lives as a plain export.
+ */
+export const CONTENT_MAX_WIDTH = 1200;
+
 export interface ThemeTokens {
   scheme: ResolvedColorScheme;
   /** D3.27 — accent identity currently remapped into `color.accent.*`. */

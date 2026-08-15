@@ -1,5 +1,5 @@
 import type { UserRelationshipResponse } from '@gmrlog/types';
-import { Avatar, Badge, Button, Screen, Text, useTheme } from '@gmrlog/ui';
+import { Avatar, Badge, Button, Container, Screen, Text, useTheme } from '@gmrlog/ui';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
@@ -122,72 +122,82 @@ export function PublicProfileScreen({ userId }: PublicProfileScreenProps) {
           />
         }
       >
-        <View
-          style={{
-            paddingHorizontal: theme.space('space.4'),
-            paddingVertical: theme.space('space.5'),
-            gap: theme.space('space.4'),
-            alignItems: 'center',
-          }}
-        >
-          <Avatar
-            size="2xl"
-            uri={user.avatarUrl ?? undefined}
-            initials={userInitials(user.displayName)}
-            accessibilityLabel={`${user.displayName} avatar`}
-          />
-          <View style={{ alignItems: 'center', gap: theme.space('space.1') }}>
-            <Text role="heading" accessibilityRole="header">
-              {user.displayName}
-            </Text>
-            <Text role="meta" color="color.text.tertiary">
-              {/* Level needs statistics; without them the handle stands alone
-                  rather than showing a fabricated "Level 1". */}
-              {level === null
-                ? `@${user.handle}`
-                : `@${user.handle} · Level ${String(level.level)}`}
-            </Text>
+        {/* 9.7 — the reading-corridor cap. Zero added padding: every section
+            below already carries its own horizontal gutter (SCREEN_GUTTER or
+            equivalent), so Container here only bounds the overall width and
+            left-aligns it above the tablet breakpoint; it must not add a
+            second inset on top of theirs. `Rail`'s own bleed (inside
+            `DnaMatchPanel`'s "Both of you played" shelf) still works exactly
+            as it does on every other screen — it needs an unpadded ambient
+            parent to bleed against, which this is, just capped in width. */}
+        <Container style={{ paddingHorizontal: 0 }}>
+          <View
+            style={{
+              paddingHorizontal: theme.space('space.4'),
+              paddingVertical: theme.space('space.5'),
+              gap: theme.space('space.4'),
+              alignItems: 'center',
+            }}
+          >
+            <Avatar
+              size="2xl"
+              uri={user.avatarUrl ?? undefined}
+              initials={userInitials(user.displayName)}
+              accessibilityLabel={`${user.displayName} avatar`}
+            />
+            <View style={{ alignItems: 'center', gap: theme.space('space.1') }}>
+              <Text role="heading" accessibilityRole="header">
+                {user.displayName}
+              </Text>
+              <Text role="meta" color="color.text.tertiary">
+                {/* Level needs statistics; without them the handle stands alone
+                    rather than showing a fabricated "Level 1". */}
+                {level === null
+                  ? `@${user.handle}`
+                  : `@${user.handle} · Level ${String(level.level)}`}
+              </Text>
+            </View>
+
+            <RelationshipStrip
+              relationship={profile.relationship}
+              isSelf={isSelf}
+              isSending={friendRequest.isPending}
+              onSendRequest={() => {
+                friendRequest.mutate();
+              }}
+            />
           </View>
 
-          <RelationshipStrip
-            relationship={profile.relationship}
+          <DnaMatchPanel
+            userId={userId}
+            displayName={user.displayName}
             isSelf={isSelf}
-            isSending={friendRequest.isPending}
-            onSendRequest={() => {
-              friendRequest.mutate();
-            }}
+            isBlocked={
+              profile.relationship?.isBlocked === true || profile.relationship?.blockedBy === true
+            }
+            onPressGame={openGame}
           />
-        </View>
 
-        <DnaMatchPanel
-          userId={userId}
-          displayName={user.displayName}
-          isSelf={isSelf}
-          isBlocked={
-            profile.relationship?.isBlocked === true || profile.relationship?.blockedBy === true
-          }
-          onPressGame={openGame}
-        />
+          <ProfileStatsGrid statistics={profile.statistics} isPending={false} />
 
-        <ProfileStatsGrid statistics={profile.statistics} isPending={false} />
+          <ArchetypeSection
+            archetypes={profile.archetypes}
+            isPending={profile.isSectionPending.archetypes}
+          />
 
-        <ArchetypeSection
-          archetypes={profile.archetypes}
-          isPending={profile.isSectionPending.archetypes}
-        />
+          <GamingInsights statistics={profile.statistics} />
 
-        <GamingInsights statistics={profile.statistics} />
+          <AchievementShowcase
+            achievements={profile.achievements}
+            isPending={profile.isSectionPending.achievements}
+          />
 
-        <AchievementShowcase
-          achievements={profile.achievements}
-          isPending={profile.isSectionPending.achievements}
-        />
-
-        <SimilarUsersSection
-          items={similar.items}
-          isPending={similar.isPending}
-          onPressUser={openUser}
-        />
+          <SimilarUsersSection
+            items={similar.items}
+            isPending={similar.isPending}
+            onPressUser={openUser}
+          />
+        </Container>
       </ScrollView>
     </Screen>
   );
