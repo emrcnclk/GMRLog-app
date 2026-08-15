@@ -159,8 +159,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    # No NODE_ENV here at all, anywhere in this job, on purpose. pnpm itself
+    # reads NODE_ENV during `install` and skips devDependencies (turbo,
+    # Playwright, eslint, husky's own `prepare` script) when it's
+    # `production` — broke `Install dependencies` outright on the first real
+    # run of this job. Left unset for the backend boot too, for the separate
+    # reason explained on the "Start the backend" step below.
     env:
-      NODE_ENV: production
       LOG_LEVEL: error
       DATABASE_URL: postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public
       REDIS_URL: redis://localhost:6379
@@ -200,6 +205,13 @@ jobs:
         working-directory: apps/frontend
         run: pnpm exec playwright install --with-deps chromium
 
+      # NODE_ENV is left unset here too (schema default 'development') —
+      # `production` triggers `assertProductionRequiredKeys` (env.schema.ts),
+      # which fail-closes at boot unless JWT_SECRET/S3_*/SMTP_HOST/MEILI_HOST
+      # are all explicitly supplied. This job isn't standing up a production
+      # deployment, just booting the compiled server for E2E to talk to, so
+      # it takes the same dev-default JWT secret and MinIO/Mailpit/Meilisearch
+      # placeholders local `pnpm run dev` already relies on.
       - name: Start the backend
         working-directory: apps/backend
         run: |
