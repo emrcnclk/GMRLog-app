@@ -18,7 +18,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings 0",
     "test": "prisma generate && node ../../node_modules/vitest/vitest.mjs run",
-    "test:pg": "node scripts/validate-postgres.mjs"
+    "test:pg": "node scripts/validate-postgres.mjs",
+    "fixture:e2e-game": "node scripts/ensure-e2e-fixture-game.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0"

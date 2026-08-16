@@ -201,6 +201,14 @@ jobs:
       - name: Build the backend and frontend, and everything they depend on
         run: pnpm turbo run build --filter=...@gmrlog/backend --filter=...@gmrlog/frontend
 
+      # The log-a-game flow needs one real game to exist. Local dev DBs carry
+      # ~100k real rows (9.5b's backfill); this fresh, just-migrated CI
+      # Postgres has none — there's no seed script anywhere in this repo, the
+      # catalog is normally populated by the IGDB/Steam ingestion pipeline.
+      # Idempotent upsert by slug; found missing on this job's first real run.
+      - name: Ensure a game exists for the log-a-game flow
+        run: pnpm --filter @gmrlog/database run fixture:e2e-game
+
       - name: Install Playwright's browser
         working-directory: apps/frontend
         run: pnpm exec playwright install --with-deps chromium
