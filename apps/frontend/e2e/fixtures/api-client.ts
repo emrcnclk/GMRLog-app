@@ -79,7 +79,11 @@ export async function registerUser(input: {
 }): Promise<SessionCredentials> {
   return request<SessionCredentials>('/sessions/register', {
     method: 'POST',
-    headers: { 'idempotency-key': `e2e-reg-${input.handle}` },
+    // Unique per call, not per handle: a deterministic key replayed a
+    // long-stale cached success (and its long-expired access token) from an
+    // earlier local run once idempotency caching kicked in — found the hard
+    // way, a 401 on the very next `/me` call using that "successful" token.
+    headers: { 'idempotency-key': `e2e-reg-${input.handle}-${String(Date.now())}` },
     body: JSON.stringify(input),
   });
 }
@@ -94,15 +98,26 @@ export async function login(email: string, password: string): Promise<SessionCre
 }
 
 /**
- * Idempotent fixture account: log in if it already exists, register only if
- * it doesn't. Keeps the suite from creating a fresh account (which nothing in
+ * Idempotent fixture account: register it if it doesn't exist yet, log in if
+ * it does. Keeps the suite from creating a fresh account (which nothing in
  * this backend can ever delete — no `DELETE /users/:id` exists) on every run.
  *
- * Only falls back to register on 401 (wrong/no credentials yet — the "does
- * not exist" case this function exists to handle). Any other failure — most
- * importantly 429 from the auth rate limiter, hit repeatedly while developing
- * this suite — is rethrown rather than swallowed into a second, doomed
- * register attempt against an already-rate-limited route.
+ * Register-first, not login-first: CI's Postgres service container is
+ * recreated empty on every single run, so on CI this account genuinely does
+ * not exist yet on every run, every time — a login-first order would cost
+ * two auth-rate-limited requests per account on every CI run (a guaranteed
+ * 401 before the register that actually succeeds), for a limiter capped at 5
+ * requests/60s (`RateLimitClass('auth')`). Register-first costs one request
+ * on CI (every run) and pays the two-request cost only on the rarer path — a
+ * human rerunning locally against a Postgres that already has the account.
+ * Found the hard way: global-setup's four calls (2 accounts × login-then-
+ * register) alone burned 4 of the 5-request budget on this job's first
+ * green-except-one run, leaving signup.spec's own register to trip 429.
+ *
+ * Falls back to login only on 409 (Conflict — "Email/Handle is already
+ * registered", exactly the "already exists" case this exists to handle). Any
+ * other failure is rethrown rather than swallowed into a second, likely-
+ * doomed request.
  */
 export async function ensureFixtureAccount(input: {
   email: string;
@@ -111,10 +126,10 @@ export async function ensureFixtureAccount(input: {
   handle: string;
 }): Promise<SessionCredentials> {
   try {
-    return await login(input.email, input.password);
+    return await registerUser(input);
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      return registerUser(input);
+    if (error instanceof ApiError && error.status === 409) {
+      return login(input.email, input.password);
     }
     throw error;
   }
