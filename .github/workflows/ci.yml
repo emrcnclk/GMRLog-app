@@ -169,6 +169,16 @@ jobs:
       LOG_LEVEL: error
       DATABASE_URL: postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public
       REDIS_URL: redis://localhost:6379
+      # env.schema.ts's own default is only http://localhost:3000. This
+      # machine's local .env (untracked, per-machine) already carries 8081
+      # for exactly this reason, which is why local runs never hit this and
+      # every real run on this runner did: the frontend web build serves on
+      # 8081, and without it in the allowlist the browser's CORS preflight on
+      # every mutating request (POST /sessions, /sessions/register, /reviews,
+      # /conversations, .../messages) never lets the real request through —
+      # which the app's own probeApiReachability() then reads as "offline",
+      # the banner every failing spec's page snapshot showed.
+      CORS_ORIGINS: http://localhost:8081
 
     steps:
       - name: Checkout
