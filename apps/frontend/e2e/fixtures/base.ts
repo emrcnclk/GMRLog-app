@@ -19,6 +19,19 @@ import { test as base, expect } from '@playwright/test';
  */
 export const test = base.extend({
   page: async ({ page, context }, use) => {
+    // `context.setOffline(false)` alone was tried first and did not fix
+    // this on the real runner: CDP's `Network.emulateNetworkConditions`
+    // offline flag is a separate mechanism from the browser's own reported
+    // `navigator.onLine`, and setting it to `false` is a no-op against an
+    // already-`false` value coming from wherever Chromium's network state
+    // detector gets it in that sandbox. Overriding the property directly,
+    // before any page script runs, is the mechanism that actually works.
+    await context.addInitScript(() => {
+      Object.defineProperty(globalThis.navigator, 'onLine', {
+        get: () => true,
+        configurable: true,
+      });
+    });
     await context.setOffline(false);
     await use(page);
   },
