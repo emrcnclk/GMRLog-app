@@ -61,7 +61,8 @@ export function DistributionBars({
           <Text
             role="meta"
             color="color.text.secondary"
-            style={{ width: theme.space('space.8'), textAlign: 'right' }}
+            numberOfLines={1}
+            style={{ width: theme.space('space.12'), textAlign: 'right' }}
           >
             {row.label}
           </Text>
