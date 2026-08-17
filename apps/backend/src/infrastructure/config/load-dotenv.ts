@@ -15,7 +15,7 @@ export function loadBackendDotenv(): void {
   ];
   for (const file of candidates) {
     if (existsSync(file)) {
-      loadEnv({ path: file, override: false });
+      loadEnv({ path: file, override: false, quiet: true });
     }
   }
 }

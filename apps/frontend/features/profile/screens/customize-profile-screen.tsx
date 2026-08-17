@@ -34,6 +34,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { mapAuthError } from '../../../src/auth/map-auth-error';
+import { POST_V1_SURFACES_ENABLED } from '../../../src/config/v1-scope';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { CustomizeProfileBar } from '../components/premium/customize-profile-bar';
 import { PlayerRecordCard } from '../components/premium/player-record-card';
@@ -412,20 +413,22 @@ export function CustomizeProfileScreen() {
             3b.7. Its "Owned" catalog is the accent/card-style/banner options
             immediately above, not a separate purchasable set, so the
             subtitle names those rather than the doc's frames/badges copy,
-            which nothing here backs. */}
-        <ListItem
-          title="Cosmetics store"
-          subtitle="Accents, card styles and banners — cosmetic only"
-          accessibilityLabel="Cosmetics store"
-          onPress={() => {
-            router.push('/(app)/profile/store');
-          }}
-          trailing={
-            <Text role="meta" color="color.text.tertiary">
-              ›
-            </Text>
-          }
-        />
+            which nothing here backs. Gated post-v1 (10.8) — see v1-scope.ts. */}
+        {POST_V1_SURFACES_ENABLED ? (
+          <ListItem
+            title="Cosmetics store"
+            subtitle="Accents, card styles and banners — cosmetic only"
+            accessibilityLabel="Cosmetics store"
+            onPress={() => {
+              router.push('/(app)/profile/store');
+            }}
+            trailing={
+              <Text role="meta" color="color.text.tertiary">
+                ›
+              </Text>
+            }
+          />
+        ) : null}
       </View>
     </Screen>
   );

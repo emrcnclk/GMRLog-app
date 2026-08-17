@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Activity, Bell, HardDrive, Info, Plug, Settings, User } from 'lucide-react-native';
 import { useCallback } from 'react';
 
+import { POST_V1_SURFACES_ENABLED } from '../../../src/config/v1-scope';
 import { useAuthStore } from '../../../src/state/auth-store';
 import { ProCard } from '../components/pro-card';
 import { SettingsGroupCard } from '../components/settings-group-card';
@@ -49,7 +50,7 @@ export function SettingsHubScreen() {
         />
       }
     >
-      <ProCard />
+      {POST_V1_SURFACES_ENABLED ? <ProCard /> : null}
       <Section
         title="Application"
         description="Configure your Digital Home."
