@@ -13,10 +13,16 @@ import { ENV } from './infrastructure/config/config.module';
 import type { BackendEnv } from './infrastructure/config/env.schema';
 import { loadBackendDotenv } from './infrastructure/config/load-dotenv';
 import { AppLogger } from './infrastructure/logging/app-logger.service';
+import {
+  installProcessGuards,
+  recordProcessFailure,
+  setProcessGuardLogger,
+} from './infrastructure/logging/process-guards';
 import { setupSwagger } from './infrastructure/openapi/setup-swagger';
 import { RealtimeIoAdapter } from './infrastructure/realtime/realtime-io.adapter';
 
 loadBackendDotenv();
+installProcessGuards();
 
 /**
  * Bootstrap order mirrors the F6.3 §5.2 platform shell:
@@ -36,6 +42,7 @@ async function bootstrap(): Promise<void> {
 
   const logger = app.get(AppLogger);
   app.useLogger(logger);
+  setProcessGuardLogger(logger);
 
   const env = app.get<BackendEnv>(ENV);
 
@@ -99,4 +106,8 @@ async function bootstrap(): Promise<void> {
   );
 }
 
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  recordProcessFailure('bootstrap', error);
+  Sentry.captureException(error, { tags: { source: 'bootstrap' } });
+  process.exit(1);
+});

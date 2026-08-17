@@ -5,6 +5,7 @@ import {
   type ArgumentsHost,
   type ExceptionFilter,
 } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { AppLogger } from '../logging/app-logger.service';
@@ -80,6 +81,17 @@ export class AppExceptionFilter implements ExceptionFilter {
       },
       'request errored',
     );
+
+    // Only genuine server-side failures reach Sentry — a 429 from the rate
+    // limiter or a 4xx refusal (DNA `applicable: false` and similar guards
+    // reach the client as HttpExceptions below 500) is expected behavior,
+    // not an incident.
+    if (status >= 500) {
+      Sentry.captureException(exception, {
+        tags: { requestId, method: request.method, statusCode: String(status) },
+        extra: { url: request.url, code: errorBody.code },
+      });
+    }
 
     // S1 §11 — Retry-After required on rate errors.
     if (status === 429 && retryAfter != null) {

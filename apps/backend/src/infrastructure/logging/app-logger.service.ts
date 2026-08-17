@@ -23,6 +23,27 @@ export class AppLogger implements LoggerService {
       level: env.LOG_LEVEL,
       base: { service: 'gmrlog-backend', environment: env.APP_ENV },
       timestamp: stdTimeFunctions.isoTime,
+      // Floor against a call site accidentally passing a credential into an
+      // event binding — not a substitute for not logging these in the first
+      // place. Paths are one level deep by design: pino's redact does not
+      // recurse into unknown depths, so this only catches the field names it
+      // lists, wherever they appear as a direct property of the log object.
+      redact: {
+        paths: [
+          'password',
+          'newPassword',
+          'token',
+          'accessToken',
+          'refreshToken',
+          'idToken',
+          'authorization',
+          'secret',
+          'apiKey',
+          'headers.authorization',
+          'headers.cookie',
+        ],
+        censor: '[REDACTED]',
+      },
     };
 
     const logFile = env.LOG_FILE.trim();
