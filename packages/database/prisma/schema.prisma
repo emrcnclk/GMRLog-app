@@ -1085,6 +1085,17 @@ model Franchise {
   @@map("franchises")
 }
 
+/// D11.1 — durable high-water mark for a named bulk sync job (e.g. the IGDB
+/// catalog mirror). `value` is a unix-seconds timestamp, stored as text so the
+/// column stays provider-agnostic (a future cursor might not be a timestamp).
+model SyncCursor {
+  name      String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sync_cursors")
+}
+
 model GameGenre {
   id        String   @id @default(cuid())
   gameId    String   @map("game_id")

@@ -10,8 +10,10 @@ import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 import { LoggerModule } from '../../infrastructure/logging/logger.module';
 import { MediaProcessingService } from '../../infrastructure/media/media-processing.service';
 import { MediaModule } from '../../infrastructure/media/media.module';
-import { GAME_METADATA_REPOSITORY } from '../games.tokens';
+import { GAME_METADATA_REPOSITORY, IGDB_METADATA_PROVIDER } from '../games.tokens';
 
+import { GameCatalogSyncProcessor } from './game-catalog-sync.processor';
+import { GameCatalogSyncService } from './game-catalog-sync.service';
 import { GameMediaIngestionService } from './game-media-ingestion.service';
 import { GameMetadataBackfillService } from './game-metadata-backfill.service';
 import { GameMetadataProcessor } from './game-metadata.processor';
@@ -47,14 +49,22 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
       useFactory: (prisma: PrismaService) => new PrismaGameMetadataRepository(prisma),
     },
     {
-      provide: GAME_METADATA_PROVIDERS,
+      // D11.1 — instantiated once so the bulk catalog mirror and the per-game
+      // enrich chain share one rate limiter/token cache. See games.tokens.ts.
+      provide: IGDB_METADATA_PROVIDER,
       inject: [ENV],
-      useFactory: (env: BackendEnv): GameMetadataProvider[] => [
+      useFactory: (env: BackendEnv): IgdbMetadataProvider =>
         new IgdbMetadataProvider({
           clientId: env.IGDB_CLIENT_ID,
           clientSecret: env.IGDB_CLIENT_SECRET,
           ratePerSecond: env.IGDB_RATE_LIMIT_RPS,
         }),
+    },
+    {
+      provide: GAME_METADATA_PROVIDERS,
+      inject: [IGDB_METADATA_PROVIDER, ENV],
+      useFactory: (igdb: IgdbMetadataProvider, env: BackendEnv): GameMetadataProvider[] => [
+        igdb,
         new SteamStoreMetadataProvider({
           enabled: env.STEAM_STORE_METADATA_ENABLED,
           ratePerSecond: env.STEAM_STORE_RATE_LIMIT_RPS,
@@ -71,6 +81,26 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
     GameMetadataPublisher,
     GameMetadataService,
     GameMetadataBackfillService,
+    {
+      provide: GameCatalogSyncService,
+      inject: [
+        IGDB_METADATA_PROVIDER,
+        GAME_METADATA_REPOSITORY,
+        PrismaService,
+        GameMetadataPublisher,
+        AppLogger,
+        METADATA_CONFIG,
+      ],
+      useFactory: (
+        igdb: IgdbMetadataProvider,
+        repository: ConstructorParameters<typeof GameCatalogSyncService>[1],
+        prisma: PrismaService,
+        publisher: GameMetadataPublisher,
+        logger: AppLogger,
+        config: MetadataConfig,
+      ) => new GameCatalogSyncService(igdb, repository, prisma, publisher, logger, config),
+    },
+    GameCatalogSyncProcessor,
     {
       provide: GameMediaIngestionService,
       inject: [GAME_METADATA_REPOSITORY, MediaProcessingService, AppLogger, METADATA_CONFIG],
@@ -92,6 +122,8 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
     GameMediaIngestionService,
     GameMetadataProcessor,
     MetadataProviderRegistry,
+    GameCatalogSyncService,
+    GameCatalogSyncProcessor,
   ],
 })
 export class MetadataModule {}

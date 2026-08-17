@@ -9,6 +9,7 @@ import {
 } from '../../infrastructure/jobs/job-names';
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 
+import { GameCatalogSyncProcessor } from './game-catalog-sync.processor';
 import { GameCatalogWorkerService } from './game-catalog-worker.service';
 import { GameMetadataProcessor } from './game-metadata.processor';
 import { DEFAULT_METADATA_CONFIG } from './metadata.config';
@@ -35,6 +36,7 @@ vi.mock('bullmq', () => ({
 describe('GameCatalogWorkerService', () => {
   let service: GameCatalogWorkerService;
   let processor: GameMetadataProcessor;
+  let catalogSyncProcessor: GameCatalogSyncProcessor;
 
   beforeEach(() => {
     workerState.workerClose.mockClear();
@@ -47,23 +49,29 @@ describe('GameCatalogWorkerService', () => {
       process: vi.fn().mockResolvedValue(undefined),
     } as unknown as GameMetadataProcessor;
 
+    catalogSyncProcessor = {
+      supports: vi.fn().mockReturnValue(true),
+      process: vi.fn().mockResolvedValue(undefined),
+    } as unknown as GameCatalogSyncProcessor;
+
     service = new GameCatalogWorkerService(
       {} as never,
       new AppLogger(parseBackendEnv({})),
       processor,
+      catalogSyncProcessor,
       DEFAULT_METADATA_CONFIG,
     );
   });
 
   it('starts one worker per catalog queue', () => {
     service.onModuleInit();
-    expect(workerState.constructed).toEqual(['game.metadata', 'game.media']);
+    expect(workerState.constructed).toEqual(['game.metadata', 'game.media', 'game.catalog-sync']);
   });
 
   it('closes every worker on destroy', async () => {
     service.onModuleInit();
     await service.onModuleDestroy();
-    expect(workerState.workerClose).toHaveBeenCalledTimes(2);
+    expect(workerState.workerClose).toHaveBeenCalledTimes(3);
   });
 
   it('dispatches a metadata job through the processor', async () => {
@@ -120,7 +128,7 @@ describe('GameCatalogWorkerService', () => {
 
   it('registers a failure listener on every worker', () => {
     service.onModuleInit();
-    expect(workerState.workerOn).toHaveBeenCalledTimes(2);
+    expect(workerState.workerOn).toHaveBeenCalledTimes(3);
     expect(workerState.workerOn).toHaveBeenCalledWith('failed', expect.any(Function));
   });
 });

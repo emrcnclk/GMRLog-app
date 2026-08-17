@@ -11,6 +11,7 @@
     "worker": "node dist/worker.main.js",
     "worker:dev": "nest start --entryFile worker.main --watch",
     "repair:index": "node dist/repair-index.main.js",
+    "catalog:sync": "node dist/catalog-sync.main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings 0",
     "test": "node ../../node_modules/vitest/vitest.mjs run",

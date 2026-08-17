@@ -4,15 +4,24 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { toBullJobId } from '../../infrastructure/jobs/bull-job-id';
 import {
+  JOB_GAME_CATALOG_SYNC_RUN,
   JOB_GAME_MEDIA_INGEST,
   JOB_GAME_METADATA_ENRICH,
 } from '../../infrastructure/jobs/job-names';
 import { createJobPayload } from '../../infrastructure/jobs/job-payload';
 import { JobsService } from '../../infrastructure/jobs/jobs.service';
-import { QUEUE_GAME_MEDIA, QUEUE_GAME_METADATA } from '../../infrastructure/jobs/queue-names';
+import {
+  QUEUE_GAME_CATALOG_SYNC,
+  QUEUE_GAME_MEDIA,
+  QUEUE_GAME_METADATA,
+} from '../../infrastructure/jobs/queue-names';
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 
-import type { GameMediaIngestJobData, GameMetadataEnrichJobData } from './metadata.job-data';
+import type {
+  GameCatalogSyncJobData,
+  GameMediaIngestJobData,
+  GameMetadataEnrichJobData,
+} from './metadata.job-data';
 
 const ATTEMPTS = 5;
 const BACKOFF_MS = 5_000;
@@ -48,6 +57,14 @@ export class GameMetadataPublisher {
   async enqueueMediaIngest(data: GameMediaIngestJobData): Promise<string | null> {
     const idempotencyKey = `game.media:ingest:${data.gameId}:${data.kind}:${data.sourceUrl}`;
     return this.enqueue(QUEUE_GAME_MEDIA, JOB_GAME_MEDIA_INGEST, data, idempotencyKey);
+  }
+
+  /** D11.1 — enqueue one bounded catalog-sync run. No idempotency key reuse
+   * across calls: two runs enqueued back to back are two real page-walks,
+   * not a duplicate of the same one (unlike per-game enrich/media jobs). */
+  async enqueueCatalogSync(data: GameCatalogSyncJobData): Promise<string | null> {
+    const idempotencyKey = `game.catalog-sync:run:${String(Date.now())}`;
+    return this.enqueue(QUEUE_GAME_CATALOG_SYNC, JOB_GAME_CATALOG_SYNC_RUN, data, idempotencyKey);
   }
 
   async enqueueMediaBatch(items: readonly GameMediaIngestJobData[]): Promise<number> {

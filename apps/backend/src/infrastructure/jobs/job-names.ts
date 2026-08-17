@@ -18,3 +18,5 @@ export const JOB_GAME_METADATA_ENRICH = 'game.metadata.enrich';
 export const JOB_GAME_METADATA_BACKFILL_SCAN = 'game.metadata.backfill.scan';
 export const JOB_GAME_METADATA_REFRESH_SCAN = 'game.metadata.refresh.scan';
 export const JOB_GAME_MEDIA_INGEST = 'game.media.ingest';
+/** D11.1 — docs/design_handoff_dna_match_and_community/TASKS.md §11.1 */
+export const JOB_GAME_CATALOG_SYNC_RUN = 'game.catalog-sync.run';

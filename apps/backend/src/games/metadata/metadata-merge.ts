@@ -14,6 +14,8 @@
  * Pure functions only. No I/O.
  */
 
+import type { ApplyGameMetadataInput, GameMetadataStatus } from '@gmrlog/database';
+
 import type { ProviderGameMetadata } from './providers/metadata-provider.port';
 
 function fillScalar<T>(primary: T | null, secondary: T | null): T | null {
@@ -159,4 +161,67 @@ export function hasCoreFields(metadata: ProviderGameMetadata): boolean {
   const hasTaxonomy = metadata.genres.length > 0;
   const hasArtwork = metadata.media.length > 0;
   return hasText && hasTaxonomy && hasArtwork;
+}
+
+/**
+ * `complete` demands both a confident title match and the core field set.
+ * Everything else that matched at all is `partial` — still useful, still
+ * eligible for a later refresh.
+ *
+ * Single source of truth for this gate: `GameMetadataService.enrich` (the
+ * per-game worker path) and `GameCatalogSyncService` (the D11.1 bulk mirror,
+ * which writes via `applyMetadata` directly rather than re-running enrich)
+ * both call this — never duplicate the threshold check.
+ */
+export function resolveMetadataStatus(
+  metadata: ProviderGameMetadata,
+  completeConfidence: number,
+): GameMetadataStatus {
+  const confident = metadata.confidence >= completeConfidence;
+  return confident && hasCoreFields(metadata) ? 'complete' : 'partial';
+}
+
+/**
+ * Shape one provider result into the exact input `GameMetadataRepository.applyMetadata`
+ * expects. Single source of truth for both callers described above — the bulk
+ * mirror path must never invent a second, ad hoc `Game` update that bypasses
+ * `applyMetadata`'s "never overwrite a non-empty primary field" transaction.
+ */
+export function toApplyGameMetadataInput(
+  gameId: string,
+  metadata: ProviderGameMetadata,
+  status: GameMetadataStatus,
+  refreshedAt: Date,
+): ApplyGameMetadataInput {
+  return {
+    gameId,
+    scalars: {
+      summary: metadata.summary,
+      description: metadata.description,
+      releaseDate: metadata.releaseDate,
+      trailerUrl: metadata.trailerUrl,
+      externalRating: metadata.externalRating,
+      externalRatingCount: metadata.externalRatingCount,
+      igdbId: metadata.externalIds.igdbId ?? undefined,
+      steamAppId: metadata.externalIds.steamAppId ?? undefined,
+      rawgId: metadata.externalIds.rawgId ?? undefined,
+    },
+    genres: metadata.genres,
+    tags: metadata.tags,
+    platforms: metadata.platforms,
+    companies: metadata.companies,
+    franchise: metadata.franchise,
+    series: metadata.series,
+    relatedGames: metadata.similarGames.map((similar) => ({
+      provider: metadata.provider,
+      relatedExternalId: similar.externalId,
+      relatedTitle: similar.title,
+      kind: similar.kind,
+      sortOrder: similar.sortOrder,
+    })),
+    status,
+    provider: metadata.provider,
+    confidence: metadata.confidence,
+    refreshedAt,
+  };
 }

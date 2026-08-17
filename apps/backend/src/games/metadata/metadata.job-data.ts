@@ -23,3 +23,10 @@ export interface GameMediaIngestJobData {
   /** Promote to `games.cover_key` / `games.hero_key` once stored. */
   promote: boolean;
 }
+
+/** D11.1 — one page-bounded run of the IGDB catalog mirror. */
+export interface GameCatalogSyncJobData {
+  /** How many IGDB pages (up to 500 rows each) this run may fetch. */
+  maxPages: number;
+  pageSize?: number;
+}

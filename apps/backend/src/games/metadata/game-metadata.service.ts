@@ -1,9 +1,4 @@
-import type {
-  ApplyGameMetadataInput,
-  GameMetadataRepository,
-  GameMetadataStatus,
-  MetadataProvider,
-} from '@gmrlog/database';
+import type { GameMetadataRepository, MetadataProvider } from '@gmrlog/database';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { SearchIndexPublisher } from '../../infrastructure/jobs/search-index.publisher';
@@ -11,7 +6,11 @@ import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 import { GAME_METADATA_REPOSITORY } from '../games.tokens';
 
 import { GameMetadataPublisher } from './game-metadata.publisher';
-import { countPopulatedFields, hasCoreFields } from './metadata-merge';
+import {
+  countPopulatedFields,
+  resolveMetadataStatus,
+  toApplyGameMetadataInput,
+} from './metadata-merge';
 import { parseReleaseYear } from './metadata-normalize';
 import { METADATA_CONFIG, type MetadataConfig } from './metadata.config';
 import type { GameMediaIngestJobData, MetadataEnrichReason } from './metadata.job-data';
@@ -145,10 +144,12 @@ export class GameMetadataService {
       return { status: 'no_match', provider: null, fieldsWritten: 0, mediaQueued: 0 };
     }
 
-    const status = this.resolveStatus(metadata);
+    const status = resolveMetadataStatus(metadata, this.config.completeConfidence);
     const refreshedAt = new Date();
 
-    await this.repository.applyMetadata(this.toApplyInput(game.id, metadata, status, refreshedAt));
+    await this.repository.applyMetadata(
+      toApplyGameMetadataInput(game.id, metadata, status, refreshedAt),
+    );
 
     // D3.25.1 — reindex AFTER the metadata transaction commits, never inside
     // it. Without this, a game's Meilisearch document never reflects its
@@ -206,55 +207,6 @@ export class GameMetadataService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.event('warn', { gameId, error: message }, 'game.metadata.search-reindex.failed');
     }
-  }
-
-  /**
-   * `complete` demands both a confident title match and the core field set.
-   * Everything else that matched at all is `partial` — still useful, still
-   * eligible for a later refresh.
-   */
-  private resolveStatus(metadata: ProviderGameMetadata): GameMetadataStatus {
-    const confident = metadata.confidence >= this.config.completeConfidence;
-    return confident && hasCoreFields(metadata) ? 'complete' : 'partial';
-  }
-
-  private toApplyInput(
-    gameId: string,
-    metadata: ProviderGameMetadata,
-    status: GameMetadataStatus,
-    refreshedAt: Date,
-  ): ApplyGameMetadataInput {
-    return {
-      gameId,
-      scalars: {
-        summary: metadata.summary,
-        description: metadata.description,
-        releaseDate: metadata.releaseDate,
-        trailerUrl: metadata.trailerUrl,
-        externalRating: metadata.externalRating,
-        externalRatingCount: metadata.externalRatingCount,
-        igdbId: metadata.externalIds.igdbId ?? undefined,
-        steamAppId: metadata.externalIds.steamAppId ?? undefined,
-        rawgId: metadata.externalIds.rawgId ?? undefined,
-      },
-      genres: metadata.genres,
-      tags: metadata.tags,
-      platforms: metadata.platforms,
-      companies: metadata.companies,
-      franchise: metadata.franchise,
-      series: metadata.series,
-      relatedGames: metadata.similarGames.map((similar) => ({
-        provider: metadata.provider,
-        relatedExternalId: similar.externalId,
-        relatedTitle: similar.title,
-        kind: similar.kind,
-        sortOrder: similar.sortOrder,
-      })),
-      status,
-      provider: metadata.provider,
-      confidence: metadata.confidence,
-      refreshedAt,
-    };
   }
 
   /** Apply per-kind caps so one provider cannot inflate storage without bound. */

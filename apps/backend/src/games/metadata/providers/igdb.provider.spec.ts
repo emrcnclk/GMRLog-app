@@ -225,3 +225,56 @@ describe('IgdbMetadataProvider.lookup', () => {
     expect(result?.externalIds.steamAppId).toBeNull();
   });
 });
+
+/** D11.1 — bulk catalog listing, distinct from the single-record `lookup` path. */
+describe('IgdbMetadataProvider.listCatalogPage', () => {
+  it('sends a game_type/release-date/updated_at filtered Apicalypse request', async () => {
+    const fetchImpl = fetchWithToken([{ ...IGDB_GAME, game_type: 0, updated_at: 1_700_000_000 }]);
+    const provider = createProvider(fetchImpl);
+
+    await provider.listCatalogPage({ limit: 500, offset: 0, updatedAfterUnix: 1_699_000_000 });
+
+    const gamesCall = vi
+      .mocked(fetchImpl)
+      .mock.calls.find(([input]) => String(input).includes('api.igdb.com'));
+    const body = String(gamesCall?.[1]?.body ?? '');
+
+    expect(body).toContain('game_type = (0,8,9,10,11)');
+    expect(body).toContain('first_release_date != null');
+    expect(body).toContain('updated_at > 1699000000');
+    expect(body).toContain('sort updated_at asc;');
+    expect(body).toContain('limit 500;');
+    expect(body).toContain('offset 0;');
+  });
+
+  it('maps each row to provider metadata plus its raw updated_at', async () => {
+    const provider = createProvider(
+      fetchWithToken([{ ...IGDB_GAME, game_type: 0, updated_at: 1_700_000_000 }]),
+    );
+
+    const [row] = await provider.listCatalogPage({
+      limit: 500,
+      offset: 0,
+      updatedAfterUnix: 0,
+    });
+
+    expect(row?.updatedAtUnix).toBe(1_700_000_000);
+    expect(row?.metadata.title).toBe('Hades');
+    expect(row?.metadata.externalIds.igdbId).toBe(1905);
+    // Matched by id in a catalog listing, same as a direct id lookup.
+    expect(row?.metadata.confidence).toBe(1);
+  });
+
+  it('returns an empty page rather than requesting anything when disabled', async () => {
+    const provider = new IgdbMetadataProvider({ clientId: '', clientSecret: '' });
+    await expect(
+      provider.listCatalogPage({ limit: 500, offset: 0, updatedAfterUnix: 0 }),
+    ).resolves.toEqual([]);
+  });
+
+  it('defaults a missing updated_at to 0 rather than throwing', async () => {
+    const provider = createProvider(fetchWithToken([{ ...IGDB_GAME, game_type: 0 }]));
+    const [row] = await provider.listCatalogPage({ limit: 500, offset: 0, updatedAfterUnix: 0 });
+    expect(row?.updatedAtUnix).toBe(0);
+  });
+});

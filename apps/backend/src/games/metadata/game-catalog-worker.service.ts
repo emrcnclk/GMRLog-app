@@ -4,9 +4,14 @@ import type { Redis } from 'ioredis';
 
 import type { JobPayload } from '../../infrastructure/jobs/job-payload';
 import { JOBS_CONNECTION } from '../../infrastructure/jobs/jobs.constants';
-import { QUEUE_GAME_MEDIA, QUEUE_GAME_METADATA } from '../../infrastructure/jobs/queue-names';
+import {
+  QUEUE_GAME_CATALOG_SYNC,
+  QUEUE_GAME_MEDIA,
+  QUEUE_GAME_METADATA,
+} from '../../infrastructure/jobs/queue-names';
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 
+import { GameCatalogSyncProcessor } from './game-catalog-sync.processor';
 import { GameMetadataProcessor } from './game-metadata.processor';
 import { METADATA_CONFIG, type MetadataConfig } from './metadata.config';
 
@@ -25,6 +30,7 @@ export class GameCatalogWorkerService implements OnModuleInit, OnModuleDestroy {
     @Inject(JOBS_CONNECTION) private readonly connection: Redis,
     private readonly logger: AppLogger,
     private readonly processor: GameMetadataProcessor,
+    private readonly catalogSyncProcessor: GameCatalogSyncProcessor,
     @Inject(METADATA_CONFIG) private readonly config: MetadataConfig,
   ) {}
 
@@ -38,6 +44,14 @@ export class GameCatalogWorkerService implements OnModuleInit, OnModuleDestroy {
         connection: this.connection,
         concurrency: this.config.mediaConcurrency,
       }),
+      // D11.1 — concurrency 1, always: IGDB rate-limits the whole app
+      // regardless of how many workers call it, and this queue must never
+      // race the per-game enrich queue for that same budget.
+      new Worker<JobPayload>(
+        QUEUE_GAME_CATALOG_SYNC,
+        async (job) => this.catalogSyncProcessor.process(job),
+        { connection: this.connection, concurrency: 1 },
+      ),
     ];
 
     for (const worker of this.workers) {

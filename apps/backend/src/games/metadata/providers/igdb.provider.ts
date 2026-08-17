@@ -132,6 +132,39 @@ interface IgdbGame {
   screenshots?: IgdbImage[];
   videos?: { video_id?: string }[];
   external_games?: IgdbExternalGame[];
+  /**
+   * Catalog-sync-only fields (D11.1) — not requested by the single-lookup path.
+   * `game_type`, NOT the older `category` field: verified live against the
+   * real API (2026-08-17) that `category` is a dead filter on this account's
+   * IGDB v4 access — `where category != null` returns a count of 0 across
+   * the whole catalog (372,418 games), while `where game_type != null`
+   * returns 372,418 (all of them) and `game_type = (0,8,9,10,11)` returns
+   * 323,726. Same enum values (0=main_game, 8=remake, 9=remaster,
+   * 10=expanded_game, 11=port); `game_type` is IGDB's live replacement.
+   */
+  game_type?: number;
+  updated_at?: number;
+}
+
+/**
+ * D11.1 — IGDB `game_type` values worth mirroring as standalone loggable
+ * games: main_game(0), remake(8), remaster(9), expanded_game(10), port(11).
+ * Excludes dlc/expansion/bundle/mod/episode/season/fork/pack/update, which
+ * would otherwise dwarf real games in the mirrored catalog.
+ */
+export const IGDB_CATALOG_CATEGORIES = [0, 8, 9, 10, 11] as const;
+
+export interface IgdbCatalogPageParams {
+  /** Rows per page — IGDB allows up to 500. */
+  limit: number;
+  offset: number;
+  /** Unix-seconds high-water mark; only rows with a later `updated_at` are returned. */
+  updatedAfterUnix: number;
+}
+
+export interface IgdbCatalogRow {
+  metadata: ProviderGameMetadata;
+  updatedAtUnix: number;
 }
 
 interface TwitchTokenResponse {
@@ -207,6 +240,42 @@ export class IgdbMetadataProvider implements GameMetadataProvider {
     );
 
     return best === null ? null : this.toMetadata(best.candidate.game, best.confidence);
+  }
+
+  /**
+   * D11.1 — bulk catalog listing, distinct from `lookup`'s single-record
+   * search/by-id path. Filters server-side on category (main_game and close
+   * kin, never dlc/mod/bundle) and a real, past `first_release_date`, and
+   * only returns rows updated after `updatedAfterUnix` so a second run can
+   * resume from a persisted high-water mark instead of re-walking IGDB.
+   */
+  async listCatalogPage(params: IgdbCatalogPageParams): Promise<IgdbCatalogRow[]> {
+    if (!this.isEnabled()) {
+      return [];
+    }
+
+    const nowUnix = Math.floor(this.now() / 1000);
+    const categories = IGDB_CATALOG_CATEGORIES.join(',');
+    const where = [
+      `game_type = (${categories})`,
+      'first_release_date != null',
+      `first_release_date <= ${String(nowUnix)}`,
+      `updated_at > ${String(params.updatedAfterUnix)}`,
+    ].join(' & ');
+
+    const body = [
+      `fields ${IGDB_FIELDS},game_type,updated_at;`,
+      `where ${where};`,
+      'sort updated_at asc;',
+      `limit ${String(params.limit)};`,
+      `offset ${String(params.offset)};`,
+    ].join(' ');
+
+    const rows = await this.request(body);
+    return rows.map((game) => ({
+      metadata: this.toMetadata(game, EXACT_ID_CONFIDENCE),
+      updatedAtUnix: game.updated_at ?? 0,
+    }));
   }
 
   private async request(body: string): Promise<IgdbGame[]> {
