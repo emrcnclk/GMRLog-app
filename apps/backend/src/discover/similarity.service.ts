@@ -216,9 +216,22 @@ export class SimilarityService {
       }
     }
 
+    // 10.6 — was a sequential for-of, one candidate's queries awaited before
+    // the next started: up to CANDIDATE_CAP (120) round trips end to end,
+    // measured at ~1.6s on a cold cache against a real 250-owner overlap.
+    // loadUserSimilaritySignals per candidate is independent (own userId),
+    // so running them concurrently is a correctness-neutral latency fix,
+    // not a behavior change — scoring and the sort below are unaffected by
+    // resolution order.
+    const capped = [...candidateIds].slice(0, CANDIDATE_CAP);
+    const candidateSignals = await Promise.all(
+      capped.map(
+        async (otherId) =>
+          [otherId, await loadUserSimilaritySignals(this.prisma, otherId)] as const,
+      ),
+    );
     const scored: { otherId: string; score: number; breakdown: UserSimilarityBreakdown }[] = [];
-    for (const otherId of [...candidateIds].slice(0, CANDIDATE_CAP)) {
-      const signals = await loadUserSimilaritySignals(this.prisma, otherId);
+    for (const [otherId, signals] of candidateSignals) {
       if (signals === null) {
         continue;
       }
