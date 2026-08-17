@@ -10,6 +10,8 @@ import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 import { LoggerModule } from '../../infrastructure/logging/logger.module';
 import { MediaProcessingService } from '../../infrastructure/media/media-processing.service';
 import { MediaModule } from '../../infrastructure/media/media.module';
+import { MeiliModule } from '../../infrastructure/search/meili.module';
+import { SearchIndexService } from '../../infrastructure/search/search-index.service';
 import { GAME_METADATA_REPOSITORY, IGDB_METADATA_PROVIDER } from '../games.tokens';
 
 import { GameCatalogSyncProcessor } from './game-catalog-sync.processor';
@@ -37,7 +39,7 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
  * The worker service is NOT provided here — only `WorkerModule` starts consumers.
  */
 @Module({
-  imports: [AppConfigModule, LoggerModule, PrismaModule, MediaModule, JobsModule],
+  imports: [AppConfigModule, LoggerModule, PrismaModule, MediaModule, JobsModule, MeiliModule],
   providers: [
     {
       provide: METADATA_CONFIG,
@@ -90,6 +92,7 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
         GameMetadataPublisher,
         AppLogger,
         METADATA_CONFIG,
+        SearchIndexService,
       ],
       useFactory: (
         igdb: IgdbMetadataProvider,
@@ -98,7 +101,17 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
         publisher: GameMetadataPublisher,
         logger: AppLogger,
         config: MetadataConfig,
-      ) => new GameCatalogSyncService(igdb, repository, prisma, publisher, logger, config),
+        searchIndex: SearchIndexService,
+      ) =>
+        new GameCatalogSyncService(
+          igdb,
+          repository,
+          prisma,
+          publisher,
+          logger,
+          config,
+          searchIndex,
+        ),
     },
     GameCatalogSyncProcessor,
     {

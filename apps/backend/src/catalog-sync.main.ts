@@ -59,18 +59,38 @@ async function bootstrap(): Promise<void> {
   const sync = app.get(GameCatalogSyncService);
   const stats = await sync.syncPages(maxPages, pageSize);
 
-  console.log('\n=== catalog-sync (D11.1 — IGDB catalog mirror) ===\n');
-  console.log(['page', 'fetched', 'created', 'enqueuedForEnrich', 'skippedNoIgdbId'].join('\t'));
+  console.log('\n=== catalog-sync (D11.1 — IGDB catalog mirror, D11.2 — bulk-path parity) ===\n');
+  console.log(
+    [
+      'page',
+      'fetched',
+      'created',
+      'enqueuedForEnrich',
+      'skippedNoIgdbId',
+      'reindexed',
+      'mediaQueued',
+      'runsRecorded',
+    ].join('\t'),
+  );
   for (const page of stats.pages) {
     console.log(
-      [page.page, page.fetched, page.created, page.enqueuedForEnrich, page.skippedNoIgdbId].join(
-        '\t',
-      ),
+      [
+        page.page,
+        page.fetched,
+        page.created,
+        page.enqueuedForEnrich,
+        page.skippedNoIgdbId,
+        page.reindexed,
+        page.mediaQueued,
+        page.runsRecorded,
+      ].join('\t'),
     );
   }
   console.log(
     `\nTotals: pagesFetched=${String(stats.pagesFetched)} rawFetched=${String(stats.rawFetched)} ` +
       `created=${String(stats.created)} enqueuedForEnrich=${String(stats.enqueuedForEnrich)} ` +
+      `reindexed=${String(stats.reindexed)} mediaQueued=${String(stats.mediaQueued)} ` +
+      `runsRecorded=${String(stats.runsRecorded)} ` +
       `cursor ${String(stats.cursorBefore)} -> ${String(stats.cursorAfter)} wallMs=${String(stats.wallMs)}\n`,
   );
 

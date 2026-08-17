@@ -5,6 +5,7 @@ import {
   foldProviderResults,
   hasCoreFields,
   mergeProviderMetadata,
+  toMediaJobs,
 } from './metadata-merge';
 import { emptyProviderMetadata } from './providers/metadata-provider.port';
 import { completeProviderMetadata } from './testing/fake-providers';
@@ -174,5 +175,64 @@ describe('countPopulatedFields', () => {
     const full = countPopulatedFields(completeProviderMetadata());
     const fewer = countPopulatedFields(completeProviderMetadata({ tags: [], summary: null }));
     expect(fewer).toBe(full - 2);
+  });
+});
+
+describe('toMediaJobs', () => {
+  const caps = { maxScreenshots: 12, maxArtworks: 4 };
+
+  it('shapes one job per media item, promoting cover and hero only', () => {
+    const jobs = toMediaJobs('game-1', completeProviderMetadata(), caps);
+
+    expect(jobs.map((job) => job.kind)).toEqual(['cover', 'hero', 'screenshot']);
+    expect(jobs.find((job) => job.kind === 'cover')?.promote).toBe(true);
+    expect(jobs.find((job) => job.kind === 'hero')?.promote).toBe(true);
+    expect(jobs.find((job) => job.kind === 'screenshot')?.promote).toBe(false);
+  });
+
+  it('caps screenshots and artworks, but never cover or hero beyond one each', () => {
+    const media = [
+      {
+        kind: 'cover' as const,
+        url: 'https://cdn/c1.jpg',
+        width: null,
+        height: null,
+        sortOrder: 0,
+      },
+      {
+        kind: 'cover' as const,
+        url: 'https://cdn/c2.jpg',
+        width: null,
+        height: null,
+        sortOrder: 1,
+      },
+      { kind: 'hero' as const, url: 'https://cdn/h1.jpg', width: null, height: null, sortOrder: 0 },
+      { kind: 'hero' as const, url: 'https://cdn/h2.jpg', width: null, height: null, sortOrder: 1 },
+      ...Array.from({ length: 20 }, (_, i) => ({
+        kind: 'screenshot' as const,
+        url: `https://cdn/s${String(i)}.jpg`,
+        width: null,
+        height: null,
+        sortOrder: i,
+      })),
+      ...Array.from({ length: 10 }, (_, i) => ({
+        kind: 'artwork' as const,
+        url: `https://cdn/a${String(i)}.jpg`,
+        width: null,
+        height: null,
+        sortOrder: i,
+      })),
+    ];
+
+    const jobs = toMediaJobs('game-1', completeProviderMetadata({ media }), caps);
+
+    expect(jobs.filter((job) => job.kind === 'cover')).toHaveLength(1);
+    expect(jobs.filter((job) => job.kind === 'hero')).toHaveLength(1);
+    expect(jobs.filter((job) => job.kind === 'screenshot')).toHaveLength(12);
+    expect(jobs.filter((job) => job.kind === 'artwork')).toHaveLength(4);
+  });
+
+  it('returns an empty list for a record with no media', () => {
+    expect(toMediaJobs('game-1', completeProviderMetadata({ media: [] }), caps)).toEqual([]);
   });
 });

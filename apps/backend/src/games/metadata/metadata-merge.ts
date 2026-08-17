@@ -16,6 +16,7 @@
 
 import type { ApplyGameMetadataInput, GameMetadataStatus } from '@gmrlog/database';
 
+import type { GameMediaIngestJobData } from './metadata.job-data';
 import type { ProviderGameMetadata } from './providers/metadata-provider.port';
 
 function fillScalar<T>(primary: T | null, secondary: T | null): T | null {
@@ -224,4 +225,51 @@ export function toApplyGameMetadataInput(
     confidence: metadata.confidence,
     refreshedAt,
   };
+}
+
+/**
+ * Shape one provider result's media list into ingest-job payloads, applying
+ * the per-kind caps so one provider cannot inflate storage without bound.
+ *
+ * Single source of truth for both callers: `GameMetadataService.runEnrichment`
+ * (the per-game worker) and `GameCatalogSyncService` (the D11.1 bulk mirror —
+ * 11.2 pulled this out of the worker so the bulk path enqueues media through
+ * the identical job-shaping logic instead of a second, ad hoc one).
+ */
+export function toMediaJobs(
+  gameId: string,
+  metadata: ProviderGameMetadata,
+  caps: { maxScreenshots: number; maxArtworks: number },
+): GameMediaIngestJobData[] {
+  const counts = { screenshot: 0, artwork: 0, cover: 0, hero: 0 };
+  const jobs: GameMediaIngestJobData[] = [];
+
+  for (const item of metadata.media) {
+    if (item.kind === 'screenshot') {
+      if (counts.screenshot >= caps.maxScreenshots) continue;
+      counts.screenshot += 1;
+    } else if (item.kind === 'artwork') {
+      if (counts.artwork >= caps.maxArtworks) continue;
+      counts.artwork += 1;
+    } else if (item.kind === 'cover') {
+      if (counts.cover >= 1) continue;
+      counts.cover += 1;
+    } else if (item.kind === 'hero') {
+      if (counts.hero >= 1) continue;
+      counts.hero += 1;
+    }
+
+    jobs.push({
+      gameId,
+      kind: item.kind,
+      sourceUrl: item.url,
+      provider: metadata.provider,
+      sortOrder: item.sortOrder,
+      width: item.width,
+      height: item.height,
+      promote: item.kind === 'cover' || item.kind === 'hero',
+    });
+  }
+
+  return jobs;
 }

@@ -2,6 +2,7 @@ import type { GameMetadataRepository } from '@gmrlog/database';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
+import { SearchIndexService } from '../../infrastructure/search/search-index.service';
 
 import { GameCatalogSyncService, IGDB_CATALOG_CURSOR_NAME } from './game-catalog-sync.service';
 import { GameMetadataPublisher } from './game-metadata.publisher';
@@ -30,7 +31,22 @@ function metadataRow(overrides: Partial<IgdbCatalogRow['metadata']> = {}): IgdbC
       franchise: null,
       series: null,
       similarGames: [],
-      media: [],
+      media: [
+        {
+          kind: 'cover',
+          url: 'https://images.igdb.com/cover.jpg',
+          width: 264,
+          height: 352,
+          sortOrder: 0,
+        },
+        {
+          kind: 'screenshot',
+          url: 'https://images.igdb.com/shot.jpg',
+          width: 1920,
+          height: 1080,
+          sortOrder: 0,
+        },
+      ],
       trailerUrl: null,
       ...overrides,
     },
@@ -52,9 +68,11 @@ function createHarness(rows: IgdbCatalogRow[][]) {
 
   const repository = {
     applyMetadata: vi.fn().mockResolvedValue(undefined),
+    recordRun: vi.fn().mockResolvedValue(undefined),
   } as unknown as GameMetadataRepository;
 
-  const gameCreate = vi.fn().mockResolvedValue({ id: 'game-new-1' });
+  let nextGameId = 1;
+  const gameCreate = vi.fn(async () => ({ id: `game-new-${String(nextGameId++)}` }));
   const gameFindUnique = vi.fn().mockResolvedValue(null);
   const cursorState: { row: { name: string; value: string } | null } = { row: null };
   const syncCursorFindUnique = vi.fn(async () => cursorState.row);
@@ -71,7 +89,11 @@ function createHarness(rows: IgdbCatalogRow[][]) {
   } as unknown as import('../../infrastructure/database/prisma.service').PrismaService;
 
   const enqueueEnrich = vi.fn().mockResolvedValue('job-1');
-  const publisher = { enqueueEnrich } as unknown as GameMetadataPublisher;
+  const enqueueMediaBatch = vi.fn(async (items: readonly unknown[]) => items.length);
+  const publisher = { enqueueEnrich, enqueueMediaBatch } as unknown as GameMetadataPublisher;
+
+  const upsertMany = vi.fn(async (_type: string, ids: readonly string[]) => ids.length);
+  const searchIndex = { upsertMany } as unknown as SearchIndexService;
 
   const service = new GameCatalogSyncService(
     igdb,
@@ -80,6 +102,7 @@ function createHarness(rows: IgdbCatalogRow[][]) {
     publisher,
     createLogger(),
     DEFAULT_METADATA_CONFIG,
+    searchIndex,
   );
 
   return {
@@ -90,6 +113,8 @@ function createHarness(rows: IgdbCatalogRow[][]) {
     gameFindUnique,
     syncCursorUpsert,
     enqueueEnrich,
+    enqueueMediaBatch,
+    upsertMany,
   };
 }
 
@@ -154,5 +179,87 @@ describe('GameCatalogSyncService.syncPages', () => {
 
     expect(syncCursorUpsert).not.toHaveBeenCalled();
     expect(stats.cursorAfter).toBe(stats.cursorBefore);
+  });
+
+  // D11.2 — bulk-path parity: a created row must get the same three
+  // follow-ups the enrich path gives a per-game create (search reindex,
+  // media enqueue, run-logging), not silently skip them.
+  describe('D11.2 bulk-path parity', () => {
+    it('batches created ids into one searchIndex.upsertMany call per page, not one per row', async () => {
+      const { service, upsertMany } = createHarness([
+        [
+          metadataRow(),
+          metadataRow({ externalIds: { igdbId: 1906, steamAppId: null, rawgId: null } }),
+        ],
+      ]);
+
+      const stats = await service.syncPages(1, 10);
+
+      expect(upsertMany).toHaveBeenCalledTimes(1);
+      expect(upsertMany).toHaveBeenCalledWith('game', ['game-new-1', 'game-new-2']);
+      expect(stats.reindexed).toBe(2);
+    });
+
+    it('does not call searchIndex.upsertMany when a page creates nothing', async () => {
+      const { service, upsertMany, gameFindUnique } = createHarness([[metadataRow()]]);
+      gameFindUnique.mockResolvedValue({ id: 'game-existing-1' });
+
+      await service.syncPages(1);
+
+      expect(upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('enqueues cover-only media for a created row, via the same toMediaJobs shape the enrich path uses', async () => {
+      const { service, enqueueMediaBatch } = createHarness([[metadataRow()]]);
+
+      const stats = await service.syncPages(1);
+
+      expect(enqueueMediaBatch).toHaveBeenCalledTimes(1);
+      const jobs = enqueueMediaBatch.mock.calls[0]?.[0] as { kind: string; gameId: string }[];
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0]?.kind).toBe('cover');
+      expect(jobs[0]?.gameId).toBe('game-new-1');
+      expect(stats.mediaQueued).toBe(1);
+    });
+
+    it('never enqueues media for an existing igdbId routed through enqueueEnrich', async () => {
+      const { service, enqueueMediaBatch, gameFindUnique } = createHarness([[metadataRow()]]);
+      gameFindUnique.mockResolvedValue({ id: 'game-existing-1' });
+
+      await service.syncPages(1);
+
+      expect(enqueueMediaBatch).not.toHaveBeenCalled();
+    });
+
+    it('records one GameMetadataRun row per created game, reason bulk-sync, outcome from resolveMetadataStatus', async () => {
+      const { service, repository } = createHarness([[metadataRow()]]);
+
+      const stats = await service.syncPages(1);
+
+      expect(repository.recordRun).toHaveBeenCalledTimes(1);
+      expect(repository.recordRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameId: 'game-new-1',
+          provider: 'igdb',
+          reason: 'bulk-sync',
+          // metadataRow()'s default fixture has no genres, so hasCoreFields
+          // is false and resolveMetadataStatus lands on 'partial' — matches
+          // the same gate the enrich path applies (metadata-merge.ts).
+          outcome: 'partial',
+          mediaQueued: 1,
+        }),
+      );
+      expect(stats.runsRecorded).toBe(1);
+    });
+
+    it('does not record a run for an existing igdbId routed through enqueueEnrich', async () => {
+      const { service, repository, gameFindUnique } = createHarness([[metadataRow()]]);
+      gameFindUnique.mockResolvedValue({ id: 'game-existing-1' });
+
+      const stats = await service.syncPages(1);
+
+      expect(repository.recordRun).not.toHaveBeenCalled();
+      expect(stats.runsRecorded).toBe(0);
+    });
   });
 });

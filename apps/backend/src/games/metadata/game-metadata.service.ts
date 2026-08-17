@@ -10,11 +10,11 @@ import {
   countPopulatedFields,
   resolveMetadataStatus,
   toApplyGameMetadataInput,
+  toMediaJobs,
 } from './metadata-merge';
 import { parseReleaseYear } from './metadata-normalize';
 import { METADATA_CONFIG, type MetadataConfig } from './metadata.config';
-import type { GameMediaIngestJobData, MetadataEnrichReason } from './metadata.job-data';
-import type { ProviderGameMetadata } from './providers/metadata-provider.port';
+import type { MetadataEnrichReason } from './metadata.job-data';
 import { MetadataProviderRegistry } from './providers/metadata-provider.registry';
 
 export interface EnrichmentResult {
@@ -160,7 +160,7 @@ export class GameMetadataService {
     await this.reindexForSearch(game.id);
 
     // Media is enqueued AFTER the metadata transaction commits — never inside it.
-    const mediaJobs = this.toMediaJobs(game.id, metadata);
+    const mediaJobs = toMediaJobs(game.id, metadata, this.config);
     const mediaQueued = await this.publisher.enqueueMediaBatch(mediaJobs);
 
     // Late-bind provider "similar games" whose targets have since been created.
@@ -207,40 +207,5 @@ export class GameMetadataService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.event('warn', { gameId, error: message }, 'game.metadata.search-reindex.failed');
     }
-  }
-
-  /** Apply per-kind caps so one provider cannot inflate storage without bound. */
-  private toMediaJobs(gameId: string, metadata: ProviderGameMetadata): GameMediaIngestJobData[] {
-    const counts = { screenshot: 0, artwork: 0, cover: 0, hero: 0 };
-    const jobs: GameMediaIngestJobData[] = [];
-
-    for (const item of metadata.media) {
-      if (item.kind === 'screenshot') {
-        if (counts.screenshot >= this.config.maxScreenshots) continue;
-        counts.screenshot += 1;
-      } else if (item.kind === 'artwork') {
-        if (counts.artwork >= this.config.maxArtworks) continue;
-        counts.artwork += 1;
-      } else if (item.kind === 'cover') {
-        if (counts.cover >= 1) continue;
-        counts.cover += 1;
-      } else if (item.kind === 'hero') {
-        if (counts.hero >= 1) continue;
-        counts.hero += 1;
-      }
-
-      jobs.push({
-        gameId,
-        kind: item.kind,
-        sourceUrl: item.url,
-        provider: metadata.provider,
-        sortOrder: item.sortOrder,
-        width: item.width,
-        height: item.height,
-        promote: item.kind === 'cover' || item.kind === 'hero',
-      });
-    }
-
-    return jobs;
   }
 }

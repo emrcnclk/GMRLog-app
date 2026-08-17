@@ -1,16 +1,32 @@
-import type { GameMetadataRepository } from '@gmrlog/database';
+import type { GameMetadataRepository, GameMetadataStatus } from '@gmrlog/database';
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
+import { SearchIndexService } from '../../infrastructure/search/search-index.service';
 // Same skeleton-row helper `library-sync.service.ts`'s `resolveOrCreateGame`
 // already uses — one slugging rule for every path that creates a bare `Game`.
 import { slugifyGameTitle } from '../../integrations/mappers/integrations.mapper';
 
 import { GameMetadataPublisher } from './game-metadata.publisher';
-import { resolveMetadataStatus, toApplyGameMetadataInput } from './metadata-merge';
+import {
+  countPopulatedFields,
+  resolveMetadataStatus,
+  toApplyGameMetadataInput,
+  toMediaJobs,
+} from './metadata-merge';
 import type { MetadataConfig } from './metadata.config';
 import { IgdbMetadataProvider, type IgdbCatalogRow } from './providers/igdb.provider';
+
+/** One newly-created row this page, carried from `upsertOne` to the
+ * page-level batched follow-up (reindex) after the per-row loop finishes. */
+interface CreatedRow {
+  gameId: string;
+  metadata: IgdbCatalogRow['metadata'];
+  status: GameMetadataStatus;
+  fieldsWritten: number;
+  durationMs: number;
+}
 
 /** D11.1 — named high-water mark row for this sync. One cursor per source, so a
  * second bulk source (Steam, RAWG) can get its own row without colliding. */
@@ -22,6 +38,13 @@ export interface CatalogSyncPageStats {
   created: number;
   enqueuedForEnrich: number;
   skippedNoIgdbId: number;
+  /** D11.2 — created rows this page reflected into Meilisearch, via one
+   * batched `SearchIndexService.upsertMany` call, not one call per row. */
+  reindexed: number;
+  /** D11.2 — cover-image ingest jobs enqueued for created rows this page. */
+  mediaQueued: number;
+  /** D11.2 — `GameMetadataRun` audit rows written for created rows this page. */
+  runsRecorded: number;
 }
 
 export interface CatalogSyncStats {
@@ -33,6 +56,9 @@ export interface CatalogSyncStats {
   cursorAfter: number;
   wallMs: number;
   pages: CatalogSyncPageStats[];
+  reindexed: number;
+  mediaQueued: number;
+  runsRecorded: number;
 }
 
 /**
@@ -70,6 +96,51 @@ export interface CatalogSyncStats {
  *     application-context script) or via `GameCatalogSyncProcessor` on
  *     `QUEUE_GAME_CATALOG_SYNC` — a queue separate from `QUEUE_GAME_METADATA`
  *     so a bulk run never competes with per-game enrich concurrency.
+ *
+ * D11.2 — bulk-path parity with the per-game enrich worker. 11.1 shipped the
+ * mirror mechanism but deliberately skipped three follow-ups the enrich path
+ * (`GameMetadataService.runEnrichment`) always does for a created row: search
+ * reindex, media enqueue, and run-logging. Closed here, reusing the enrich
+ * path's own code rather than a second implementation:
+ *  6. Search reindex is batched, not one-per-row. `SearchIndexPublisher`'s
+ *     per-row `publishUpsert` (what the enrich path uses) would mean one
+ *     BullMQ enqueue awaited per created game — at catalog scale (~324k rows)
+ *     that serializes the whole run behind Redis round-trips. Reuses the
+ *     exact batching precedent `SearchRepairService` already established for
+ *     the same "one row per Meili call doesn't finish at this volume" problem
+ *     (D3.25.1): one `SearchIndexService.upsertMany('game', ids)` call per
+ *     page (≤500 ids), not 500 individual enqueues.
+ *  7. Media is enqueued for **cover only**, eagerly; screenshots/artwork/hero
+ *     are not. The enrich path's `toMediaJobs` (now shared, `metadata-merge.ts`)
+ *     can request up to 1+1+4+12 = 18 media jobs per game — full parity at
+ *     324k rows would mean up to ~5.8M real HTTP downloads + image-processing
+ *     jobs, by far the largest cost in this phase, and the large majority of
+ *     that catalog is never going to be looked at. Cover is kept eager
+ *     because it is the one asset every list/grid/search-result surface in
+ *     this app renders unconditionally (CLAUDE.md: geometry/rarity read off
+ *     the card, which needs an image) — cutting it would make the whole
+ *     mirrored catalog look broken by default. That keeps the eager cost at
+ *     ~324k jobs, the same order of magnitude as the reindex, not 18x that.
+ *     The rest is a real, named gap, not a silent one: those rows keep
+ *     `metadataStatus complete/partial` (11.1's `hasCoreFields` gate already
+ *     required media to reach `complete`, and cover alone satisfies that), so
+ *     they are NOT re-selected by `GameMetadataBackfillService`'s backfill
+ *     scan (pending/stale/failed only) — only the daily refresh scan
+ *     (`runRefreshScan`, 500/day, 30-day staleness window) will eventually
+ *     re-enrich them and, at that point, request the full media set through
+ *     the ordinary enrich path. At 500/day against 324k rows that is
+ *     ~648 days to reach full-catalog non-cover media — too slow to call
+ *     "lazy", named here as a follow-up rather than fixed: either bump
+ *     `refreshBatchSize`/`refreshIntervalDays` for catalog-sync-created rows
+ *     specifically, or add a real on-first-view trigger (which the read path
+ *     doesn't have today — `GamesService.getGame`'s own comment: "nothing
+ *     here awaits a metadata provider").
+ *  8. Run-logging reuses `repository.recordRun` exactly as the enrich path
+ *     does — one `GameMetadataRun` row per created game, not a log line per
+ *     game (10.7's volume rule is about `AppLogger.event`, not this audit
+ *     table, which already writes one row per enrichment today). This is
+ *     what makes a created row's provenance ("bulk-sync", not "backfill" or
+ *     "refresh") queryable after the fact.
  */
 @Injectable()
 export class GameCatalogSyncService {
@@ -80,6 +151,7 @@ export class GameCatalogSyncService {
     private readonly publisher: GameMetadataPublisher,
     private readonly logger: AppLogger,
     private readonly config: MetadataConfig,
+    private readonly searchIndex: SearchIndexService,
   ) {}
 
   /**
@@ -99,6 +171,9 @@ export class GameCatalogSyncService {
     let created = 0;
     let enqueuedForEnrich = 0;
     let pagesFetched = 0;
+    let reindexed = 0;
+    let mediaQueued = 0;
+    let runsRecorded = 0;
 
     for (let page = 0; page < maxPages; page += 1) {
       const rows = await this.igdb.listCatalogPage({
@@ -116,6 +191,7 @@ export class GameCatalogSyncService {
       let pageCreated = 0;
       let pageEnqueued = 0;
       let pageSkipped = 0;
+      const pageCreatedRows: CreatedRow[] = [];
 
       for (const row of rows) {
         rawFetched += 1;
@@ -132,9 +208,10 @@ export class GameCatalogSyncService {
         }
 
         const outcome = await this.upsertOne(igdbId, row.metadata);
-        if (outcome === 'created') {
+        if (outcome.kind === 'created') {
           pageCreated += 1;
-        } else if (outcome === 'enqueued') {
+          pageCreatedRows.push(outcome.row);
+        } else if (outcome.kind === 'enqueued') {
           pageEnqueued += 1;
         }
       }
@@ -142,12 +219,28 @@ export class GameCatalogSyncService {
       created += pageCreated;
       enqueuedForEnrich += pageEnqueued;
 
+      // D11.2 — page-batched follow-ups for every row created this page.
+      // Reindex is one Meili call for up to `pageSize` ids (decision #6);
+      // media (cover-only, decision #7) and run-logging (decision #8 — a DB
+      // audit row, not a log line, so it does not trip 10.7's "no line per
+      // game" rule) are per-row, same as the enrich path does per game.
+      const pageReindexed = await this.reindexCreatedRows(pageCreatedRows);
+      const pageMediaQueued = await this.enqueueCoverMediaAndRecordRuns(pageCreatedRows);
+      const pageRunsRecorded = pageCreatedRows.length;
+
+      reindexed += pageReindexed;
+      mediaQueued += pageMediaQueued;
+      runsRecorded += pageRunsRecorded;
+
       const stats: CatalogSyncPageStats = {
         page,
         fetched: rows.length,
         created: pageCreated,
         enqueuedForEnrich: pageEnqueued,
         skippedNoIgdbId: pageSkipped,
+        reindexed: pageReindexed,
+        mediaQueued: pageMediaQueued,
+        runsRecorded: pageRunsRecorded,
       };
       pages.push(stats);
 
@@ -175,6 +268,9 @@ export class GameCatalogSyncService {
         rawFetched,
         created,
         enqueuedForEnrich,
+        reindexed,
+        mediaQueued,
+        runsRecorded,
         cursorBefore,
         cursorAfter: maxUpdatedAtSeen,
         wallMs,
@@ -191,13 +287,71 @@ export class GameCatalogSyncService {
       cursorAfter: maxUpdatedAtSeen,
       wallMs,
       pages,
+      reindexed,
+      mediaQueued,
+      runsRecorded,
     };
+  }
+
+  /** D11.2, decision #6 — one batched Meili call per page, not one per row. */
+  private async reindexCreatedRows(rows: readonly CreatedRow[]): Promise<number> {
+    if (rows.length === 0) {
+      return 0;
+    }
+    try {
+      return await this.searchIndex.upsertMany(
+        'game',
+        rows.map((row) => row.gameId),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Same "recoverable via pnpm repair:index, never fail the run" posture
+      // as the enrich path's own reindexForSearch.
+      this.logger.event(
+        'warn',
+        { count: rows.length, error: message },
+        'game.catalog-sync.search-reindex.failed',
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * D11.2, decisions #7 and #8. Cover-only eager media enqueue (see class doc
+   * for the cost math), then one `GameMetadataRun` row per created game —
+   * same shape the enrich path writes, `reason: 'bulk-sync'` distinguishing
+   * provenance. Combined into one per-row pass because `mediaQueued` on the
+   * audit row has to reflect what was actually queued for that row.
+   */
+  private async enqueueCoverMediaAndRecordRuns(rows: readonly CreatedRow[]): Promise<number> {
+    let totalQueued = 0;
+    for (const row of rows) {
+      const coverJobs = toMediaJobs(row.gameId, row.metadata, this.config).filter(
+        (job) => job.kind === 'cover',
+      );
+      const mediaQueuedForRow = await this.publisher.enqueueMediaBatch(coverJobs);
+      totalQueued += mediaQueuedForRow;
+
+      await this.repository.recordRun({
+        gameId: row.gameId,
+        provider: row.metadata.provider,
+        outcome: row.status === 'complete' ? 'success' : 'partial',
+        reason: 'bulk-sync',
+        confidence: row.metadata.confidence,
+        fieldsWritten: row.fieldsWritten,
+        mediaQueued: mediaQueuedForRow,
+        durationMs: row.durationMs,
+        error: null,
+      });
+    }
+    return totalQueued;
   }
 
   private async upsertOne(
     igdbId: number,
     metadata: IgdbCatalogRow['metadata'],
-  ): Promise<'created' | 'enqueued' | 'skipped'> {
+  ): Promise<{ kind: 'created'; row: CreatedRow } | { kind: 'enqueued' | 'skipped' }> {
+    const rowStartedAt = Date.now();
     const existing = await this.prisma.game.findUnique({
       where: { igdbId },
       select: { id: true },
@@ -213,17 +367,17 @@ export class GameCatalogSyncService {
         reason: 'refresh',
         igdbId,
       });
-      return jobId === null ? 'skipped' : 'enqueued';
+      return jobId === null ? { kind: 'skipped' } : { kind: 'enqueued' };
     }
 
     const title = metadata.title;
     if (title == null || title.trim().length === 0) {
-      return 'skipped';
+      return { kind: 'skipped' };
     }
 
     const skeleton = await this.createSkeleton(title, igdbId);
     if (skeleton === null) {
-      return 'skipped';
+      return { kind: 'skipped' };
     }
 
     // Decision #3, throughput branch: IGDB's catalog-listing response already
@@ -236,7 +390,16 @@ export class GameCatalogSyncService {
       toApplyGameMetadataInput(skeleton.id, metadata, status, new Date()),
     );
 
-    return 'created';
+    return {
+      kind: 'created',
+      row: {
+        gameId: skeleton.id,
+        metadata,
+        status,
+        fieldsWritten: countPopulatedFields(metadata),
+        durationMs: Date.now() - rowStartedAt,
+      },
+    };
   }
 
   private async createSkeleton(title: string, igdbId: number): Promise<{ id: string } | null> {
