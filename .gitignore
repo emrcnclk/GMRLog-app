@@ -69,3 +69,4 @@ coverage-out.txt
 .claude/
 claude-skills/
 skills-lock.json
+.env.staging
