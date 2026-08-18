@@ -148,7 +148,19 @@ export class SessionsService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.sessions.revoke(session.id);
+    // Bug 6 — the checks above are advisory, not a claim on the session. Two
+    // requests carrying the same refresh token could both pass them, both
+    // revoke, and both walk away with a valid credential pair, turning a
+    // single-use token into two live sessions — and handing an attacker who
+    // replayed a stolen refresh token a session of their own alongside the
+    // victim's. Consuming the session is therefore a conditional UPDATE that
+    // reports whether *this* call is the one that consumed it; whoever loses
+    // the race is told the token is invalid, which it now is.
+    const consumed = await this.sessions.revokeIfActive(session.id);
+    if (!consumed) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     return this.issueCredentialPair(payload.sub);
   }
 

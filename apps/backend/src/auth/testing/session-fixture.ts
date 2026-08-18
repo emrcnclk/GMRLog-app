@@ -46,6 +46,20 @@ export class MemorySessionRepository implements SessionRepository {
     return Promise.resolve(next);
   }
 
+  revokeIfActive(id: string): Promise<boolean> {
+    // Body runs synchronously between awaits, which models the row lock the
+    // real UPDATE takes: two concurrent callers cannot both see it active.
+    const row = this.rows.get(id);
+    if (row === undefined) {
+      return Promise.resolve(false);
+    }
+    if (row.revokedAt !== null) {
+      return Promise.resolve(false);
+    }
+    this.rows.set(id, { ...row, revokedAt: new Date() });
+    return Promise.resolve(true);
+  }
+
   delete(id: string): Promise<Session> {
     const row = this.rows.get(id);
     if (row === undefined) throw new Error(`no session ${id}`);

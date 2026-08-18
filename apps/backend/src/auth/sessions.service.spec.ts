@@ -110,6 +110,18 @@ function createFakeSessionRepository(seed: Session[] = []): FakeSessionRepositor
       rows.set(id, updated);
       return updated;
     },
+    // Mirrors the conditional UPDATE: the check and the write happen with no
+    // await between them, so concurrent callers serialise the way the row lock
+    // makes them serialise in Postgres.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async revokeIfActive(id) {
+      const existing = rows.get(id);
+      if (!existing || existing.revokedAt != null) {
+        return false;
+      }
+      rows.set(id, { ...existing, revokedAt: new Date(), updatedAt: new Date() });
+      return true;
+    },
     async delete(id) {
       const existing = rows.get(id);
       if (!existing) {
@@ -470,6 +482,59 @@ describe('SessionsService', () => {
     const refresh = await service.refresh({ refreshToken: login.refreshToken });
     expect(refresh.accessToken).toEqual(expect.any(String));
     expect([...sessions.rows.values()].some((row) => row.revokedAt != null)).toBe(true);
+  });
+
+  // Bug 6. A refresh token is single-use: presenting it rotates the session.
+  // The check ("is this session still active?") and the write ("revoke it")
+  // used to be two statements, so two requests carrying the same token could
+  // both pass the check and both mint a credential pair — one refresh token
+  // becoming two live sessions, which is exactly what an attacker replaying a
+  // stolen token wants. The consume is now a single conditional UPDATE.
+  it('lets only one of two concurrent refreshes with the same token succeed', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    const login = await service.login({
+      email: 'player@example.com',
+      password: 'correct-password-12',
+    });
+
+    const results = await Promise.allSettled([
+      service.refresh({ refreshToken: login.refreshToken }),
+      service.refresh({ refreshToken: login.refreshToken }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
+
+    // One rotation, so exactly one new session joins the consumed original.
+    expect(sessions.rows.size).toBe(2);
+    const active = [...sessions.rows.values()].filter((row) => row.revokedAt == null);
+    expect(active).toHaveLength(1);
+  });
+
+  it('rejects a refresh token that has already been consumed', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    const login = await service.login({
+      email: 'player@example.com',
+      password: 'correct-password-12',
+    });
+
+    await service.refresh({ refreshToken: login.refreshToken });
+    await expect(service.refresh({ refreshToken: login.refreshToken })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('logs out the current session or all active sessions', async () => {
