@@ -20,6 +20,8 @@ import { createFakeFollowRepository, makeFollow, makeUser } from './testing/fake
 import { createFakeUserRepository } from '../users/testing/fake-repositories';
 import { SESSION_REPOSITORY } from '../auth/auth.tokens';
 import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
+import { createFakeBlockRepository } from '../blocks/testing/fake-repositories';
 
 const follows = createFakeFollowRepository();
 const users = createFakeUserRepository([
@@ -42,6 +44,8 @@ beforeAll(async () => {
     .useValue(follows)
     .overrideProvider(FOLLOW_USER_REPOSITORY)
     .useValue(users)
+    .overrideProvider(BLOCK_REPOSITORY)
+    .useValue(createFakeBlockRepository())
     .overrideProvider(SESSION_REPOSITORY)
     .useValue(new MemorySessionRepository())
     .compile();

@@ -35,6 +35,8 @@ import {
 } from './testing/fake-repositories';
 import { SESSION_REPOSITORY } from '../auth/auth.tokens';
 import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
+import { createFakeBlockRepository } from '../blocks/testing/fake-repositories';
 
 const conversations = createFakeConversationRepository([
   makeConversation({
@@ -91,6 +93,8 @@ beforeAll(async () => {
     .useValue(messages)
     .overrideProvider(MESSAGING_USER_REPOSITORY)
     .useValue(users)
+    .overrideProvider(BLOCK_REPOSITORY)
+    .useValue(createFakeBlockRepository())
     .overrideProvider(SESSION_REPOSITORY)
     .useValue(new MemorySessionRepository())
     .compile();

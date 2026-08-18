@@ -1,7 +1,12 @@
-import { PrismaFollowRepository, PrismaUserRepository } from '@gmrlog/database';
+import {
+  PrismaBlockRepository,
+  PrismaFollowRepository,
+  PrismaUserRepository,
+} from '@gmrlog/database';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
@@ -28,6 +33,11 @@ import { UserFollowsController } from './user-follows.controller';
       provide: FOLLOW_USER_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaUserRepository(prisma),
+    },
+    {
+      provide: BLOCK_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaBlockRepository(prisma),
     },
     FollowsService,
   ],

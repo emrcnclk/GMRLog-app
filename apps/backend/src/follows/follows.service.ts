@@ -1,4 +1,4 @@
-import type { FollowRepository, User, UserRepository } from '@gmrlog/database';
+import type { BlockRepository, FollowRepository, User, UserRepository } from '@gmrlog/database';
 import type { FollowResponse, UserPublicResponse } from '@gmrlog/types';
 import type { FollowCreateInput } from '@gmrlog/validators';
 import {
@@ -9,18 +9,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
+
 import { FOLLOW_REPOSITORY, FOLLOW_USER_REPOSITORY } from './follows.tokens';
 import { toFollowResponse, toUserPublicResponse } from './mappers/follow.mapper';
 
 /**
  * Follow domain service (F6.3 / D2.11). Directed follow edges only.
- * No suggestions · feed · notifications · blocks · private requests.
+ * No suggestions · feed · notifications · private requests.
  */
 @Injectable()
 export class FollowsService {
   constructor(
     @Inject(FOLLOW_REPOSITORY) private readonly follows: FollowRepository,
     @Inject(FOLLOW_USER_REPOSITORY) private readonly users: UserRepository,
+    @Inject(BLOCK_REPOSITORY) private readonly blocks: BlockRepository,
   ) {}
 
   async listFollowers(subjectUserId: string): Promise<UserPublicResponse[]> {
@@ -41,6 +44,17 @@ export class FollowsService {
     }
 
     const followee = await this.requireActiveUser(input.userId);
+
+    // Bug 9 — blocking someone did nothing to stop them following you. The edge
+    // is checked in both directions because a block is meant to be symmetric in
+    // effect: the person you blocked must not be able to reach you, and you
+    // should not be able to attach yourself to someone who blocked you.
+    // `ConflictException` and this message match `FriendsService.assertNotBlocked`,
+    // so the two relationship surfaces answer a blocked interaction identically.
+    if (await this.blocks.existsEitherDirection(actorId, input.userId)) {
+      throw new ConflictException('Cannot interact with a blocked user');
+    }
+
     const existing = await this.follows.findByPair(actorId, input.userId);
     if (existing) {
       throw new ConflictException('Already following this user');
