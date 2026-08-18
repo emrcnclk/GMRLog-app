@@ -9,7 +9,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -34,6 +33,8 @@ import {
   makeUser,
   resetMessagingFakeInboxIndex,
 } from './testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const conversations = createFakeConversationRepository([
   makeConversation({
@@ -90,15 +91,16 @@ beforeAll(async () => {
     .useValue(messages)
     .overrideProvider(MESSAGING_USER_REPOSITORY)
     .useValue(users)
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
-  outsiderToken = await tokens.signAccessToken('user-3');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
+  outsiderToken = await issueTestAccessToken(moduleRef, 'user-3');
 });
 
 afterAll(async () => {

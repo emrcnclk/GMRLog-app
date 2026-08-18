@@ -10,7 +10,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { createFakeFollowRepository } from '../follows/testing/fake-repositories';
 import { AppConfigModule } from '../infrastructure/config/config.module';
@@ -49,6 +48,8 @@ import {
   makeCommunityMember,
   makeUser,
 } from './testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const follows = createFakeFollowRepository();
 const communities = createFakeCommunityRepository([
@@ -119,15 +120,16 @@ beforeAll(async () => {
     .useValue(events)
     .overrideProvider(COMMUNITY_EVENT_PARTICIPATION_REPOSITORY)
     .useValue(eventParticipations)
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
-  otherToken = await tokens.signAccessToken('user-2');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
+  otherToken = await issueTestAccessToken(moduleRef, 'user-2');
 });
 
 afterAll(async () => {

@@ -11,7 +11,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import {
   createFakeFollowRepository,
@@ -37,6 +36,8 @@ import {
   USER_SETTINGS_REPOSITORY,
 } from './users.tokens';
 import { createFakeUploadRepository } from '../uploads/testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 /**
  * Controller/integration tests — the real Nest + Fastify pipeline (guards,
@@ -80,16 +81,17 @@ beforeAll(async () => {
     .useValue(uploadRepo)
     .overrideProvider(FOLLOW_REPOSITORY)
     .useValue(followRepo)
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
-  staleToken = await tokens.signAccessToken('ghost');
-  otherAccessToken = await tokens.signAccessToken('user-2');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
+  staleToken = await issueTestAccessToken(moduleRef, 'ghost');
+  otherAccessToken = await issueTestAccessToken(moduleRef, 'user-2');
 });
 
 afterAll(async () => {
@@ -248,8 +250,7 @@ describe('GET /settings · PATCH /settings/*', () => {
   it('rejects a value outside the closed theme vocabulary', async () => {
     // Dedicated subject avoids shared write-class rate budget exhaustion across the suite.
     userRepo.rows.set('user-theme', makeUser({ id: 'user-theme', handle: 'theme_user' }));
-    const tokens = app.get(TokenService);
-    const themeToken = await tokens.signAccessToken('user-theme');
+    const themeToken = await issueTestAccessToken(app, 'user-theme');
     const response = await app.inject({
       method: 'PATCH',
       url: '/settings/appearance',
