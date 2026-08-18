@@ -2303,7 +2303,13 @@ model ExternalGame {
   integration  UserIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   internalGame Game?            @relation(fields: [internalGameId], references: [id], onDelete: SetNull)
 
-  @@unique([provider, externalId])
+  /// Scoped to the owning integration, never global. A Steam appid (or any
+  /// provider's external id) is the same string for every player who owns the
+  /// game, so a global `(provider, externalId)` unique made one player's row
+  /// the *only* row: the second player to sync reassigned `integrationId` and
+  /// overwrote the first player's playtime. Widening the key to include
+  /// `integrationId` gives every integration its own row.
+  @@unique([integrationId, provider, externalId])
   @@index([internalGameId])
   @@index([integrationId])
   @@map("external_games")

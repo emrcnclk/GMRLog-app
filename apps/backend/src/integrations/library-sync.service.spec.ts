@@ -3,6 +3,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibrarySyncService } from './library-sync.service';
 import { MockSteamWebApiClient } from './steam/steam-web-api.client';
 
+/**
+ * Mirrors `ExternalGame`'s `@@unique([integrationId, provider, externalId])`.
+ * The integration id is part of the key on purpose: keying on
+ * `provider:externalId` alone is exactly the bug this mock has to be able to
+ * reproduce, since it would hand one player's row to the next player who syncs
+ * the same appid.
+ */
+interface ExternalGameWhere {
+  integrationId_provider_externalId: {
+    integrationId: string;
+    provider: string;
+    externalId: string;
+  };
+}
+
+function externalGameKey(where: ExternalGameWhere): string {
+  const { integrationId, provider, externalId } = where.integrationId_provider_externalId;
+  return `${integrationId}:${provider}:${externalId}`;
+}
+
 function createLibraryPrismaMock() {
   const games = new Map<string, { id: string; title: string; slug: string }>();
   const library = new Map<
@@ -47,6 +67,21 @@ function createLibraryPrismaMock() {
       errorCode: string | null;
     }
   >();
+  const integrations = new Map<
+    string,
+    { id: string; userId: string; provider: string; externalRef: string; status: string }
+  >([
+    [
+      'int-steam',
+      {
+        id: 'int-steam',
+        userId: 'user-1',
+        provider: 'steam',
+        externalRef: '76561198000000001',
+        status: 'connected',
+      },
+    ],
+  ]);
   const histories = new Map<string, Record<string, unknown>>();
   const activities: unknown[] = [];
   const notifications: unknown[] = [];
@@ -62,6 +97,7 @@ function createLibraryPrismaMock() {
     games,
     library,
     externalGames,
+    integrations,
     syncJobs,
     histories,
     activities,
@@ -97,50 +133,35 @@ function createLibraryPrismaMock() {
       },
       userIntegration: {
         findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
-          if (where.id === 'int-steam') {
-            return {
-              id: 'int-steam',
-              userId: 'user-1',
-              provider: 'steam',
-              externalRef: '76561198000000001',
-              status: 'connected',
-            };
-          }
-          return null;
+          return integrations.get(where.id) ?? null;
         }),
         update: vi.fn(async () => ({})),
       },
       externalGame: {
-        findUnique: vi.fn(
-          async ({
-            where,
-          }: {
-            where: { provider_externalId: { provider: string; externalId: string } };
-          }) => {
-            const key = `${where.provider_externalId.provider}:${where.provider_externalId.externalId}`;
-            return externalGames.get(key) ?? null;
-          },
-        ),
+        findUnique: vi.fn(async ({ where }: { where: ExternalGameWhere }) => {
+          return externalGames.get(externalGameKey(where)) ?? null;
+        }),
         upsert: vi.fn(
           async ({
             where,
             create,
             update,
           }: {
-            where: { provider_externalId: { provider: string; externalId: string } };
+            where: ExternalGameWhere;
             create: Record<string, unknown>;
             update: Record<string, unknown>;
           }) => {
-            const key = `${where.provider_externalId.provider}:${where.provider_externalId.externalId}`;
+            const key = externalGameKey(where);
             const existing = externalGames.get(key);
             if (existing !== undefined) {
               Object.assign(existing, update);
               return existing;
             }
+            const compound = where.integrationId_provider_externalId;
             const row = {
               id: nextId('eg'),
-              provider: where.provider_externalId.provider,
-              externalId: where.provider_externalId.externalId,
+              provider: compound.provider,
+              externalId: compound.externalId,
               title: (create['title'] as string | null) ?? null,
               integrationId: (create['integrationId'] as string | null) ?? null,
               internalGameId: null,
@@ -372,6 +393,85 @@ describe('LibrarySyncService', () => {
     const history = await service.runImport('job-ask', { conflictResolution: 'ask_user' });
     expect(history.skippedCount).toBeGreaterThan(0);
     expect(mock.prisma.syncConflict.create).toHaveBeenCalled();
+  });
+
+  // Bug 1 regression. A Steam appid is a global string — "620" is Portal 2 for
+  // every player alive — so when `ExternalGame` was unique on
+  // `(provider, externalId)` the second player to sync a shared game did not get
+  // a row of their own: the upsert matched the FIRST player's row, reassigned
+  // its `integrationId`, and overwrote their playtime. The first player lost
+  // their record entirely. The key now includes the integration, so each player
+  // owns their own row.
+  it('gives each player their own row for the same appid', async () => {
+    mock.integrations.set('int-steam-b', {
+      id: 'int-steam-b',
+      userId: 'user-2',
+      provider: 'steam',
+      externalRef: '76561198000000002',
+      status: 'connected',
+    });
+    mock.syncJobs.set('job-b', {
+      id: 'job-b',
+      userId: 'user-2',
+      integrationId: 'int-steam-b',
+      provider: 'steam',
+      syncType: 'manual',
+      status: 'pending',
+      attemptCount: 0,
+      startedAt: null,
+      finishedAt: null,
+      errorCode: null,
+    });
+
+    // Same appid, deliberately different playtimes, so a shared row would be
+    // detectable as one value clobbering the other rather than as a mere count.
+    const playtimeBySteamId: Record<string, number> = {
+      '76561198000000001': 6000, // player A — 100 h
+      '76561198000000002': 1200, // player B — 20 h
+    };
+    vi.spyOn(steam, 'getOwnedGames').mockImplementation((steamId64: string) =>
+      Promise.resolve([
+        {
+          appId: '620',
+          name: 'Portal 2',
+          playtimeForeverMin: playtimeBySteamId[steamId64] ?? 0,
+          playtime2WeeksMin: 0,
+          lastPlayedAt: null,
+        },
+      ]),
+    );
+
+    await service.runImport('job-1');
+    await service.runImport('job-b');
+
+    const portalRows = [...mock.externalGames.values()].filter((row) => row.externalId === '620');
+    expect(portalRows).toHaveLength(2);
+
+    const byIntegration = new Map(portalRows.map((row) => [row.integrationId, row]));
+    expect(byIntegration.get('int-steam')?.playtimeForeverMin).toBe(6000);
+    expect(byIntegration.get('int-steam-b')?.playtimeForeverMin).toBe(1200);
+  });
+
+  // The integration id is half the new unique key, so a job without one has no
+  // row it could legally write. Fail the job rather than fall back to a global
+  // write that would reintroduce the cross-player collision above.
+  it('fails a sync job that carries no integration', async () => {
+    mock.syncJobs.set('job-orphan', {
+      id: 'job-orphan',
+      userId: 'user-1',
+      integrationId: null,
+      provider: 'steam',
+      syncType: 'manual',
+      status: 'pending',
+      attemptCount: 0,
+      startedAt: null,
+      finishedAt: null,
+      errorCode: null,
+    });
+
+    await expect(service.runImport('job-orphan')).rejects.toThrow(/no integration/);
+    expect(mock.syncJobs.get('job-orphan')?.status).toBe('failed');
+    expect([...mock.externalGames.values()]).toHaveLength(0);
   });
 
   it('throws when sync job is missing', async () => {
