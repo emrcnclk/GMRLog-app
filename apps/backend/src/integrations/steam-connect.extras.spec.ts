@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { parseBackendEnv } from '../infrastructure/config/env.schema';
+
 import { SteamConnectService } from './steam-connect.service';
 import { MockSteamWebApiClient } from './steam/steam-web-api.client';
 
@@ -24,7 +26,11 @@ describe('SteamConnectService extras', () => {
     vi.clearAllMocks();
     prisma.externalGame.count.mockResolvedValue(0);
     prisma.externalAchievement.count.mockResolvedValue(0);
-    service = new SteamConnectService(prisma as never, new MockSteamWebApiClient());
+    service = new SteamConnectService(
+      prisma as never,
+      new MockSteamWebApiClient(),
+      parseBackendEnv({ NODE_ENV: 'development', APP_ENV: 'development' }),
+    );
   });
 
   it('rejects steam already linked to another user', async () => {

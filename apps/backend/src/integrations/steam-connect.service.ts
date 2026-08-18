@@ -7,15 +7,18 @@ import type { SteamConnectInput } from '@gmrlog/validators';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
+import { ENV } from '../infrastructure/config/config.module';
+import type { BackendEnv } from '../infrastructure/config/env.schema';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
 import {
-  isVerifiedMetadata,
+  isVerifiedIntegration,
   toSteamProfileResponse,
   toSteamStatusResponse,
   toUserIntegrationResponse,
@@ -31,9 +34,29 @@ export class SteamConnectService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STEAM_WEB_API_CLIENT) private readonly steam: SteamWebApiClient,
+    @Inject(ENV) private readonly env: BackendEnv,
   ) {}
 
+  /**
+   * Bug 2 — self-reported connect. The caller hands over a SteamID or vanity URL
+   * and nothing anywhere proves they own it, so this path could attach any
+   * stranger's Steam account (and, once synced, their library) to the caller's
+   * profile. It survives only as a development convenience for seeding and
+   * fixtures; outside development it is refused outright and
+   * `connectVerified()` — reached through the OpenID 2.0 callback, where Steam
+   * itself confirms the identity — is the only way to connect an account.
+   *
+   * The refusal lives here rather than on the route so that any future caller
+   * inherits it, not just `POST /integrations/steam/connect`.
+   */
   async connect(userId: string, input: SteamConnectInput): Promise<UserIntegrationResponse> {
+    if (this.env.NODE_ENV === 'production' || this.env.APP_ENV === 'production') {
+      throw new ForbiddenException({
+        code: 'STEAM_CONNECT_UNVERIFIED_DISABLED',
+        message: 'Connect Steam through Steam itself so we can confirm the account is yours.',
+      });
+    }
+
     let steamId64: string;
     let vanity: string | null = null;
 
@@ -95,7 +118,7 @@ export class SteamConnectService {
       },
     });
     if (existingOther !== null) {
-      const otherVerified = isVerifiedMetadata(existingOther.metadata);
+      const otherVerified = isVerifiedIntegration(existingOther);
 
       // Task 4.5a — the live exploit: someone else self-reported this
       // SteamID through the unverified `connect()` path with no proof of
@@ -149,7 +172,7 @@ export class SteamConnectService {
         syncType: 'manual',
         connectedAt: now,
         disconnectedAt: null,
-        metadata: { verified },
+        verified,
       },
       update: {
         externalRef: steamId64,
@@ -157,7 +180,7 @@ export class SteamConnectService {
         status: 'connected',
         connectedAt: now,
         disconnectedAt: null,
-        metadata: { verified },
+        verified,
       },
     });
 

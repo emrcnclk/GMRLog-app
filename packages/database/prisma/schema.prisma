@@ -2241,6 +2241,11 @@ model UserIntegration {
   displayName    String?             @map("display_name")
   status         String              @default("connected")
   syncType       IntegrationSyncType @default(manual) @map("sync_type")
+  /// True only when the provider itself proved the account belongs to this
+  /// player — for Steam that means a completed OpenID 2.0 `check_authentication`
+  /// round-trip. A self-reported SteamID is never verified. Defaults to false so
+  /// a new connection has to earn the flag rather than inherit it.
+  verified       Boolean             @default(false)
   lastSyncAt     DateTime?           @map("last_sync_at")
   connectedAt    DateTime            @default(now()) @map("connected_at")
   disconnectedAt DateTime?           @map("disconnected_at")
