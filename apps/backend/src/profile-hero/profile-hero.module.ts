@@ -12,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CreatorModule } from '../creator/creator.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { ProfileVisibilityModule } from '../profile-visibility/profile-visibility.module';
 
 import { ProfileHeroController } from './profile-hero.controller';
 import { ProfileHeroService } from './profile-hero.service';
@@ -28,7 +29,7 @@ import {
  * Profile Hero domain (D3.24 / PROFILE_V2.md).
  */
 @Module({
-  imports: [AuthModule, PrismaModule, CreatorModule],
+  imports: [AuthModule, PrismaModule, CreatorModule, ProfileVisibilityModule],
   controllers: [ProfileHeroController],
   providers: [
     {

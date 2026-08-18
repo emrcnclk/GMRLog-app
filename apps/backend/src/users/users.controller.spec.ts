@@ -38,6 +38,10 @@ import {
 import { createFakeUploadRepository } from '../uploads/testing/fake-repositories';
 import { SESSION_REPOSITORY } from '../auth/auth.tokens';
 import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
+import {
+  PROFILE_VISIBILITY_FOLLOW_REPOSITORY,
+  PROFILE_VISIBILITY_SETTINGS_REPOSITORY,
+} from '../profile-visibility/profile-visibility.tokens';
 
 /**
  * Controller/integration tests — the real Nest + Fastify pipeline (guards,
@@ -75,6 +79,13 @@ beforeAll(async () => {
     .useValue(userRepo)
     .overrideProvider(USER_SETTINGS_REPOSITORY)
     .useValue(settingsRepo)
+    // The visibility guard reads the same two repositories the users domain
+    // does — bound under its own tokens so the four other domains that mount
+    // the guard need not import UsersModule.
+    .overrideProvider(PROFILE_VISIBILITY_SETTINGS_REPOSITORY)
+    .useValue(settingsRepo)
+    .overrideProvider(PROFILE_VISIBILITY_FOLLOW_REPOSITORY)
+    .useValue(followRepo)
     .overrideProvider(CONNECTED_ACCOUNT_REPOSITORY)
     .useValue(accountsRepo)
     .overrideProvider(UPLOAD_REPOSITORY)
@@ -394,6 +405,83 @@ describe('GET/PATCH /me/profile-theme (D3.29)', () => {
   it('requires authentication', async () => {
     const response = await app.inject({ method: 'GET', url: '/me/profile-theme' });
     expect(response.statusCode).toBe(401);
+  });
+});
+
+// Bug 8. `profileVisibility` was enforced on the theme endpoint and nowhere
+// else, so a player who set their profile to private hid their colours and left
+// the profile card itself — along with statistics, hero, achievements and
+// archetypes, guarded the same way in their own suites — fully public.
+describe('GET /users/{id} visibility (Bug 8)', () => {
+  it('is readable by a guest while public', async () => {
+    const response = await app.inject({ method: 'GET', url: '/users/user-1' });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('404s for a non-owner once private, and still 200s for the owner', async () => {
+    await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { profileVisibility: 'private' },
+    });
+
+    const asGuest = await app.inject({ method: 'GET', url: '/users/user-1' });
+    expect(asGuest.statusCode).toBe(404);
+
+    const asOther = await app.inject({
+      method: 'GET',
+      url: '/users/user-1',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(asOther.statusCode).toBe(404);
+
+    const asOwner = await app.inject({
+      method: 'GET',
+      url: '/users/user-1',
+      headers: authHeaders(),
+    });
+    expect(asOwner.statusCode).toBe(200);
+  });
+
+  it('gates followers-only on an actual follow edge, in the right direction', async () => {
+    await app.inject({
+      method: 'PATCH',
+      url: '/me/profile-theme',
+      headers: authHeaders(),
+      payload: { profileVisibility: 'followers' },
+    });
+
+    const beforeFollow = await app.inject({
+      method: 'GET',
+      url: '/users/user-1',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(beforeFollow.statusCode).toBe(404);
+
+    // user-1 following user-2 must not grant user-2 access — the edge that
+    // matters is the viewer following the owner, not the reverse.
+    await followRepo.create({
+      follower: { connect: { id: 'user-1' } },
+      followee: { connect: { id: 'user-2' } },
+    });
+    const wrongDirection = await app.inject({
+      method: 'GET',
+      url: '/users/user-1',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(wrongDirection.statusCode).toBe(404);
+
+    await followRepo.create({
+      follower: { connect: { id: 'user-2' } },
+      followee: { connect: { id: 'user-1' } },
+    });
+    const afterFollow = await app.inject({
+      method: 'GET',
+      url: '/users/user-1',
+      headers: { authorization: `Bearer ${otherAccessToken}` },
+    });
+    expect(afterFollow.statusCode).toBe(200);
   });
 });
 
