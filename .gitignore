@@ -65,3 +65,7 @@ coverage-out.txt
 
 # Misc
 .vercel
+.env.production
+.claude/
+claude-skills/
+skills-lock.json
