@@ -204,8 +204,22 @@ export class SessionsService {
     });
   }
 
+  /**
+   * Bug 7 — the token is claimed first, before anything slow or observable
+   * happens. It used to be read at the top and deleted at the very bottom, with
+   * a deliberately expensive password hash in between, so the window where two
+   * requests could both hold the same live token was as wide as a hash: both
+   * would read it, both would hash, and both would write a password, the last
+   * writer taking the account. `consume` is a single Redis GETDEL, so exactly
+   * one caller gets the user id and the rest are told the token is invalid.
+   *
+   * Consuming up front also means a failed reset burns the token. That is the
+   * right trade for a credential-reset primitive — the alternative is putting
+   * the token back, which reopens the same window — and the user can always
+   * request another.
+   */
   async resetPassword(input: PasswordResetInput): Promise<void> {
-    const userId = await this.passwordResetStore.getUserId(input.token);
+    const userId = await this.passwordResetStore.consume(input.token);
     if (userId == null) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -217,7 +231,6 @@ export class SessionsService {
 
     const secretHash = await hashPassword(input.password);
     await this.credentials.updateSecretHash(credential.id, secretHash);
-    await this.passwordResetStore.delete(input.token);
     await this.logoutCurrent(userId);
   }
 

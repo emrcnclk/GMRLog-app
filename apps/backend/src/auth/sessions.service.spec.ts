@@ -466,6 +466,56 @@ describe('SessionsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  // Bug 7. The token used to be read at the top of `resetPassword` and deleted
+  // at the bottom, with a deliberately slow password hash in between — so the
+  // window in which two requests could both hold the same live token was as
+  // wide as a hash. Both would set a password and the last writer would own the
+  // account. The token is now claimed by a single GETDEL before any of that.
+  it('lets only one of two concurrent resets with the same token succeed', async () => {
+    const oldHash = await hashPassword('old-password-12xx');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({
+        id: 'cred-1',
+        secretHash: oldHash,
+        providerRef: 'player@example.com',
+        userId: 'user-1',
+      }),
+    );
+    await passwordResetStore.put('reset-token', 'user-1');
+
+    const results = await Promise.allSettled([
+      service.resetPassword({ token: 'reset-token', password: 'attacker-password-1' }),
+      service.resetPassword({ token: 'reset-token', password: 'victim-password-12' }),
+    ]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(BadRequestException);
+
+    // Exactly one of the two passwords is live — never both, never a mix.
+    const stored = credentials.rows[0]?.secretHash;
+    const matches = await Promise.all([
+      verifyPassword('attacker-password-1', stored!),
+      verifyPassword('victim-password-12', stored!),
+    ]);
+    expect(matches.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('spends the reset token even when the reset then fails', async () => {
+    // No password credential for this user, so the reset fails after the token
+    // is claimed. Burning it is the deliberate trade: putting it back would
+    // reopen the window above, and the user can request another.
+    users.rows.set('user-nopass', makeUser({ id: 'user-nopass' }));
+    await passwordResetStore.put('lonely-token', 'user-nopass');
+
+    await expect(
+      service.resetPassword({ token: 'lonely-token', password: 'new-password-12ab' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(await passwordResetStore.getUserId('lonely-token')).toBeNull();
+  });
+
   it('issues credentials on successful login and refresh', async () => {
     const secretHash = await hashPassword('correct-password-12');
     users.rows.set('user-1', makeUser());
