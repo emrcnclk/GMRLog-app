@@ -5,8 +5,13 @@ import { parseBackendEnv } from '../infrastructure/config/env.schema';
 import { AuthService, extractBearerToken } from './auth.service';
 import { sessionStateForIdentity } from './interfaces/identity';
 import { TokenService } from './jwt/token.service';
+import { MemorySessionRepository } from './testing/session-fixture';
 
-function createAuthService(): { auth: AuthService; tokens: TokenService } {
+function createAuthService(): {
+  auth: AuthService;
+  tokens: TokenService;
+  sessions: MemorySessionRepository;
+} {
   const env = parseBackendEnv({});
   const jwt = new JwtService({
     secret: env.JWT_SECRET,
@@ -14,7 +19,8 @@ function createAuthService(): { auth: AuthService; tokens: TokenService } {
     verifyOptions: { issuer: env.JWT_ISSUER },
   });
   const tokens = new TokenService(jwt, env);
-  return { auth: new AuthService(tokens), tokens };
+  const sessions = new MemorySessionRepository();
+  return { auth: new AuthService(tokens, sessions), tokens, sessions };
 }
 
 describe('extractBearerToken', () => {
@@ -34,10 +40,11 @@ describe('extractBearerToken', () => {
 
 describe('AuthService.resolveIdentity', () => {
   it('resolves a valid access token into an authenticated identity', async () => {
-    const { auth, tokens } = createAuthService();
-    const token = await tokens.signAccessToken('user-1');
+    const { auth, tokens, sessions } = createAuthService();
+    const session = sessions.seed('user-1');
+    const token = await tokens.signAccessToken('user-1', session.id);
     const identity = await auth.resolveIdentity(`Bearer ${token}`);
-    expect(identity).toEqual({ class: 'player', userId: 'user-1' });
+    expect(identity).toEqual({ class: 'player', userId: 'user-1', sessionId: session.id });
     expect(sessionStateForIdentity(identity)).toBe('authenticated');
   });
 
@@ -52,6 +59,69 @@ describe('AuthService.resolveIdentity', () => {
     const refresh = await tokens.signRefreshToken('user-1', 'session-1');
     const identity = await auth.resolveIdentity(`Bearer ${refresh}`);
     expect(identity).toEqual({ class: 'guest' });
+  });
+
+  // Bug 5. The signature stayed valid for the rest of the token's 15-minute
+  // TTL after logout, so signing out — including "log out everywhere" after a
+  // device was lost — did not actually end access. The session row is now read
+  // on every request.
+  describe('Bug 5 — a revoked session ends access immediately', () => {
+    it('rejects a token whose session has been revoked', async () => {
+      const { auth, tokens, sessions } = createAuthService();
+      const session = sessions.seed('user-1');
+      const token = await tokens.signAccessToken('user-1', session.id);
+
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toMatchObject({ class: 'player' });
+
+      await sessions.revoke(session.id);
+
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toEqual({ class: 'guest' });
+    });
+
+    it('rejects a token whose session no longer exists', async () => {
+      const { auth, tokens, sessions } = createAuthService();
+      const session = sessions.seed('user-1');
+      const token = await tokens.signAccessToken('user-1', session.id);
+      await sessions.delete(session.id);
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toEqual({ class: 'guest' });
+    });
+
+    it('rejects a token whose session has expired', async () => {
+      const { auth, tokens, sessions } = createAuthService();
+      const session = sessions.seed('user-1');
+      sessions.rows.set(session.id, { ...session, expiresAt: new Date(Date.now() - 1000) });
+      const token = await tokens.signAccessToken('user-1', session.id);
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toEqual({ class: 'guest' });
+    });
+
+    it('rejects a token naming a session that belongs to someone else', async () => {
+      const { auth, tokens, sessions } = createAuthService();
+      const victim = sessions.seed('user-victim');
+      const token = await tokens.signAccessToken('user-attacker', victim.id);
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toEqual({ class: 'guest' });
+    });
+
+    it('rejects a token carrying no session claim at all', async () => {
+      const { auth, tokens } = createAuthService();
+      const token = await tokens.signAccessToken('user-1');
+      expect(await auth.resolveIdentity(`Bearer ${token}`)).toEqual({ class: 'guest' });
+    });
+
+    it('leaves a second live session working when one is revoked', async () => {
+      const { auth, tokens, sessions } = createAuthService();
+      const phone = sessions.seed('user-1', 'session-phone');
+      const laptop = sessions.seed('user-1', 'session-laptop');
+      const phoneToken = await tokens.signAccessToken('user-1', phone.id);
+      const laptopToken = await tokens.signAccessToken('user-1', laptop.id);
+
+      await sessions.revoke(phone.id);
+
+      expect(await auth.resolveIdentity(`Bearer ${phoneToken}`)).toEqual({ class: 'guest' });
+      expect(await auth.resolveIdentity(`Bearer ${laptopToken}`)).toMatchObject({
+        class: 'player',
+        userId: 'user-1',
+      });
+    });
   });
 });
 

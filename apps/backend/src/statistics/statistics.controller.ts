@@ -10,6 +10,7 @@ import { OptionalGuestGuard } from '../auth/guards/optional-guest.guard';
 import type { RequestIdentity } from '../auth/interfaces/identity';
 import { playerIdOf } from '../auth/player-id';
 import { createZodDto } from '../infrastructure/http/zod-validation.pipe';
+import { ProfileVisibilityGuard } from '../profile-visibility/profile-visibility.guard';
 
 import { StatisticsService } from './statistics.service';
 
@@ -46,7 +47,7 @@ export class StatisticsController {
   }
 
   @Get('users/:id/statistics')
-  @UseGuards(OptionalGuestGuard)
+  @UseGuards(OptionalGuestGuard, ProfileVisibilityGuard)
   @ApiBearerAuth('bearer')
   userStats(
     @Param() params: UserIdParamDto,

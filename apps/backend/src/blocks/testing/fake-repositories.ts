@@ -63,6 +63,9 @@ export function createFakeBlockRepository(seed: Block[] = []): FakeBlockReposito
     },
     findByPair,
     exists: async (blockerId, blockedId) => (await findByPair(blockerId, blockedId)) !== null,
+    existsEitherDirection: async (userId, otherUserId) =>
+      (await findByPair(userId, otherUserId)) !== null ||
+      (await findByPair(otherUserId, userId)) !== null,
     listBlockedPairIds: (userId) => {
       const ids = new Set<string>();
       for (const row of rows.values()) {

@@ -11,6 +11,7 @@ import { ArchetypesModule } from '../archetypes/archetypes.module';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { ProfileVisibilityModule } from '../profile-visibility/profile-visibility.module';
 
 import { AchievementsCatalogController } from './achievements-catalog.controller';
 import { AchievementsBootstrapService } from './achievements.bootstrap';
@@ -30,7 +31,7 @@ import { MeAchievementsController } from './me-achievements.controller';
  * Exports AchievementsService for friends accept / library upsert hooks.
  */
 @Module({
-  imports: [AuthModule, PrismaModule, ArchetypesModule],
+  imports: [AuthModule, PrismaModule, ArchetypesModule, ProfileVisibilityModule],
   controllers: [
     MeAchievementsController,
     UserAchievementsController,

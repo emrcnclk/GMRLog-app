@@ -1,5 +1,12 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { parseBackendEnv } from '../infrastructure/config/env.schema';
 
 import { SteamConnectService } from './steam-connect.service';
 import { MockSteamWebApiClient } from './steam/steam-web-api.client';
@@ -19,6 +26,7 @@ function createPrismaMock() {
       connectedAt: Date;
       disconnectedAt: Date | null;
       metadata: unknown;
+      verified: boolean;
     }
   >();
   const profiles = new Map<
@@ -105,6 +113,7 @@ function createPrismaMock() {
               connectedAt: (create['connectedAt'] as Date) ?? new Date(),
               disconnectedAt: null,
               metadata: create['metadata'] ?? null,
+              verified: create['verified'] === true,
             };
             integrations.set(row.id, row);
             return row;
@@ -212,7 +221,11 @@ describe('SteamConnectService', () => {
     const mock = createPrismaMock();
     prisma = mock.prisma;
     integrations = mock.integrations;
-    service = new SteamConnectService(prisma as never, steam);
+    service = new SteamConnectService(
+      prisma as never,
+      steam,
+      parseBackendEnv({ NODE_ENV: 'development', APP_ENV: 'development' }),
+    );
   });
 
   it('connects with SteamID64 and creates integration', async () => {
@@ -358,6 +371,67 @@ describe('SteamConnectService', () => {
         await expect(
           service.connectVerified('user-2-impersonator', steam.fixtures.steamId64),
         ).rejects.toBeInstanceOf(ConflictException);
+      });
+    });
+
+    // Bug 2. `connect()` takes the SteamID straight from the request body and
+    // proves nothing about it, so in production it is not a weaker way to
+    // connect — it is an account-takeover primitive, letting anyone attach a
+    // stranger's Steam identity and library to their own profile. Outside
+    // development the only way in is OpenID, where Steam confirms the account.
+    describe('Bug 2 — self-reported connect is development-only', () => {
+      function serviceForRuntime(runtime: string): SteamConnectService {
+        // A production env only parses with its required keys present, so the
+        // production case has to supply them (see `PRODUCTION_REQUIRED_ENV_KEYS`).
+        return new SteamConnectService(
+          prisma as never,
+          steam,
+          parseBackendEnv({
+            NODE_ENV: runtime,
+            APP_ENV: runtime,
+            DATABASE_URL: 'postgresql://gmrlog:gmrlog@db:5432/gmrlog?schema=public',
+            REDIS_URL: 'redis://redis:6379',
+            JWT_SECRET: 'a-production-grade-secret-of-at-least-32-chars',
+            S3_BUCKET: 'gmrlog',
+            S3_ENDPOINT: 'http://minio:9000',
+            SMTP_HOST: 'smtp.gmrlog.test',
+            MEILI_HOST: 'http://meilisearch:7700',
+            STEAM_WEB_API_KEY: 'test-steam-key',
+          }),
+        );
+      }
+
+      it('refuses a self-reported connect in production', async () => {
+        await expect(
+          serviceForRuntime('production').connect('user-1', {
+            steamIdOrUrl: steam.fixtures.steamId64,
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+
+      it('writes nothing when it refuses', async () => {
+        await expect(
+          serviceForRuntime('production').connect('user-1', {
+            steamIdOrUrl: steam.fixtures.steamId64,
+          }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        const status = await service.status('user-1');
+        expect(status.connected).toBe(false);
+      });
+
+      it('still allows the OpenID-verified path in production', async () => {
+        const result = await serviceForRuntime('production').connectVerified(
+          'user-1',
+          steam.fixtures.steamId64,
+        );
+        expect(result.verified).toBe(true);
+      });
+
+      it('still allows the self-reported path in development', async () => {
+        const result = await serviceForRuntime('development').connect('user-1', {
+          steamIdOrUrl: steam.fixtures.steamId64,
+        });
+        expect(result.verified).toBe(false);
       });
     });
 

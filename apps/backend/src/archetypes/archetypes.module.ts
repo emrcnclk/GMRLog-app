@@ -8,6 +8,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { ProfileVisibilityModule } from '../profile-visibility/profile-visibility.module';
 
 import { ArchetypeEngineService } from './archetype-engine.service';
 import {
@@ -23,7 +24,7 @@ import { UserArchetypesController } from './user-archetypes.controller';
  * `@gmrlog/database` repositories.
  */
 @Module({
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, ProfileVisibilityModule],
   controllers: [MeArchetypesController, UserArchetypesController],
   providers: [
     {

@@ -219,10 +219,33 @@ export class HttpSteamWebApiClient implements SteamWebApiClient {
   }
 }
 
-export function createSteamWebApiClient(): SteamWebApiClient {
-  const key = process.env.STEAM_WEB_API_KEY?.trim();
+/**
+ * Bug 3 — the mock is a development convenience, and serving its fixtures to
+ * real players is worse than not starting: a production box with no key would
+ * report invented libraries, playtimes and achievements as though they were the
+ * player's own Steam data, and nothing downstream could tell the difference.
+ * So in production a missing key is a boot failure, not a fallback.
+ *
+ * `STEAM_WEB_API_KEY` is also declared in `PRODUCTION_REQUIRED_ENV_KEYS`, which
+ * normally rejects the environment before this is ever reached. This check
+ * stays as the second half of the pair: it is the one that knows a mock is
+ * about to be handed out, and it still holds if the factory is ever called from
+ * a context that skipped env validation.
+ */
+export function createSteamWebApiClient(env?: {
+  STEAM_WEB_API_KEY?: string;
+  NODE_ENV?: string;
+  APP_ENV?: string;
+}): SteamWebApiClient {
+  const source = env ?? process.env;
+  const key = source.STEAM_WEB_API_KEY?.trim();
   if (key !== undefined && key.length > 0) {
     return new HttpSteamWebApiClient(key);
+  }
+  if (source.NODE_ENV === 'production' || source.APP_ENV === 'production') {
+    throw new Error(
+      'STEAM_WEB_API_KEY is required in production — refusing to serve mock Steam data',
+    );
   }
   return new MockSteamWebApiClient();
 }

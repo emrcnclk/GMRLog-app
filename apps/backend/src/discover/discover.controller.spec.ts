@@ -9,7 +9,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import {
   createFakeCommunityMemberRepository,
   createFakeCommunityRepository,
@@ -34,6 +33,8 @@ import {
 } from './discover.tokens';
 import { createFakeDiscoverRepository } from './testing/fake-repositories';
 import { GAME_CATALOG_DEFAULTS } from '../games/game-catalog.defaults';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const discover = createFakeDiscoverRepository({
   communities: [
@@ -119,14 +120,15 @@ beforeAll(async () => {
     .useValue(communities)
     .overrideProvider(DISCOVER_EVENT_PARTICIPATION_REPOSITORY)
     .useValue(eventParticipations)
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
 });
 
 afterAll(async () => {

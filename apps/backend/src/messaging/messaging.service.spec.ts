@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -21,11 +21,16 @@ import {
   type FakeConversationRepository,
   type FakeMessageRepository,
 } from './testing/fake-repositories';
+import {
+  createFakeBlockRepository,
+  type FakeBlockRepository,
+} from '../blocks/testing/fake-repositories';
 
 let conversations: FakeConversationRepository;
 let participants: FakeConversationParticipantRepository;
 let messages: FakeMessageRepository;
 let users: FakeUserRepository;
+let blocks: FakeBlockRepository;
 let service: MessagingService;
 
 beforeEach(() => {
@@ -84,7 +89,8 @@ beforeEach(() => {
       createdAt: new Date('2026-01-02T00:00:00.000Z'),
     }),
   ]);
-  service = new MessagingService(conversations, participants, messages, users);
+  blocks = createFakeBlockRepository();
+  service = new MessagingService(conversations, participants, messages, users, blocks);
 });
 
 describe('MessagingService.listConversations', () => {
@@ -204,6 +210,95 @@ describe('MessagingService.sendMessage', () => {
     await expect(
       service.sendMessage('conversation-1', 'user-3', { body: 'Nope' }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  // Bug 9. Sending was unguarded, so blocking someone stopped nothing — they
+  // could keep messaging the person who blocked them in any conversation the
+  // two already shared.
+  describe('Bug 9 — blocks stop a direct message in both directions', () => {
+    it('stops the blocked user from messaging the person who blocked them', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-2' } },
+      });
+
+      await expect(
+        service.sendMessage('conversation-1', 'user-2', { body: 'Still here' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(messages.rows.size).toBe(1);
+    });
+
+    it('stops the blocker from messaging the user they blocked', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-2' } },
+      });
+
+      await expect(
+        service.sendMessage('conversation-1', 'user-1', { body: 'One more thing' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(messages.rows.size).toBe(1);
+    });
+
+    it('leaves an unblocked direct conversation working', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-3' } },
+      });
+
+      await expect(
+        service.sendMessage('conversation-1', 'user-2', { body: 'Fine' }),
+      ).resolves.toBeDefined();
+    });
+
+    it('does not silence a group room, so a block cannot be used to eject someone', async () => {
+      // conversation-2 is a group of user-1 and user-3. Refusing every message
+      // because one member blocked the sender would make `block` a griefing
+      // tool; the pair simply cannot open a new conversation together.
+      await blocks.create({
+        blocker: { connect: { id: 'user-3' } },
+        blocked: { connect: { id: 'user-1' } },
+      });
+
+      await expect(
+        service.sendMessage('conversation-2', 'user-1', { body: 'Group hello' }),
+      ).resolves.toBeDefined();
+    });
+  });
+});
+
+describe('MessagingService.createConversation blocks (Bug 9)', () => {
+  it('refuses to open a conversation with someone who blocked the actor', async () => {
+    await blocks.create({
+      blocker: { connect: { id: 'user-3' } },
+      blocked: { connect: { id: 'user-1' } },
+    });
+
+    await expect(
+      service.createConversation('user-1', { participantUserIds: ['user-3'] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('refuses to open a conversation with someone the actor blocked', async () => {
+    await blocks.create({
+      blocker: { connect: { id: 'user-1' } },
+      blocked: { connect: { id: 'user-3' } },
+    });
+
+    await expect(
+      service.createConversation('user-1', { participantUserIds: ['user-3'] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('refuses a group invite containing a single blocked member', async () => {
+    await blocks.create({
+      blocker: { connect: { id: 'user-1' } },
+      blocked: { connect: { id: 'user-3' } },
+    });
+
+    await expect(
+      service.createConversation('user-1', { participantUserIds: ['user-2', 'user-3'] }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
 

@@ -13,6 +13,11 @@ export const PRODUCTION_REQUIRED_ENV_KEYS = [
   'S3_ENDPOINT',
   'SMTP_HOST',
   'MEILI_HOST',
+  // Bug 3 — without a key the Steam client silently falls back to
+  // `MockSteamWebApiClient`, so a production box missing this variable serves
+  // fixture libraries as though they were the player's real Steam data. Boot
+  // has to fail instead.
+  'STEAM_WEB_API_KEY',
 ] as const;
 
 /**
@@ -104,6 +109,12 @@ export const backendEnvSchema = sharedEnvSchema
     // email-capture design for Steam — see steam-connect.controller.ts).
     // OpenID 2.0 has no client id/secret; an empty realm disables the
     // provider the same way an empty Google/Discord client id does.
+    /**
+     * Read through the validated env, never `process.env` directly: the client
+     * factory used to reach around this schema, which is how a missing key
+     * became a silent fallback to fixture data instead of a boot failure.
+     */
+    STEAM_WEB_API_KEY: z.string().default(''),
     STEAM_OPENID_REALM: z.string().default(''),
     /** Comma-separated allowlist a client-supplied `returnTo` must match exactly. */
     STEAM_OPENID_ALLOWED_RETURN_URIS: z

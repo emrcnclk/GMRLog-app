@@ -1,4 +1,5 @@
 import {
+  PrismaBlockRepository,
   PrismaConversationParticipantRepository,
   PrismaConversationRepository,
   PrismaMessageRepository,
@@ -7,6 +8,7 @@ import {
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 
@@ -46,6 +48,11 @@ import {
       provide: MESSAGING_USER_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaUserRepository(prisma),
+    },
+    {
+      provide: BLOCK_REPOSITORY,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) => new PrismaBlockRepository(prisma),
     },
     MessagingService,
   ],

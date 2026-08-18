@@ -10,6 +10,7 @@ import { AuthModule } from '../auth/auth.module';
 import { FollowsModule } from '../follows/follows.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { ProfileVisibilityModule } from '../profile-visibility/profile-visibility.module';
 
 import { ConnectedAccountsController } from './connected-accounts.controller';
 import { MeProfileThemeController } from './me-profile-theme.controller';
@@ -31,7 +32,7 @@ import {
  * reuses UserSettings persistence and FollowsModule's follow-check.
  */
 @Module({
-  imports: [AuthModule, PrismaModule, FollowsModule],
+  imports: [AuthModule, PrismaModule, FollowsModule, ProfileVisibilityModule],
   controllers: [
     MeController,
     SettingsController,

@@ -148,4 +148,27 @@ describe('createSteamWebApiClient', () => {
       process.env['STEAM_WEB_API_KEY'] = previous;
     }
   });
+
+  // Bug 3. Falling back to fixtures in production is worse than not booting:
+  // invented libraries and playtimes would reach real players' profiles with
+  // nothing downstream able to tell them apart from genuine Steam data.
+  it('refuses to build a mock client in production', () => {
+    expect(() => createSteamWebApiClient({ NODE_ENV: 'production' })).toThrow(
+      /STEAM_WEB_API_KEY is required in production/,
+    );
+    expect(() => createSteamWebApiClient({ APP_ENV: 'production' })).toThrow(
+      /STEAM_WEB_API_KEY is required in production/,
+    );
+    expect(() =>
+      createSteamWebApiClient({ NODE_ENV: 'production', STEAM_WEB_API_KEY: '   ' }),
+    ).toThrow(/STEAM_WEB_API_KEY is required in production/);
+  });
+
+  it('builds a live client in production when the key is present', () => {
+    const client = createSteamWebApiClient({
+      NODE_ENV: 'production',
+      STEAM_WEB_API_KEY: 'a-real-key',
+    });
+    expect(client).not.toBeInstanceOf(MockSteamWebApiClient);
+  });
 });

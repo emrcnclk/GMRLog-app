@@ -5,6 +5,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { OptionalGuestGuard } from '../auth/guards/optional-guest.guard';
 import { createZodDto } from '../infrastructure/http/zod-validation.pipe';
+import { ProfileVisibilityGuard } from '../profile-visibility/profile-visibility.guard';
 
 import { UsersService } from './users.service';
 
@@ -19,6 +20,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get(':id')
+  @UseGuards(ProfileVisibilityGuard)
   getPublicUser(@Param() params: UserPublicParamDto): Promise<UserPublicResponse> {
     return this.usersService.getPublicUser(params.id);
   }

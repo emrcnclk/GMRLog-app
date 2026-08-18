@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -15,6 +14,8 @@ import { SearchModule } from './search.module';
 import { SEARCH_REPOSITORY } from './search.tokens';
 import { createFakeSearchRepository } from './testing/fake-repositories';
 import { GAME_CATALOG_DEFAULTS } from '../games/game-catalog.defaults';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const searchRepo = createFakeSearchRepository([
   {
@@ -69,14 +70,15 @@ beforeAll(async () => {
     .useValue(searchRepo)
     .overrideProvider(MeiliClientService)
     .useValue({ isAvailable: () => false, multiSearch: async () => [] })
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
 });
 
 afterAll(async () => {
