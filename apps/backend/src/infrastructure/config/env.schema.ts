@@ -127,6 +127,14 @@ export const backendEnvSchema = sharedEnvSchema
           .filter((uri) => uri.length > 0),
       ),
     SENTRY_DSN: z.string().default(''),
+    /**
+     * Which release an event belongs to. The deploy stack passes the image tag,
+     * so a Sentry issue names the release it first appeared in rather than
+     * "production"; an empty value leaves Sentry's own detection in place.
+     */
+    SENTRY_RELEASE: z.string().default(''),
+    /** 0 disables performance tracing and sends errors only. */
+    SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
     LOG_FILE: z.string().default(''),
     METRICS_TOKEN: z.string().default(''),
 

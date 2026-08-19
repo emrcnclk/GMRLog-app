@@ -50,6 +50,12 @@ async function bootstrap(): Promise<void> {
     Sentry.init({
       dsn: env.SENTRY_DSN,
       environment: env.APP_ENV,
+      // Without a release, every issue in Sentry reads as "production" and
+      // "which deploy introduced this" has no answer. The deploy stack passes
+      // the image tag through SENTRY_RELEASE; undefined leaves Sentry's own
+      // detection alone rather than pinning every event to an empty string.
+      release: env.SENTRY_RELEASE.trim().length > 0 ? env.SENTRY_RELEASE : undefined,
+      tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
     });
   }
 
