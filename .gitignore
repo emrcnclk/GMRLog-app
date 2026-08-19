@@ -19,6 +19,16 @@ coverage/
 !.env.example
 !**/.env.example
 
+# Per-environment files carrying real credentials. `.env.*.local` above already
+# covers `.env.deploy.local`; these are named anyway because a file that leaks a
+# staging database password is not worth a pattern-matching argument.
+.env.staging
+infrastructure/deploy/.env.deploy.local
+# Written on the host by deploy.sh — the tag currently serving traffic, which is
+# host state, not repository state.
+infrastructure/deploy/.deployed-tag
+infrastructure/deploy/backups/
+
 # IDE
 .idea/
 .vscode/*
