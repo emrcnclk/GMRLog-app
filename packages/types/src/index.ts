@@ -1670,3 +1670,63 @@ export interface CreatorProfileResponse {
   guides: PostResponse[];
   collections: CollectionResponse[];
 }
+
+/**
+ * 12.1 — Legal document identity. Three documents, not two: KVKK requires an
+ * Aydınlatma Metni (disclosure notice) distinct from the privacy policy, and
+ * treats explicit consent as a separate act from that disclosure.
+ *
+ * The id is stable, kebab-case and URL-safe because it is also the path
+ * segment 12.2 serves (`GET /api/v1/legal/:document`).
+ */
+export type LegalDocumentId = 'terms-of-service' | 'privacy-policy' | 'disclosure-notice';
+
+export const LEGAL_DOCUMENT_IDS = [
+  'terms-of-service',
+  'privacy-policy',
+  'disclosure-notice',
+] as const satisfies readonly LegalDocumentId[];
+
+/** 12.1 — the two audiences the jurisdiction decision commits to. */
+export type LegalLocale = 'en' | 'tr';
+
+export const LEGAL_LOCALES = ['en', 'tr'] as const satisfies readonly LegalLocale[];
+
+/**
+ * 12.1 — the versioning rule, stated once so 12.4 does not have to invent it:
+ * `major.minor.patch`, and **a major or minor bump requires re-consent while a
+ * patch does not**. A patch is reserved for changes that cannot alter what a
+ * reader agreed to — typography, a broken link, a translation fix. Anything
+ * that changes a right, a purpose, a retention period or a recipient is at
+ * least a minor bump, which means every existing acceptance goes stale.
+ */
+export interface LegalDocumentVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+/** 12.1 — `1.0.0`. The wire format for {@link LegalDocumentVersion}. */
+export type LegalDocumentVersionString = string;
+
+/**
+ * 12.1 — what 12.4 persists per acceptance: `"privacy-policy@1.0.0"`. One
+ * opaque string rather than two columns, so a consent row cannot drift into a
+ * document/version pair that never existed.
+ */
+export type LegalConsentKey = string;
+
+/** 12.1 — metadata without the body. The listing 12.2 serves for drift checks. */
+export interface LegalDocumentSummaryResponse {
+  id: LegalDocumentId;
+  locale: LegalLocale;
+  version: LegalDocumentVersionString;
+  effectiveDate: string;
+  title: string;
+  requiresAcceptance: boolean;
+}
+
+/** 12.1 — the full document. `body` is Markdown. */
+export interface LegalDocumentResponse extends LegalDocumentSummaryResponse {
+  body: string;
+}
