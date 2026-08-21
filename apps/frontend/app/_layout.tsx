@@ -18,6 +18,7 @@ export default function RootLayout() {
           <Stack.Screen name="(app)" />
           <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
           <Stack.Screen name="(settings)" />
+          <Stack.Screen name="legal" />
           <Stack.Screen name="+not-found" />
         </Stack>
       </AuthGate>

@@ -1,4 +1,4 @@
-import { Button, ErrorBanner, Text, TextField, useTheme } from '@gmrlog/ui';
+import { Button, ErrorBanner, TextField, useTheme } from '@gmrlog/ui';
 import { sessionCreateSchema, type SessionCreateInput } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Mail } from 'lucide-react-native';
@@ -13,6 +13,7 @@ import { useAuthStore } from '../../src/state/auth-store';
 import { useConnectivityStore } from '../../src/state/stores';
 
 import { AUTH_BUTTON_HEIGHT } from './auth-layout';
+import { AuthLegalLine } from './auth-legal-line';
 import { AuthShell } from './auth-shell';
 import { useOAuthSignIn } from './hooks/use-oauth-sign-in';
 import { OauthProviderButtons, type AuthOauthProvider } from './oauth-provider-buttons';
@@ -217,13 +218,7 @@ export function LoginScreen() {
         Create an account
       </Button>
 
-      <Text
-        role="bodySm"
-        color="color.text.tertiary"
-        style={{ textAlign: 'center', marginTop: theme.space('space.2') }}
-      >
-        By continuing you agree to the Terms and Privacy Policy.
-      </Text>
+      <AuthLegalLine />
     </AuthShell>
   );
 }

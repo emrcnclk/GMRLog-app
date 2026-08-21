@@ -38,6 +38,10 @@ import type {
   ProfilePinResponse,
   ProfileThemeResponse,
   IntegrationProviderInfo,
+  LegalDocumentId,
+  LegalDocumentResponse,
+  LegalDocumentSummaryResponse,
+  LegalLocale,
   LibraryEntryResponse,
   LibraryHubResponse,
   LibraryStatusValue,
@@ -1404,6 +1408,29 @@ export class AxiosApiClient {
   /** `DELETE /sessions/current` — logout (S1 §13.1). */
   logoutSession(): Promise<ApiEnvelope<null>> {
     return this.delete<null>('/sessions/current');
+  }
+
+  /**
+   * `GET /legal` — every legal document's current version, no bodies (12.2).
+   *
+   * Public: the route takes no token, and the reader has to work for a visitor
+   * standing on the sign-in screen who does not have one yet. The request
+   * interceptor only attaches `Authorization` when a token exists, so this
+   * needs no special casing — but it does mean a 401 can never be the reason
+   * this call fails, which the error mapping downstream relies on.
+   */
+  listLegalDocuments(query?: {
+    locale?: LegalLocale;
+  }): Promise<ApiEnvelope<LegalDocumentSummaryResponse[]>> {
+    return this.get<LegalDocumentSummaryResponse[]>('/legal', query);
+  }
+
+  /** `GET /legal/{document}` — one document, Markdown body included (12.2). */
+  getLegalDocument(
+    document: LegalDocumentId,
+    query?: { locale?: LegalLocale },
+  ): Promise<ApiEnvelope<LegalDocumentResponse>> {
+    return this.get<LegalDocumentResponse>(`/legal/${document}`, query);
   }
 
   private async refreshSessionInterceptor(): Promise<boolean> {

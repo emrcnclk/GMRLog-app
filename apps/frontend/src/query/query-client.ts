@@ -209,6 +209,13 @@ export const queryKeys = {
     me: () => ['pins', 'me'] as const,
     user: (userId: string) => ['pins', 'user', userId] as const,
   },
+  /** 12.3 — public legal documents. Keyed by locale: the same document in two
+   *  locales is two cached entries, not one that silently overwrites the other. */
+  legal: {
+    all: ['legal'] as const,
+    list: (locale: string) => ['legal', 'list', locale] as const,
+    document: (id: string, locale: string) => ['legal', 'document', id, locale] as const,
+  },
   integrations: {
     all: ['integrations'] as const,
     providers: () => ['integrations', 'providers'] as const,

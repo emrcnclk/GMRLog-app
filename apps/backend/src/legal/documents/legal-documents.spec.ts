@@ -168,3 +168,73 @@ describe('document bodies', () => {
     }
   });
 });
+
+describe('document bodies stay inside the Markdown subset the reader can draw', () => {
+  // 12.3 renders these through a deliberately small parser (`@gmrlog/ui`'s
+  // `parseMarkdown`) rather than a third-party library, so the texts and the
+  // renderer are a contract. This is the half of that contract that lives with
+  // the texts: if a document grows a construct the reader cannot draw, it fails
+  // here rather than reaching a reader as literal punctuation.
+  //
+  // The parser degrades gracefully rather than throwing, so nothing crashes —
+  // it just looks wrong, which is the failure nobody notices in review.
+  // Deliberately not on this list: a line beginning `N. `. It looks like an
+  // ordered list and is not one — Turkish cross-references sections as "3.
+  // bolum" ("section 3"), and soft wrapping puts that at the start of a line
+  // twice in the Turkish terms. Since ordered lists are not a supported
+  // construct, such a line renders as ordinary prose, which is the correct
+  // output. A rule that flags correct text only teaches the next person to
+  // switch the rule off.
+  const UNSUPPORTED: readonly { name: string; pattern: RegExp }[] = [
+    { name: 'code fence', pattern: /^```/m },
+    { name: 'inline code', pattern: /`[^`\n]+`/ },
+    { name: 'image', pattern: /!\[[^\]]*\]\(/ },
+    { name: 'link', pattern: /(?<!!)\[[^\]]+\]\([^)]*\)/ },
+    { name: 'blockquote', pattern: /^>\s/m },
+    { name: 'heading deeper than level 3', pattern: /^#{4,}\s/m },
+    { name: 'nested list', pattern: /^\s{2,}[-*]\s/m },
+  ];
+
+  it.each(UNSUPPORTED)('uses no $name', ({ pattern }: { pattern: RegExp }) => {
+    for (const document of LEGAL_DOCUMENTS) {
+      expect(pattern.test(document.body), `${document.id}/${document.locale}`).toBe(false);
+    }
+  });
+
+  it('closes every strong marker it opens', () => {
+    // An unterminated `**` renders as literal asterisks mid-clause: the parser
+    // keeps the marker rather than swallowing the rest of the sentence, which
+    // is the right failure but still a visible one.
+    for (const document of LEGAL_DOCUMENTS) {
+      const markers = document.body.match(/\*\*/g) ?? [];
+      expect(markers.length % 2, `${document.id}/${document.locale}`).toBe(0);
+    }
+  });
+
+  it('gives every table a divider row, so it parses as a table and not as prose', () => {
+    const isDivider = (value: string) => /^\|(?:\s*:?-{2,}:?\s*\|)+$/.test(value);
+    const isRow = (value: string) =>
+      value.startsWith('|') && value.endsWith('|') && value.length > 2;
+
+    for (const document of LEGAL_DOCUMENTS) {
+      const lines = document.body.split('\n');
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+
+        if (!isRow(trimmed)) {
+          return;
+        }
+
+        // Every pipe row is either a divider itself, the header directly above
+        // one, or a body row following another row.
+        expect(
+          isDivider(trimmed) ||
+            isDivider((lines[index + 1] ?? '').trim()) ||
+            isRow((lines[index - 1] ?? '').trim()),
+          `${document.id}/${document.locale} line ${String(index + 1)}: ${trimmed}`,
+        ).toBe(true);
+      });
+    }
+  });
+});

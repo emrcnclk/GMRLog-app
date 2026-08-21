@@ -1,6 +1,7 @@
 import { ListItem, Text, useTheme } from '@gmrlog/ui';
 import * as Linking from 'expo-linking';
-import { memo } from 'react';
+import { useRouter } from 'expo-router';
+import { memo, useCallback } from 'react';
 import { View } from 'react-native';
 
 import type { AboutLink } from '../model/about-model';
@@ -11,8 +12,22 @@ export interface AboutLinkRowProps {
 
 function AboutLinkRowComponent({ link }: AboutLinkRowProps) {
   const theme = useTheme();
+  const router = useRouter();
 
-  if (link.placeholder || !link.href) {
+  const onPress = useCallback(() => {
+    // Split on the discriminator rather than sniffing the string. The legal
+    // rows are in-app routes now (12.3); only `contact` leaves the app.
+    if (link.target.kind === 'route') {
+      router.push(link.target.path);
+      return;
+    }
+
+    if (link.target.kind === 'external') {
+      void Linking.openURL(link.target.url);
+    }
+  }, [link.target, router]);
+
+  if (link.placeholder || link.target.kind === 'none') {
     return (
       <View
         accessibilityLabel={`${link.title} unavailable`}
@@ -39,11 +54,7 @@ function AboutLinkRowComponent({ link }: AboutLinkRowProps) {
       title={link.title}
       subtitle={link.subtitle}
       accessibilityLabel={link.title}
-      onPress={() => {
-        if (link.href) {
-          void Linking.openURL(link.href);
-        }
-      }}
+      onPress={onPress}
       trailing={
         <Text role="meta" color="color.text.tertiary">
           ›

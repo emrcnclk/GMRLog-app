@@ -1,4 +1,4 @@
-import { Button, ErrorBanner, Text, TextField, useTheme } from '@gmrlog/ui';
+import { Button, ErrorBanner, TextField, useTheme } from '@gmrlog/ui';
 import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -13,6 +13,7 @@ import { useAuthStore } from '../../src/state/auth-store';
 import { useConnectivityStore } from '../../src/state/stores';
 
 import { AUTH_BUTTON_HEIGHT } from './auth-layout';
+import { AuthLegalLine } from './auth-legal-line';
 import { AuthShell } from './auth-shell';
 import { AuthStepIndicator } from './auth-step-indicator';
 import { isRegisterStepComplete, REGISTER_STEPS, type RegisterField } from './register-steps';
@@ -202,15 +203,9 @@ export function RegisterScreen() {
 
       {/* Not named in §2, carried from §1: Login renders it, and the screen that
           actually creates the account is the one where the sentence means
-          something. Terms and Privacy are still text, not links — neither route
-          exists (tracked in TASKS.md against 3.10). */}
-      <Text
-        role="bodySm"
-        color="color.text.tertiary"
-        style={{ textAlign: 'center', marginTop: theme.space('space.2') }}
-      >
-        By continuing you agree to the Terms and Privacy Policy.
-      </Text>
+          something. 12.3 gave both routes real documents, so the two words are
+          links now — the follow-up 3.10 raised and 3.11 re-raised is closed. */}
+      <AuthLegalLine />
     </AuthShell>
   );
 }
