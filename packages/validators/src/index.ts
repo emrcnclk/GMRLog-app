@@ -66,12 +66,76 @@ export const handleSchema = z
   .regex(/^[a-z0-9_]{3,24}$/, 'Handle must be 3–24 characters: a-z, 0-9, underscore');
 
 /** S1 §14.2 SessionRegisterRequest. */
+/**
+ * 12.4 — one document a player was shown, and which translation of it.
+ *
+ * The locale is recorded because a player who accepted the Turkish text agreed
+ * to the Turkish wording; "they accepted the privacy policy" is not a complete
+ * record of what was in front of them.
+ */
+export const legalAcceptanceSchema = z
+  .object({
+    documentId: z.enum(LEGAL_DOCUMENT_IDS as unknown as [LegalDocumentId, ...LegalDocumentId[]]),
+    version: z.string().regex(/^\d+\.\d+\.\d+$/, 'version must be major.minor.patch'),
+    locale: z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]),
+  })
+  .strict();
+
+export type LegalAcceptanceInput = z.infer<typeof legalAcceptanceSchema>;
+
+/**
+ * 12.4 — a decision, not a boolean. `declined` is what makes "no dark patterns
+ * that re-enable after refusal" (F2.27 §7) enforceable: without a way to record
+ * a refusal, a refusal is indistinguishable from never having been asked, and
+ * the only possible behaviour is to ask again until the player gives in.
+ */
+export const legalConsentDecisionSchema = legalAcceptanceSchema
+  .extend({
+    decision: z.enum(['accepted', 'declined', 'withdrawn']),
+  })
+  .strict();
+
+export type LegalConsentDecisionInput = z.infer<typeof legalConsentDecisionSchema>;
+
+/** `POST /me/legal-consents` body. */
+export const legalConsentRecordSchema = z
+  .object({
+    decisions: z.array(legalConsentDecisionSchema).min(1).max(10),
+  })
+  .strict();
+
+export type LegalConsentRecordInput = z.infer<typeof legalConsentRecordSchema>;
+
 export const sessionRegisterSchema = z
   .object({
     email: emailSchema,
     password: passwordPolicySchema,
     displayName: displayNameSchema,
     handle: handleSchema,
+    /**
+     * 12.4 — the legal documents the player was shown, at the versions they
+     * were shown at.
+     *
+     * **Required, not optional, and that is a deliberate departure from the
+     * usual additive rule.** CLAUDE.md's "additive DTO changes" rule is about
+     * *response* fields, so existing consumers keep working; this is a request
+     * field on the app's own registration endpoint, and the reason Phase 12
+     * exists is that the app was creating accounts with no evidence of consent
+     * at all. Accepting a registration that carries none would rebuild exactly
+     * that defect behind a newer schema.
+     *
+     * The client sends versions rather than a bare "I agree" so the server can
+     * refuse a stale acceptance — a player who left the sign-up screen open
+     * across a deploy agreed to a document that is no longer current, and
+     * recording that as consent to the new one would be a lie in the evidence.
+     *
+     * The OAuth sign-up path does not come through here: it cannot, because the
+     * account is created inside the provider callback with no opportunity to
+     * ask first. Those accounts have no acceptance row, `requiresReconsent`
+     * treats that as undecided, and the consent gate catches them on first
+     * launch.
+     */
+    acceptedLegalDocuments: z.array(legalAcceptanceSchema).min(1).max(10),
   })
   .strict();
 

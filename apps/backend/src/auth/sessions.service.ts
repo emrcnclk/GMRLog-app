@@ -30,6 +30,7 @@ import {
 import { ENV } from '../infrastructure/config/config.module';
 import type { BackendEnv } from '../infrastructure/config/env.schema';
 import { EMAIL_PORT, type EmailPort } from '../infrastructure/email/email.port';
+import { LegalConsentService } from '../legal/legal-consent.service';
 
 import {
   AUTH_CREDENTIAL_REPOSITORY,
@@ -67,6 +68,7 @@ export class SessionsService {
     @Inject(ENV) private readonly env: BackendEnv,
     private readonly passwordResetStore: PasswordResetStore,
     @Inject(EMAIL_PORT) private readonly email: EmailPort,
+    private readonly legalConsent: LegalConsentService,
   ) {}
 
   async login(input: SessionCreateInput): Promise<SessionCredentialResponse> {
@@ -102,6 +104,12 @@ export class SessionsService {
     const email = normalizeEmail(input.email);
     const handle = input.handle;
 
+    // 12.4 — before anything is created. A registration whose acceptance is
+    // stale or incomplete fails here, so there is never an account whose
+    // consent record is missing or says something untrue about what the player
+    // was shown. Cheapest check first, and it needs no database round-trip.
+    this.legalConsent.assertAcceptanceIsCurrent(input.acceptedLegalDocuments);
+
     const existingHandle = await this.users.findByHandle(handle);
     if (existingHandle != null) {
       throw new ConflictException('Handle is already in use');
@@ -126,6 +134,12 @@ export class SessionsService {
     });
 
     await this.settings.upsertByUser(user.id, {});
+
+    // Recorded after the account exists, because the row is keyed to the user.
+    // Already validated above, so the only way this fails is the database being
+    // unavailable — in which case the registration fails loudly rather than
+    // leaving an account with no evidence of consent behind it.
+    await this.legalConsent.recordRegistrationConsent(user.id, input.acceptedLegalDocuments);
 
     return this.issueCredentialPair(user.id);
   }

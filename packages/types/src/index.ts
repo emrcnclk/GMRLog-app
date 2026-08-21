@@ -1730,3 +1730,35 @@ export interface LegalDocumentSummaryResponse {
 export interface LegalDocumentResponse extends LegalDocumentSummaryResponse {
   body: string;
 }
+
+/** 12.4 — a recorded decision. Not a boolean; see `UserConsent.decision`. */
+export type LegalConsentDecisionValue = 'accepted' | 'declined' | 'withdrawn';
+
+/** 12.4 — one decision on record, for one document at one version. */
+export interface LegalConsentRecordResponse {
+  documentId: LegalDocumentId;
+  version: LegalDocumentVersionString;
+  locale: LegalLocale;
+  decision: LegalConsentDecisionValue;
+  decidedAt: string;
+}
+
+/**
+ * 12.4 — where a player stands against the documents that require acceptance.
+ *
+ * `outstanding` and `satisfied` are separate on purpose, and the gap between
+ * them is the whole point. A player who **declined** the current version is not
+ * satisfied, but they are also not outstanding: they were asked and they
+ * answered. Collapsing the two into one boolean leaves the app no way to tell
+ * "has not been asked" from "said no", and the only behaviour available then is
+ * to ask again on every launch — which is precisely the dark pattern F2.27 §7
+ * forbids.
+ */
+export interface LegalConsentStateResponse {
+  /** Every decision on record, newest first. History, not just the current state. */
+  decisions: LegalConsentRecordResponse[];
+  /** Required documents whose current version carries no decision at all. Ask about these. */
+  outstanding: LegalDocumentSummaryResponse[];
+  /** True only when every required document is `accepted` at its current version. */
+  satisfied: boolean;
+}

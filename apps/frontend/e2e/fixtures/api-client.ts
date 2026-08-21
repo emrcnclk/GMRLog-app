@@ -70,6 +70,29 @@ export interface Me {
   displayName: string;
 }
 
+/**
+ * 12.4 — the documents a new account must accept, read from the running server.
+ *
+ * Not hardcoded: a pinned version would turn the next legal revision into a
+ * spurious e2e failure, and would mask the behaviour that matters — the server
+ * refusing a stale acceptance is correct, not broken.
+ */
+export async function currentLegalAcceptance(): Promise<
+  { documentId: string; version: string; locale: string }[]
+> {
+  const documents = await request<
+    { id: string; version: string; locale: string; requiresAcceptance: boolean }[]
+  >('/legal', { method: 'GET' });
+
+  return documents
+    .filter((document) => document.requiresAcceptance)
+    .map((document) => ({
+      documentId: document.id,
+      version: document.version,
+      locale: document.locale,
+    }));
+}
+
 /** POST /sessions/register — idempotency-keyed like the smoke fixtures. */
 export async function registerUser(input: {
   email: string;
@@ -77,6 +100,7 @@ export async function registerUser(input: {
   displayName: string;
   handle: string;
 }): Promise<SessionCredentials> {
+  const acceptedLegalDocuments = await currentLegalAcceptance();
   return request<SessionCredentials>('/sessions/register', {
     method: 'POST',
     // Unique per call, not per handle: a deterministic key replayed a
@@ -84,7 +108,7 @@ export async function registerUser(input: {
     // earlier local run once idempotency caching kicked in — found the hard
     // way, a 401 on the very next `/me` call using that "successful" token.
     headers: { 'idempotency-key': `e2e-reg-${input.handle}-${String(Date.now())}` },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, acceptedLegalDocuments }),
   });
 }
 

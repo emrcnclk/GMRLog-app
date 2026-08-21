@@ -212,3 +212,4 @@ export {
   type ModerationCaseRepository,
 } from './moderation-case.repository';
 export { PrismaAdminActionRepository, type AdminActionRepository } from './admin-action.repository';
+export { PrismaUserConsentRepository, type UserConsentRepository } from './user-consent.repository';

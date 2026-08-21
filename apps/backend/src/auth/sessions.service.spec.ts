@@ -1,3 +1,6 @@
+import { ACCEPTANCE_REQUIRED_DOCUMENT_IDS, resolveLegalDocument } from '../legal/documents';
+import { LegalConsentService } from '../legal/legal-consent.service';
+import { createFakeUserConsentRepository } from '../legal/testing/fake-repositories';
 import type {
   AuthCredential,
   AuthCredentialRepository,
@@ -290,6 +293,21 @@ function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
   };
 }
 
+/**
+ * 12.4 — the register flow now records consent, so the spec has to supply it.
+ * Built from the live registry rather than hardcoded so a version bump does not
+ * silently turn these into stale-acceptance tests.
+ */
+function currentAcceptance() {
+  return ACCEPTANCE_REQUIRED_DOCUMENT_IDS.map((documentId) => {
+    const document = resolveLegalDocument(documentId, 'en');
+    if (document === null) {
+      throw new Error(`missing legal document: ${documentId}`);
+    }
+    return { documentId, version: document.version, locale: 'en' as const };
+  });
+}
+
 describe('SessionsService', () => {
   let sessions: FakeSessionRepository;
   let credentials: FakeAuthCredentialRepository;
@@ -323,6 +341,7 @@ describe('SessionsService', () => {
       env,
       passwordResetStore as never,
       email,
+      new LegalConsentService(createFakeUserConsentRepository()),
     );
   });
 
@@ -380,6 +399,7 @@ describe('SessionsService', () => {
       password: 'secure-password-12',
       displayName: 'New Player',
       handle: 'new_player',
+      acceptedLegalDocuments: currentAcceptance(),
     });
 
     expect(result).toEqual({
@@ -417,6 +437,7 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'taken_handle',
+        acceptedLegalDocuments: currentAcceptance(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
@@ -607,6 +628,7 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'other_handle',
+        acceptedLegalDocuments: currentAcceptance(),
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });

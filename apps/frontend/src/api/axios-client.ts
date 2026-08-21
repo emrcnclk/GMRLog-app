@@ -38,6 +38,8 @@ import type {
   ProfilePinResponse,
   ProfileThemeResponse,
   IntegrationProviderInfo,
+  LegalConsentDecisionValue,
+  LegalConsentStateResponse,
   LegalDocumentId,
   LegalDocumentResponse,
   LegalDocumentSummaryResponse,
@@ -1378,12 +1380,25 @@ export class AxiosApiClient {
     });
   }
 
-  /** `POST /sessions/register` — register (S1 §14.2). */
+  /**
+   * `POST /sessions/register` — register (S1 §14.2).
+   *
+   * 12.4 — `acceptedLegalDocuments` is required, not optional. The caller sends
+   * the versions it actually displayed so the server can refuse a stale
+   * acceptance: a player who left the sign-up screen open across a deploy
+   * agreed to a document that is no longer current, and recording that as
+   * consent to the new one would be a false statement in the evidence.
+   */
   register(body: {
     email: string;
     password: string;
     displayName: string;
     handle: string;
+    acceptedLegalDocuments: {
+      documentId: LegalDocumentId;
+      version: string;
+      locale: LegalLocale;
+    }[];
   }): Promise<ApiEnvelope<{ accessToken: string; refreshToken: string }>> {
     return this.request<{ accessToken: string; refreshToken: string }>({
       method: 'POST',
@@ -1431,6 +1446,25 @@ export class AxiosApiClient {
     query?: { locale?: LegalLocale },
   ): Promise<ApiEnvelope<LegalDocumentResponse>> {
     return this.get<LegalDocumentResponse>(`/legal/${document}`, query);
+  }
+
+  /** `GET /me/legal-consents` — this player's consent record (12.4). */
+  getLegalConsents(query?: {
+    locale?: LegalLocale;
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.get<LegalConsentStateResponse>('/me/legal-consents', query);
+  }
+
+  /** `POST /me/legal-consents` — accept, decline or withdraw (12.4). */
+  recordLegalConsents(body: {
+    decisions: {
+      documentId: LegalDocumentId;
+      version: string;
+      locale: LegalLocale;
+      decision: LegalConsentDecisionValue;
+    }[];
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.post<LegalConsentStateResponse>('/me/legal-consents', body);
   }
 
   private async refreshSessionInterceptor(): Promise<boolean> {

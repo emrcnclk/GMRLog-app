@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isRegisterStepComplete, REGISTER_STEPS } from './register-steps';
+import { isRegisterStepComplete, isRegisterSubmitDisabled, REGISTER_STEPS } from './register-steps';
 
 const VALID = {
   displayName: 'Emircan',
@@ -64,5 +64,43 @@ describe('register steps', () => {
   it('returns false for an index outside the flow', () => {
     expect(isRegisterStepComplete(-1, VALID)).toBe(false);
     expect(isRegisterStepComplete(REGISTER_STEPS.length, VALID)).toBe(false);
+  });
+});
+
+describe('isRegisterSubmitDisabled', () => {
+  const ready = {
+    busy: false,
+    stepComplete: true,
+    isLastStep: true,
+    isFormValid: true,
+    legalReady: true,
+  };
+
+  it('enables the submit once the form and the legal listing are both ready', () => {
+    expect(isRegisterSubmitDisabled(ready)).toBe(false);
+  });
+
+  it('keeps the submit disabled until the legal documents have loaded', () => {
+    // 12.4's rule. A player cannot agree to a document the app has not shown
+    // them, and submitting without the versions would either fail server-side
+    // or record consent to something never displayed.
+    expect(isRegisterSubmitDisabled({ ...ready, legalReady: false })).toBe(true);
+  });
+
+  it('does not gate the earlier steps on the legal listing', () => {
+    // The listing is only needed at submit. Blocking step one on it would make
+    // a slow network look like a broken form.
+    expect(isRegisterSubmitDisabled({ ...ready, isLastStep: false, legalReady: false })).toBe(
+      false,
+    );
+  });
+
+  it('stays disabled while busy or while the step is incomplete', () => {
+    expect(isRegisterSubmitDisabled({ ...ready, busy: true })).toBe(true);
+    expect(isRegisterSubmitDisabled({ ...ready, stepComplete: false })).toBe(true);
+  });
+
+  it('stays disabled on the last step when the form is invalid', () => {
+    expect(isRegisterSubmitDisabled({ ...ready, isFormValid: false })).toBe(true);
   });
 });

@@ -150,8 +150,33 @@ export async function withAuthRateLimitRetry(
   throw new Error(`${label}: rate-limit retries exhausted`);
 }
 
+/**
+ * 12.4 — the documents a new account must accept, read from the running server
+ * rather than hardcoded here.
+ *
+ * Hardcoding a version would make every smoke run start failing the moment a
+ * legal document is revised, and worse, would hide the failure that actually
+ * matters: registration refusing a stale acceptance is correct behaviour, and a
+ * fixture that pins an old version would report it as a broken endpoint.
+ */
+export async function currentLegalAcceptance(apiBase) {
+  const { response, body, data } = await httpJson(`${apiBase}/legal`, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`legal listing failed (${response.status}): ${JSON.stringify(body)}`);
+  }
+  return data
+    .filter((document) => document.requiresAcceptance)
+    .map((document) => ({
+      documentId: document.id,
+      version: document.version,
+      locale: document.locale,
+    }));
+}
+
 export async function registerUser(apiBase, overrides = {}) {
   const handle = overrides.handle ?? uniqueHandle();
+  const acceptedLegalDocuments =
+    overrides.acceptedLegalDocuments ?? (await currentLegalAcceptance(apiBase));
   const email = overrides.email ?? `${handle}@smoke.gmrlog.local`;
   const password = overrides.password ?? 'SmokeTestPass12';
   return withAuthRateLimitRetry(
@@ -164,6 +189,7 @@ export async function registerUser(apiBase, overrides = {}) {
           password,
           displayName: overrides.displayName ?? 'Smoke Tester',
           handle,
+          acceptedLegalDocuments,
         }),
       });
       if (!response.ok) {

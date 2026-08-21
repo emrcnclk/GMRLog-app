@@ -1,5 +1,5 @@
 import { Button, ErrorBanner, TextField, useTheme } from '@gmrlog/ui';
-import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/validators';
+import { sessionRegisterSchema } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useState, type ComponentProps } from 'react';
@@ -11,12 +11,18 @@ import { useAppForm } from '../../src/forms/use-app-form';
 import { visibleFieldError } from '../../src/forms/visible-field-error';
 import { useAuthStore } from '../../src/state/auth-store';
 import { useConnectivityStore } from '../../src/state/stores';
+import { useLegalDocuments } from '../legal/hooks/use-legal-documents';
 
 import { AUTH_BUTTON_HEIGHT } from './auth-layout';
 import { AuthLegalLine } from './auth-legal-line';
 import { AuthShell } from './auth-shell';
 import { AuthStepIndicator } from './auth-step-indicator';
-import { isRegisterStepComplete, REGISTER_STEPS, type RegisterField } from './register-steps';
+import {
+  isRegisterStepComplete,
+  isRegisterSubmitDisabled,
+  REGISTER_STEPS,
+  type RegisterField,
+} from './register-steps';
 
 /**
  * The per-field input configuration, unchanged from the single-page form — the
@@ -72,6 +78,14 @@ const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
  * they were. What changed is that the four fields arrive in three steps instead
  * of all at once.
  */
+/**
+ * 12.4 — the schema the form validates: the wire schema minus the acceptance
+ * record, which the player does not type.
+ */
+const REGISTER_FORM_SCHEMA = sessionRegisterSchema.omit({ acceptedLegalDocuments: true });
+
+type RegisterFormInput = import('zod').infer<typeof REGISTER_FORM_SCHEMA>;
+
 export function RegisterScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -81,7 +95,17 @@ export function RegisterScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
 
-  const form = useAppForm(sessionRegisterSchema, {
+  // 12.4 — the versions actually in front of the player, fetched from the
+  // public `/legal` listing rather than made up client-side.
+  const legal = useLegalDocuments();
+
+  // The form validates the four fields the player types. `acceptedLegalDocuments`
+  // is deliberately omitted: it is not something anyone enters, it is a record of
+  // what the app displayed, and putting an array of objects into a form whose
+  // step machinery iterates string field names breaks that machinery outright —
+  // which typecheck said plainly on the first attempt. It is merged in at submit,
+  // and the submit is gated on it separately below.
+  const form = useAppForm(REGISTER_FORM_SCHEMA, {
     defaultValues: { email: '', password: '', displayName: '', handle: '' },
     mode: 'onChange',
   });
@@ -100,13 +124,25 @@ export function RegisterScreen() {
   // Each step's own fields gate its forward button; the last one also waits on
   // the whole schema, which is §2's "the submit stays disabled, as it does now".
   const stepComplete = isRegisterStepComplete(stepIndex, values);
-  const disabled = busy || !stepComplete || (isLastStep && !isValid);
+  // A player cannot agree to a document the app has not loaded, so the last
+  // step waits on the legal listing as well as on the form. The rule itself
+  // lives in `register-steps` so it can be tested without rendering.
+  const disabled = isRegisterSubmitDisabled({
+    busy,
+    stepComplete,
+    isLastStep,
+    isFormValid: isValid,
+    legalReady: legal.acceptance.length > 0,
+  });
 
-  const onSubmit = handleSubmit(async (input: SessionRegisterInput) => {
+  const onSubmit = handleSubmit(async (input: RegisterFormInput) => {
     setBanner(null);
     setSubmitting(true);
     try {
-      await register(input);
+      // 12.4 — the versions actually shown, sent so the server can refuse a
+      // stale acceptance rather than record consent to a document the player
+      // never saw.
+      await register({ ...input, acceptedLegalDocuments: legal.acceptance });
     } catch (error) {
       setBanner(mapAuthError(error, isOnline));
     } finally {

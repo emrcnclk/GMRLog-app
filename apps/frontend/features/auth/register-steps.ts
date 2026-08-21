@@ -1,6 +1,16 @@
 import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/validators';
 
-export type RegisterField = keyof SessionRegisterInput;
+/**
+ * The fields a player actually types.
+ *
+ * 12.4 added `acceptedLegalDocuments` to `sessionRegisterSchema`, and it is not
+ * one of them: it is an array of objects recording what the app displayed, not
+ * an input. Deriving this from the whole schema swept it into the step machinery
+ * — the field-props map, the `Controller` loop and the per-step completeness
+ * check all assume a string field — so it is excluded here, at the one place
+ * that decides what a step can hold.
+ */
+export type RegisterField = Exclude<keyof SessionRegisterInput, 'acceptedLegalDocuments'>;
 
 export interface RegisterStep {
   /** Stable id — used as a key and in the spec, never rendered. */
@@ -60,4 +70,31 @@ export function isRegisterStepComplete(
   }
 
   return schema.safeParse(subset).success;
+}
+
+/**
+ * 12.4 — whether the register screen's forward/submit button is disabled.
+ *
+ * Extracted from the screen so the one rule that is easy to get wrong is
+ * testable without rendering: **the last step also waits on the legal listing.**
+ * A player cannot agree to a document the app has not loaded, and submitting
+ * without the versions would either fail server-side or, worse, record consent
+ * to something never displayed.
+ */
+export function isRegisterSubmitDisabled(input: {
+  busy: boolean;
+  stepComplete: boolean;
+  isLastStep: boolean;
+  isFormValid: boolean;
+  legalReady: boolean;
+}): boolean {
+  if (input.busy || !input.stepComplete) {
+    return true;
+  }
+
+  if (!input.isLastStep) {
+    return false;
+  }
+
+  return !input.isFormValid || !input.legalReady;
 }

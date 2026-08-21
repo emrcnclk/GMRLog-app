@@ -730,6 +730,7 @@ model User {
   moderationAssignments   ModerationCase[]
   adminActions            AdminActionRecord[]
   auditLogs               AuditLog[]
+  legalConsents           UserConsent[]
   collectionFollows       CollectionFollower[]
   userSimilaritiesLow     UserSimilarity[]          @relation("UserSimilarityLow")
   userSimilaritiesHigh    UserSimilarity[]          @relation("UserSimilarityHigh")
@@ -2418,4 +2419,55 @@ model SyncConflict {
   @@index([userId, resolvedAt])
   @@index([syncJobId])
   @@map("sync_conflicts")
+}
+
+/// 12.4 — proof of what a player was shown and what they decided about it.
+///
+/// Under both KVKK and GDPR the burden of proving consent sits with the
+/// controller, not the player. Before this table the app rendered "By
+/// continuing you agree to the Terms and Privacy Policy" and kept no evidence
+/// whatsoever that anyone had.
+///
+/// One row per (user, document, version). The version is part of the key on
+/// purpose: accepting 1.0.0 says nothing about 1.1.0, and a table keyed only by
+/// document would silently carry an old acceptance forward across a change to
+/// the very rights it granted.
+model UserConsent {
+  id      String @id @default(cuid())
+  userId  String @map("user_id")
+  /// The legal document id — `terms-of-service`, `privacy-policy`,
+  /// `disclosure-notice`. Stored as text rather than an enum so adding a
+  /// document is a code change and not a migration; the registry in
+  /// `apps/backend/src/legal/documents` is the authority.
+  documentId String @map("document_id")
+  version    String
+  /// Which translation was actually in front of the reader. A player who
+  /// accepted the Turkish text agreed to the Turkish wording.
+  locale     String
+  /// `privacy-policy@1.0.0` — the composite the app compares on, denormalised
+  /// so a query does not have to rebuild it.
+  consentKey String @map("consent_key")
+  /// **Not a boolean, and that is the point.** A `declined` row is what makes
+  /// F2.27 §7's "no dark patterns that re-enable after refusal" enforceable:
+  /// without it, a refusal is indistinguishable from never having been asked,
+  /// and the only possible behaviour is to ask again on every launch until the
+  /// player gives in. `withdrawn` records a consent taken back after the fact.
+  decision  ConsentDecision
+  decidedAt DateTime @default(now()) @map("decided_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId, version])
+  @@index([userId, documentId])
+  @@map("user_consents")
+}
+
+/// 12.4 — silence is not consent (F2.27 §7), so absence of a row is not a
+/// decision and every decision a player makes is recorded as one.
+enum ConsentDecision {
+  accepted
+  declined
+  withdrawn
 }
