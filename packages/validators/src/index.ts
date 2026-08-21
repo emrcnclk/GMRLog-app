@@ -1,4 +1,10 @@
-import type { WorkspacePackageName } from '@gmrlog/types';
+import {
+  LEGAL_DOCUMENT_IDS,
+  LEGAL_LOCALES,
+  type LegalDocumentId,
+  type LegalLocale,
+  type WorkspacePackageName,
+} from '@gmrlog/types';
 import { z } from 'zod';
 
 export const workspacePackageNameSchema = z.enum([
@@ -1818,3 +1824,35 @@ export type BecauseYouPlayedQueryInput = z.infer<typeof becauseYouPlayedQuerySch
 export const gameHubFeedQuerySchema = activityQuerySchema;
 
 export type GameHubFeedQueryInput = z.infer<typeof gameHubFeedQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// 12.2 — Legal documents (public, unauthenticated).
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /legal/:document` — path param. Enumerated rather than a free string so
+ * an unknown id is a 400 at the edge instead of reaching the registry, and so
+ * the route can never be used to probe for documents that do not exist.
+ */
+export const legalDocumentParamSchema = z
+  .object({
+    document: z.enum(LEGAL_DOCUMENT_IDS as unknown as [LegalDocumentId, ...LegalDocumentId[]]),
+  })
+  .strict();
+
+export type LegalDocumentParam = z.infer<typeof legalDocumentParamSchema>;
+
+/**
+ * `?locale=` on both legal routes. Optional: the service falls back to the
+ * default locale rather than 404ing a document that exists, so omitting it is
+ * always valid. An unpublished locale is rejected here rather than silently
+ * treated as the default, because a reader who asked for Turkish and was
+ * quietly handed English should be told.
+ */
+export const legalLocaleQuerySchema = z
+  .object({
+    locale: z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]).optional(),
+  })
+  .strict();
+
+export type LegalLocaleQueryInput = z.infer<typeof legalLocaleQuerySchema>;
