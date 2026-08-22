@@ -17,7 +17,7 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const disclosureNoticeTr: LegalDocumentDefinition = {
   id: 'disclosure-notice',
   locale: 'tr',
-  version: '1.1.0',
+  version: '1.2.0',
   effectiveDate: '2026-08-22',
   title: 'KVKK Aydınlatma Metni',
   requiresAcceptance: false,
@@ -25,7 +25,7 @@ export const disclosureNoticeTr: LegalDocumentDefinition = {
 
 **Yürürlük tarihi:** 22 Ağustos 2026
 
-**Sürüm:** 1.1.0
+**Sürüm:** 1.2.0
 
 İşbu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun
 ("KVKK") 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde
@@ -156,9 +156,11 @@ Başvurular ayrıca Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebli�
 öngörülen yöntemlerle de iletilebilir.
 
 Bazı haklarınızı GMRLog içinden doğrudan kullanabilirsiniz: profil
-bilgilerinizi düzeltebilir, görünürlük ayarlarınızı değiştirebilir ve bağlı
-bir hesabı dilediğiniz zaman kaldırabilirsiniz. Erişim, dışa aktarma ve silme
-talepleri şu an yukarıdaki adres üzerinden yürütülmektedir; bu işlemlerin
+bilgilerinizi düzeltebilir, görünürlük ayarlarınızı değiştirebilir, bağlı bir
+hesabı dilediğiniz zaman kaldırabilir ve — Ayarlar → Hesap → Verileriniz
+üzerinden — verilerinizin taşınabilir, makinece okunabilir bir kopyasını
+dilediğiniz zaman indirebilirsiniz (günde bir kez ile sınırlıdır). Silme
+talepleri şu an yukarıdaki adres üzerinden yürütülmektedir; bu işlemin
 uygulama içinden yapılabilmesi için geliştirme sürmekte olup, tamamlandığında
 bu metin güncellenecektir.
 

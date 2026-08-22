@@ -13,6 +13,7 @@ import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { EmailModule } from '../infrastructure/email/email.module';
 import { RedisModule } from '../infrastructure/redis/redis.module';
+import { AccountDeletionModule } from '../legal/account-deletion.module';
 import { LegalConsentModule } from '../legal/legal-consent.module';
 
 import { AccountSecurityController } from './account-security.controller';
@@ -44,6 +45,7 @@ import { SessionsService } from './sessions.service';
 @Module({
   imports: [
     LegalConsentModule,
+    AccountDeletionModule,
     PrismaModule,
     RedisModule,
     EmailModule,

@@ -33,14 +33,17 @@ describe('initial migration', () => {
     const rows = await db.prisma.$queryRawUnsafe<{ count: bigint }[]>(
       `SELECT COUNT(*)::bigint AS count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> '_prisma_migrations'`,
     );
-    // 86 tables as of 12.4 (adds 1: user_consents — proof of what a player was
-    // shown and what they decided, TASKS.md §12.4). Was 85 as of D11.1 (adds 1:
-    // sync_cursors — the bulk catalog sync's durable high-water mark). Was 84 as
-    // of D3.25 (adds 7: game_series, tags, game_tags, companies, game_companies,
-    // game_related_games, game_metadata_runs).
+    // 87 tables as of 12.6 (adds 1: account_deletion_requests — the 30-day
+    // grace period between a deletion request and irreversible erasure,
+    // TASKS.md §12.6). Was 86 as of 12.4 (adds 1: user_consents — proof of
+    // what a player was shown and what they decided, TASKS.md §12.4). Was 85
+    // as of D11.1 (adds 1: sync_cursors — the bulk catalog sync's durable
+    // high-water mark). Was 84 as of D3.25 (adds 7: game_series, tags,
+    // game_tags, companies, game_companies, game_related_games,
+    // game_metadata_runs).
     // Bump deliberately when a sprint lands new tables — an unexpected change
     // here means a migration added or dropped something unreviewed.
-    expect(Number(rows[0]?.count)).toBe(86);
+    expect(Number(rows[0]?.count)).toBe(87);
   });
 
   // 12.4 — TASKS.md Phase 12. The consent record is evidence, so its shape is

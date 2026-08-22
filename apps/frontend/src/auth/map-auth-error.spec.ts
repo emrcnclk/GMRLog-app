@@ -286,4 +286,48 @@ describe('mapAuthError', () => {
       expect(result.description.toLowerCase()).toMatch(/wait|moment|slow/);
     });
   });
+
+  describe('12.6 — /me/account/deletion copy must not default to registration/login wording', () => {
+    it('does not call a pending deletion request "Account already exists"', () => {
+      const error = new FrontendApiError(
+        'A deletion request is already pending for this account.',
+        409,
+        envelopeFor(
+          409,
+          'DELETION_ALREADY_PENDING',
+          'A deletion request is already pending for this account.',
+        ),
+        'r1',
+      );
+      const result = mapAuthError(error, true);
+      expect(result.kind).toBe('validation');
+      expect(result.title.toLowerCase()).not.toMatch(/already exists/);
+      expect(result.description).toBe('A deletion request is already pending for this account.');
+    });
+
+    it('names a cancel-with-nothing-pending case rather than falling through to a generic 404', () => {
+      const error = new FrontendApiError(
+        'There is no pending deletion request to cancel.',
+        404,
+        envelopeFor(404, 'NO_PENDING_DELETION', 'There is no pending deletion request to cancel.'),
+        'r1',
+      );
+      const result = mapAuthError(error, true);
+      expect(result.kind).toBe('validation');
+      expect(result.description).toBe('There is no pending deletion request to cancel.');
+    });
+
+    it('does not tell a just-erased account its password was wrong', () => {
+      const error = new FrontendApiError(
+        'This account has been permanently deleted.',
+        401,
+        envelopeFor(401, 'ACCOUNT_DELETED', 'This account has been permanently deleted.'),
+        'r1',
+      );
+      const result = mapAuthError(error, true);
+      expect(result.kind).toBe('unauthorized');
+      expect(result.title.toLowerCase()).not.toMatch(/sign-in failed/);
+      expect(result.description.toLowerCase()).not.toMatch(/incorrect/);
+    });
+  });
 });

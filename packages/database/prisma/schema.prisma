@@ -758,6 +758,7 @@ model User {
   adminActions            AdminActionRecord[]
   auditLogs               AuditLog[]
   legalConsents           UserConsent[]
+  accountDeletionRequest  AccountDeletionRequest?
   collectionFollows       CollectionFollower[]
   userSimilaritiesLow     UserSimilarity[]          @relation("UserSimilarityLow")
   userSimilaritiesHigh    UserSimilarity[]          @relation("UserSimilarityHigh")
@@ -2489,6 +2490,38 @@ model UserConsent {
   @@unique([userId, documentId, version])
   @@index([userId, documentId])
   @@map("user_consents")
+}
+
+/// 12.6 — the right `privacy-policy.en.ts` §6/§7 promises: a 30-day grace
+/// period between a deletion request and irreversible erasure, cancellable by
+/// the player at any point before `deletesAt`.
+///
+/// One row per user (`@@unique`), reused across a request/cancel/request
+/// cycle rather than kept as history — the account's *current* deletion state
+/// is a single fact, and `AccountDeletionService` upserts this row rather than
+/// appending to it. `erasedAt` is set once erasure actually runs (login-time
+/// lazy sweep — see the service) and makes the row idempotent: a second login
+/// after erasure sees `erasedAt !== null` and refuses rather than erasing
+/// twice or re-deriving `deletesAt` from a `User` row that has already been
+/// scrubbed.
+///
+/// No cascade delete of the `User` row backs this: erasure anonymises the
+/// `User` row in place (nulls its PII columns) rather than deleting it, so
+/// every other table's `authorId`/`senderId`/etc. foreign key stays intact —
+/// see the service's own note on why "erase" is not "DELETE FROM users".
+model AccountDeletionRequest {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  deletesAt   DateTime  @map("deletes_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  erasedAt    DateTime? @map("erased_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_deletion_requests")
 }
 
 /// 12.4 — silence is not consent (F2.27 §7), so absence of a row is not a

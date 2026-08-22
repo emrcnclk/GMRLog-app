@@ -25,7 +25,17 @@ import { PLATFORM_REDIS } from '../redis/redis.constants';
 
 /** S1 §11 rate limit classes. */
 export type RateLimitClassName =
-  'auth' | 'write' | 'read' | 'search' | 'upload' | 'integration' | 'social' | 'message' | 'public';
+  | 'auth'
+  | 'write'
+  | 'read'
+  | 'search'
+  | 'upload'
+  | 'integration'
+  | 'social'
+  | 'message'
+  | 'export'
+  | 'deletion'
+  | 'public';
 
 export const RATE_LIMIT_CLASS_KEY = 'gmrlog:rate-limit-class';
 
@@ -48,6 +58,17 @@ const CLASS_POLICIES: Readonly<Record<RateLimitClassName, RateLimitPolicy>> = {
   integration: { limit: 20, windowMs: 60_000 },
   social: { limit: 60, windowMs: 60_000 },
   message: { limit: 120, windowMs: 60_000 },
+  // RATE_LIMITING.md "Export" — `POST /users/me/export` §12.5: 1 per 24h per
+  // user. A GDPR/KVKK export fans out across every table a player owns; the
+  // window is a day, not a minute, so this sits outside CLASS_POLICIES' other
+  // per-minute buckets on purpose.
+  export: { limit: 1, windowMs: 24 * 60 * 60 * 1000 },
+  // 12.6 — `POST /me/account/deletion` §7's own text promises a human-handled
+  // request gets a response "within 30 days"; a self-serve one costs nothing
+  // to repeat, so it needs its own guard rather than inheriting `write`'s
+  // 180/minute. 1 per day matches `export`'s reasoning: this is a rare,
+  // deliberate action, not a hot path.
+  deletion: { limit: 1, windowMs: 24 * 60 * 60 * 1000 },
   public: { limit: 60, windowMs: 60_000 },
 };
 

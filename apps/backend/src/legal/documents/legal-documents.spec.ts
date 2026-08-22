@@ -157,13 +157,19 @@ describe('document bodies', () => {
     expect(unresolved).toHaveLength(LEGAL_DOCUMENTS.length);
   });
 
-  it('do not claim a self-serve export or deletion route while 12.5/12.6 are unbuilt', () => {
-    // Phase 12's gate, pinned rather than trusted to review. The backend has no
-    // export route and no account-deletion route; a policy that describes one
-    // is the exact defect that opened this phase.
+  it('never names a raw API route in a legal document body', () => {
+    // Phase 12's gate started as "do not claim a self-serve deletion route
+    // while 12.6 is unbuilt" — pinned rather than trusted to review, because
+    // a policy that describes a right the backend cannot serve is the exact
+    // defect that opened this phase. 12.5 closed the export half and 12.6
+    // closes the deletion half, so both self-serve rights are real and both
+    // texts describe them (as UI paths — "Settings → Account → ..." — not as
+    // API routes). What the assertion actually protects survives the gate
+    // closing: a legal document is read by a person, not a client, so it
+    // should never leak an implementation detail like an API path either way.
     for (const document of LEGAL_DOCUMENTS) {
       expect(document.body, `${document.id}/${document.locale}`).not.toMatch(
-        /\/api\/v1\/[a-z/-]*(export|delete)/i,
+        /\/api\/v1\/[a-z/-]*/i,
       );
     }
   });

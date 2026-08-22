@@ -3,9 +3,10 @@ import { useCallback } from 'react';
 
 import { useAuthStore } from '../../../src/state/auth-store';
 import { useConnectivityStore } from '../../../src/state/stores';
+import { AccountDeletionRow } from '../components/account-deletion-row';
 import { ActiveSessionCard } from '../components/active-session-card';
 import { ConnectedAccountRow } from '../components/connected-account-row';
-import { DeleteAccountPlaceholder } from '../components/delete-account-placeholder';
+import { DataExportRow } from '../components/data-export-row';
 import { LogoutButton } from '../components/logout-button';
 import { PrivacyPlaceholder } from '../components/privacy-placeholder';
 import { ProfileShortcutRow } from '../components/profile-shortcut-row';
@@ -68,8 +69,11 @@ export function AccountSettingsScreen() {
       <ActiveSessionCard user={user} />
       <LogoutButton />
 
+      <SettingsSectionHeader title="Your data" />
+      <DataExportRow />
+
       <SettingsSectionHeader title="Danger zone" />
-      <DeleteAccountPlaceholder />
+      <AccountDeletionRow />
       <PrivacyPlaceholder />
     </SettingsScreenChrome>
   );

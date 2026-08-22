@@ -10,18 +10,21 @@ import type { LegalDocumentDefinition } from './legal-document.types';
  * session (`Session` carries `expiresAt`/`revokedAt` only). 12.7 corrects that
  * document rather than this one bending to match it.
  *
- * The rights section routes to a human because 12.5 (export) and 12.6
- * (deletion) do not exist yet. That is Phase 12's stated gate: a policy must
- * not claim a self-serve right the backend cannot serve. When 12.5/12.6 land
- * this becomes 1.1.0 — a minor bump, so every existing acceptance goes stale
- * and re-consent is raised, which is the correct outcome for a change in how a
- * right is exercised.
+ * The rights section routed to a human because 12.5 (export) and 12.6
+ * (deletion) did not exist yet. That was Phase 12's stated gate: a policy must
+ * not claim a self-serve right the backend cannot serve. 12.5 shipped
+ * `POST /me/export` (1.2.0); 12.6 now ships the deletion half —
+ * `/me/account/deletion`'s 30-day grace period, cancellable any time before
+ * it takes effect — which is why this is 1.3.0, another minor bump for the
+ * same reason 1.2.0 was: a right's own exercise changed, so every existing
+ * acceptance goes stale and re-consent is raised. Both halves of Phase 12's
+ * gate are closed as of this version.
  */
 export const privacyPolicyEn: LegalDocumentDefinition = {
   id: 'privacy-policy',
   locale: 'en',
-  version: '1.1.0',
-  effectiveDate: '2026-08-22',
+  version: '1.3.0',
+  effectiveDate: '2026-08-23',
   title: 'Privacy Policy',
   // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
   // that a privacy notice be *given*; the reader is informed, they do not
@@ -32,9 +35,9 @@ export const privacyPolicyEn: LegalDocumentDefinition = {
   requiresAcceptance: false,
   body: `# Privacy Policy
 
-**Effective date:** 22 August 2026
+**Effective date:** 23 August 2026
 
-**Version:** 1.1.0
+**Version:** 1.3.0
 
 ## 1. Who is responsible for your data
 
@@ -228,17 +231,26 @@ Under the GDPR and KVKK you have the right to:
 - **Complain** to a supervisory authority.
 
 **How to exercise them today.** Several are already self-serve: you can edit
-your profile, change your visibility settings, and disconnect an external
-account from inside GMRLog at any time.
+your profile, change your visibility settings, disconnect an external account,
+and — from Settings → Account → Your data — download a copy of your data in a
+portable, machine-readable format, covering every category in section 2, at
+any time (limited to once every 24 hours).
 
-For access, export and deletion, email **privacy@gmrlog.com** from the address
-on your account. We will respond within **30 days**, free of charge unless a
-request is manifestly unfounded or excessive.
+**Deletion is also self-serve.** From Settings → Account → Delete account,
+you can start a 30-day grace period: your account still works normally during
+those 30 days, and you can cancel from the same screen at any point before
+they end. Once they pass, deletion is permanent — your account is erased and
+cannot be recovered. Content entangled with someone else's — a reply beneath
+another player's post, a message already delivered to its recipient — is
+handled exactly as section 6 describes: your identity is removed from it, the
+other person's record of their own conversation is not. A community you are
+the sole owner of is archived rather than handed to another member, the same
+outcome as if you had deleted it yourself before leaving.
 
-We are saying this plainly rather than describing a button that does not exist
-yet: self-serve export and self-serve account deletion are being built, and
-this policy will be updated — and your acceptance asked again — when they
-ship.
+For correction beyond what your profile settings cover, email
+**privacy@gmrlog.com** from the address on your account. We will respond
+within **30 days**, free of charge unless a request is manifestly unfounded or
+excessive.
 
 **Where to complain.** In Türkiye, the Personal Data Protection Authority
 (Kişisel Verileri Koruma Kurumu). In the EEA, your local supervisory

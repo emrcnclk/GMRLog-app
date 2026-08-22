@@ -214,6 +214,17 @@ export function mapAuthError(error: unknown, isOnline: boolean): AuthUiError {
       };
     }
 
+    // 12.6 — the account's 30 days elapsed and it was erased on this very
+    // login attempt (`AccountDeletionService.enforceGracePeriod`). The
+    // generic 401 copy below ("Email or password is incorrect") would be
+    // false: the credentials were correct, the account just no longer exists.
+    if (code === 'ACCOUNT_DELETED') {
+      return {
+        kind: 'unauthorized',
+        title: 'Account deleted',
+        description: error.message || 'This account has been permanently deleted.',
+      };
+    }
     if (error.status === 401) {
       return {
         kind: 'unauthorized',
@@ -226,6 +237,24 @@ export function mapAuthError(error: unknown, isOnline: boolean): AuthUiError {
         kind: 'forbidden',
         title: 'Access denied',
         description: error.message || 'You do not have permission to continue.',
+      };
+    }
+    // 12.6 — `/me/account/deletion`'s own codes, checked before the generic
+    // 409/404 branches below: those default to copy about registration
+    // ("Account already exists") that would be actively wrong here, and the
+    // server's own message is already accurate UI copy for both.
+    if (code === 'DELETION_ALREADY_PENDING') {
+      return {
+        kind: 'validation',
+        title: 'Deletion already pending',
+        description: error.message || 'A deletion request is already pending for this account.',
+      };
+    }
+    if (code === 'NO_PENDING_DELETION') {
+      return {
+        kind: 'validation',
+        title: 'Nothing to cancel',
+        description: error.message || 'There is no pending deletion request to cancel.',
       };
     }
     if (error.status === 409) {

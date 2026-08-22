@@ -1794,3 +1794,145 @@ export interface LegalConsentStateResponse {
    */
   blocked: LegalDocumentSummaryResponse[];
 }
+
+/**
+ * 12.5 — one player's data, in the five categories
+ * `docs/11_SECURITY/PRIVACY_POLICY.md`'s own table names (GDPR Art. 15/20,
+ * KVKK Art. 11). Computed signals the player never supplied — archetype
+ * scores, reputation badges, DNA similarity — are deliberately out of this
+ * pass; §2.6 of the Privacy Policy already frames those as visible product
+ * features, not data collected from the player, and 12.5's brief is a
+ * portable copy of what GMRLog was *given* or *created on the player's
+ * behalf*, not a re-derivation of everything the platform computes.
+ */
+export interface DataExportAccount {
+  handle: string;
+  displayName: string;
+  /** The password credential's lookup key, never the hash. `null` for an OAuth-only account. */
+  email: string | null;
+  authMethods: { type: string; provider: string | null; createdAt: string }[];
+  birthDate: string | null;
+  countryCode: string | null;
+  language: string | null;
+  createdAt: string;
+  consents: LegalConsentRecordResponse[];
+}
+
+export interface DataExportGamingActivity {
+  libraryEntries: {
+    gameId: string;
+    status: string;
+    source: string;
+    note: string | null;
+    createdAt: string;
+  }[];
+  gameLogs: { gameId: string; kind: string; occurredAt: string }[];
+  reviews: {
+    id: string;
+    gameId: string;
+    rating: number;
+    body: string | null;
+    visibility: string;
+    createdAt: string;
+  }[];
+  posts: { id: string; body: string; visibility: string; createdAt: string }[];
+  comments: { id: string; hostType: string; hostId: string; body: string; createdAt: string }[];
+  reactions: {
+    id: string;
+    targetType: string;
+    targetId: string;
+    kind: string;
+    createdAt: string;
+  }[];
+  collections: {
+    id: string;
+    title: string;
+    visibility: string;
+    gameIds: string[];
+    createdAt: string;
+  }[];
+  tierLists: { id: string; title: string; visibility: string; createdAt: string }[];
+  communityMemberships: { communityId: string; role: string; joinedAt: string }[];
+  eventParticipations: { eventId: string; state: string; createdAt: string }[];
+  achievementProgress: {
+    achievementId: string;
+    current: number;
+    target: number;
+    state: string;
+    awardedAt: string | null;
+  }[];
+}
+
+export interface DataExportSocial {
+  following: { userId: string; createdAt: string }[];
+  followers: { userId: string; createdAt: string }[];
+  friendRequestsSent: { userId: string; status: string; createdAt: string }[];
+  friendRequestsReceived: { userId: string; status: string; createdAt: string }[];
+  friendships: { userId: string; since: string }[];
+  blocks: { userId: string; createdAt: string }[];
+  mutes: { userId: string; createdAt: string }[];
+  /** Only messages this player sent — a conversation partner's own messages are their data, not this export's. */
+  messagesSent: { conversationId: string; body: string; createdAt: string }[];
+}
+
+export interface DataExportTechnical {
+  /** No IP or device type — the Privacy Policy §2.5 promise that GMRLog does not store either. */
+  sessions: { createdAt: string; expiresAt: string; revokedAt: string | null }[];
+  auditLogEntries: { action: string; entityType: string; entityId: string; at: string }[];
+  reportsFiled: {
+    targetType: string;
+    targetId: string;
+    reason: string;
+    status: string;
+    createdAt: string;
+  }[];
+}
+
+export interface DataExportOptional {
+  bio: string | null;
+  avatarKey: string | null;
+  bannerKey: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  connectedAccounts: {
+    provider: string;
+    status: string;
+    scopes: string[];
+    linkedAt: string | null;
+  }[];
+  integrations: {
+    provider: string;
+    externalRef: string;
+    displayName: string | null;
+    verified: boolean;
+    connectedAt: string;
+    disconnectedAt: string | null;
+  }[];
+}
+
+/** 12.5 — `POST /me/export`. One player's data, portable and machine-readable. */
+export interface DataExportResponse {
+  format: 'gmrlog.data-export.v1';
+  exportedAt: string;
+  categories: {
+    account: DataExportAccount;
+    gamingActivity: DataExportGamingActivity;
+    social: DataExportSocial;
+    technical: DataExportTechnical;
+    optional: DataExportOptional;
+  };
+}
+
+/**
+ * 12.6 — `/me/account/deletion`. Where a player's account stands relative to
+ * the 30-day grace period `privacy-policy.en.ts` §6/§7 promises.
+ *
+ * `pending: false` covers two states a caller does not need to tell apart —
+ * no request was ever made, and a past request was cancelled — both mean
+ * "nothing scheduled, the delete-account screen shows the initial prompt".
+ */
+export interface AccountDeletionStatusResponse {
+  pending: boolean;
+  requestedAt: string | null;
+  deletesAt: string | null;
+}

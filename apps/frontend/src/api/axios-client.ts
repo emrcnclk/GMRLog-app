@@ -1,6 +1,7 @@
 import type {
   ApiEnvelope,
   ApiErrorEnvelope,
+  AccountDeletionStatusResponse,
   AchievementResponse,
   ActivityItemResponse,
   FeedItemResponse,
@@ -16,6 +17,7 @@ import type {
   ContentVisibilityValue,
   ConversationResponse,
   CsvImportPreviewResponse,
+  DataExportResponse,
   DiscoverHubResponse,
   DnaMatchResponse,
   BlockResponse,
@@ -1496,6 +1498,37 @@ export class AxiosApiClient {
     documents: { documentId: LegalDocumentId; version: string; locale: LegalLocale }[];
   }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
     return this.post<LegalConsentStateResponse>('/me/legal-consents/acknowledgements', body);
+  }
+
+  /**
+   * `POST /me/export` — this player's data, in a portable machine-readable
+   * format (12.5). GDPR Art. 15/20, KVKK Art. 11. Rate-limited to once per 24
+   * hours server-side.
+   */
+  requestDataExport(): Promise<ApiEnvelope<DataExportResponse>> {
+    return this.post<DataExportResponse>('/me/export');
+  }
+
+  /**
+   * `GET /me/account/deletion` — whether a deletion request is pending, and
+   * when it takes effect (12.6).
+   */
+  getAccountDeletionStatus(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.get<AccountDeletionStatusResponse>('/me/account/deletion');
+  }
+
+  /**
+   * `POST /me/account/deletion` — start the 30-day deletion grace period
+   * (12.6). Cancellable any time before it takes effect. Rate-limited to once
+   * per 24 hours server-side.
+   */
+  requestAccountDeletion(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.post<AccountDeletionStatusResponse>('/me/account/deletion');
+  }
+
+  /** `DELETE /me/account/deletion` — cancel a pending deletion request (12.6). */
+  cancelAccountDeletion(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.delete<AccountDeletionStatusResponse>('/me/account/deletion');
   }
 
   private async refreshSessionInterceptor(): Promise<boolean> {

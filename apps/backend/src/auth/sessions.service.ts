@@ -30,6 +30,7 @@ import {
 import { ENV } from '../infrastructure/config/config.module';
 import type { BackendEnv } from '../infrastructure/config/env.schema';
 import { EMAIL_PORT, type EmailPort } from '../infrastructure/email/email.port';
+import { AccountDeletionService } from '../legal/account-deletion.service';
 import { LegalConsentService } from '../legal/legal-consent.service';
 
 import {
@@ -69,6 +70,7 @@ export class SessionsService {
     private readonly passwordResetStore: PasswordResetStore,
     @Inject(EMAIL_PORT) private readonly email: EmailPort,
     private readonly legalConsent: LegalConsentService,
+    private readonly accountDeletion: AccountDeletionService,
   ) {}
 
   async login(input: SessionCreateInput): Promise<SessionCredentialResponse> {
@@ -351,8 +353,20 @@ export class SessionsService {
     }
   }
 
-  /** Shared token-issuance step — also used by `OAuthController` once a user resolves. */
+  /**
+   * Shared token-issuance step — also used by `OAuthController` once a user
+   * resolves, and by `refresh` for an already-established session.
+   *
+   * 12.6's grace-period check lives here rather than duplicated at every
+   * caller: login, register, refresh and every OAuth sign-in path all end up
+   * here, and register's account can never have a pending request, so the
+   * check costs it one no-op read. Whichever path first calls this after an
+   * account's 30 days have elapsed is the one that erases it and gets
+   * refused; every other path shares that same guarantee for free.
+   */
   async issueCredentialPair(userId: string): Promise<SessionCredentialResponse> {
+    await this.accountDeletion.enforceGracePeriod(userId);
+
     const expiresAt = new Date(Date.now() + this.env.JWT_REFRESH_TTL_SECONDS * 1000);
     const session = await this.sessions.create({
       user: { connect: { id: userId } },

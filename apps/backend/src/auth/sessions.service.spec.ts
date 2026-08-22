@@ -1,5 +1,6 @@
 import { LEGAL_DOCUMENT_IDS } from '@gmrlog/types';
 
+import type { AccountDeletionService } from '../legal/account-deletion.service';
 import { resolveLegalDocument } from '../legal/documents';
 import { LegalConsentService } from '../legal/legal-consent.service';
 import { createFakeUserConsentRepository } from '../legal/testing/fake-repositories';
@@ -351,6 +352,10 @@ describe('SessionsService', () => {
       passwordResetStore as never,
       email,
       new LegalConsentService(createFakeUserConsentRepository()),
+      // 12.6 — this suite exercises login/register/refresh, not the deletion
+      // grace period (`account-deletion.service.spec.ts` does that); a no-op
+      // stub keeps `issueCredentialPair` callable without a real database.
+      { enforceGracePeriod: async () => undefined } as unknown as AccountDeletionService,
     );
   });
 

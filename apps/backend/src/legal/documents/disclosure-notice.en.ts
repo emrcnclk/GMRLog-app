@@ -24,7 +24,7 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const disclosureNoticeEn: LegalDocumentDefinition = {
   id: 'disclosure-notice',
   locale: 'en',
-  version: '1.1.0',
+  version: '1.2.0',
   effectiveDate: '2026-08-22',
   title: 'KVKK Disclosure Notice',
   requiresAcceptance: false,
@@ -32,7 +32,7 @@ export const disclosureNoticeEn: LegalDocumentDefinition = {
 
 **Effective date:** 22 August 2026
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 This notice is given under Article 10 of the Turkish Personal Data Protection
 Law No. 6698 (KVKK). It is a rendering, for readers who do not read Turkish,
@@ -149,10 +149,11 @@ in the Communiqué on the Procedures and Principles of Application to the Data
 Controller.
 
 Some rights are already self-serve inside GMRLog: you can correct your profile
-data, change your visibility settings, and disconnect an external account at
-any time. Access, export and erasure are handled by writing to the address
-above; self-serve versions of those are being built, and this notice will be
-updated when they ship.
+data, change your visibility settings, disconnect an external account, and —
+from Settings → Account → Your data — download a portable, machine-readable
+copy of your data at any time (once every 24 hours). Erasure is handled by
+writing to the address above; a self-serve version is being built, and this
+notice will be updated when it ships.
 
 You may also complain to the Personal Data Protection Authority (Kişisel
 Verileri Koruma Kurumu).

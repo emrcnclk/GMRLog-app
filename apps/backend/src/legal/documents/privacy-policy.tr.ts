@@ -6,14 +6,16 @@ import type { LegalDocumentDefinition } from './legal-document.types';
  * Mirrors `privacy-policy.en` section for section, deliberately: a reader who
  * switches locale mid-document should land on the same clause, not a differently
  * organised text. The same two corrections apply — no birth date, no device or
- * IP data against a session — and the same gate: rights are exercised by email
- * until 12.5/12.6 ship, because the backend cannot serve them yet.
+ * IP data against a session. 12.5 shipped `POST /me/export` (1.2.0); 12.6 now
+ * ships the deletion half — `/me/account/deletion`'s 30-day grace period,
+ * cancellable any time before it takes effect — hence 1.3.0, another minor
+ * bump for the same reason: a right's own exercise changed.
  */
 export const privacyPolicyTr: LegalDocumentDefinition = {
   id: 'privacy-policy',
   locale: 'tr',
-  version: '1.1.0',
-  effectiveDate: '2026-08-22',
+  version: '1.3.0',
+  effectiveDate: '2026-08-23',
   title: 'Gizlilik Politikası',
   // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
   // that a privacy notice be *given*; the reader is informed, they do not
@@ -24,9 +26,9 @@ export const privacyPolicyTr: LegalDocumentDefinition = {
   requiresAcceptance: false,
   body: `# Gizlilik Politikası
 
-**Yürürlük tarihi:** 22 Ağustos 2026
+**Yürürlük tarihi:** 23 Ağustos 2026
 
-**Sürüm:** 1.1.0
+**Sürüm:** 1.3.0
 
 ## 1. Verilerinizden kim sorumlu
 
@@ -223,15 +225,26 @@ GDPR ve KVKK kapsamında şu haklara sahipsiniz:
 
 **Bugün nasıl kullanılır.** Bir kısmı hâlihazırda uygulama içinden
 yapılabilir: profilinizi düzenleyebilir, görünürlük ayarlarınızı
-değiştirebilir ve bağlı bir hesabı dilediğiniz zaman kaldırabilirsiniz.
+değiştirebilir, bağlı bir hesabı dilediğiniz zaman kaldırabilir ve —
+Ayarlar → Hesap → Verileriniz üzerinden — 2. bölümdeki her kategoriyi
+kapsayan, taşınabilir ve makinece okunabilir bir kopyasını dilediğiniz zaman
+indirebilirsiniz (günde bir kez ile sınırlıdır).
 
-Erişim, dışa aktarma ve silme için hesabınıza kayıtlı adresten
+**Silme de uygulama içinden yapılabilir.** Ayarlar → Hesap → Hesabı sil
+üzerinden 30 günlük bir bekleme süresi başlatabilirsiniz: bu 30 gün boyunca
+hesabınız normal şekilde çalışmaya devam eder ve süre dolmadan aynı ekrandan
+istediğiniz an vazgeçebilirsiniz. Süre dolduktan sonra silme kalıcıdır —
+hesabınız silinir ve geri getirilemez. Başka birinin içeriğine dolanmış
+kayıtlar — başka bir oyuncunun gönderisinin altındaki bir yanıt, alıcısına
+zaten ulaşmış bir mesaj — tam olarak 6. bölümde açıklandığı gibi ele alınır:
+kimliğiniz o kayıttan kaldırılır, karşı tarafın kendi yazışmasına dair kaydı
+yok edilmez. Tek sahibi olduğunuz bir topluluk, başka bir üyeye devredilmek
+yerine arşivlenir — kendiniz ayrılmadan önce silmiş olsaydınız ortaya çıkacak
+sonucun aynısı.
+
+Profil ayarlarınızın kapsamadığı düzeltmeler için hesabınıza kayıtlı adresten
 **privacy@gmrlog.com** adresine yazın. **30 gün** içinde yanıt veririz;
 talebin açıkça dayanaksız veya aşırı olduğu hâller dışında ücretsizdir.
-
-Bunu, henüz var olmayan bir düğmeyi tarif etmek yerine açıkça söylüyoruz:
-uygulama içinden dışa aktarma ve hesap silme geliştirilmektedir; tamamlandığında
-bu politika güncellenecek ve onayınız yeniden istenecektir.
 
 **Nereye şikâyet edilir.** Türkiye'de Kişisel Verileri Koruma Kurumu'na. Avrupa
 Ekonomik Alanı'nda yerel denetim makamınıza. Önce bize gelmek zorunda
