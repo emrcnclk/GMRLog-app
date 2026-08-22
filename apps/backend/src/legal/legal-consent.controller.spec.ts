@@ -11,7 +11,11 @@ import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
 import { LoggerModule } from '../infrastructure/logging/logger.module';
 
-import { ACCEPTANCE_REQUIRED_DOCUMENT_IDS, resolveLegalDocument } from './documents';
+import {
+  ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
+  DISCLOSURE_DOCUMENT_IDS,
+  resolveLegalDocument,
+} from './documents';
 import { LEGAL_CONSENT_REPOSITORY } from './legal.tokens';
 import { LegalModule } from './legal.module';
 import {
@@ -197,6 +201,86 @@ describe('POST /me/legal-consents', () => {
           },
         ],
       },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+});
+
+describe('POST /me/legal-consents/acknowledgements', () => {
+  it('requires a token', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/me/legal-consents/acknowledgements',
+      payload: { documents: [] },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('clears undisclosed notices, so a caller needs no second call', async () => {
+    const documents = DISCLOSURE_DOCUMENT_IDS.map((documentId) => ({
+      documentId,
+      version: currentVersionOf(documentId),
+      locale: 'en' as const,
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/me/legal-consents/acknowledgements',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { documents },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const body = state(response.payload);
+    expect(body.undisclosed).toEqual([]);
+    // Acknowledging a notice is not a decision about the Terms — the route
+    // that requires acceptance is untouched by this one.
+    expect(body.outstanding.map((document) => document.id)).toEqual(
+      ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
+    );
+  });
+
+  it('rejects a document that requires acceptance', async () => {
+    const terms = ACCEPTANCE_REQUIRED_DOCUMENT_IDS[0];
+    if (terms === undefined) {
+      throw new Error('no required documents');
+    }
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/me/legal-consents/acknowledgements',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: {
+        documents: [{ documentId: terms, version: currentVersionOf(terms), locale: 'en' }],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('rejects a superseded version', async () => {
+    const notice = DISCLOSURE_DOCUMENT_IDS[0];
+    if (notice === undefined) {
+      throw new Error('no disclosure documents');
+    }
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/me/legal-consents/acknowledgements',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { documents: [{ documentId: notice, version: '0.0.1', locale: 'en' }] },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('rejects an empty document list at the edge', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/me/legal-consents/acknowledgements',
+      headers: { authorization: `Bearer ${accessToken}` },
+      payload: { documents: [] },
     });
 
     expect(response.statusCode).toBe(400);

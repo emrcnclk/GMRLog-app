@@ -7,7 +7,11 @@ import type {
   LegalDocumentSummaryResponse,
   LegalLocale,
 } from '@gmrlog/types';
-import type { LegalConsentDecisionInput, LegalDocumentRefInput } from '@gmrlog/validators';
+import type {
+  LegalAcknowledgementRecordInput,
+  LegalConsentDecisionInput,
+  LegalDocumentRefInput,
+} from '@gmrlog/validators';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import {
@@ -170,9 +174,57 @@ export class LegalConsentService {
   }
 
   /**
+   * Records that notices, not contracts, were displayed after an account
+   * already exists.
+   *
+   * 12.4b closes a gap 12.4a left open: `recordRegistrationConsent` writes an
+   * `acknowledged` row for every notice a *registration* shows, but nothing
+   * wrote one for a notice shown afterwards — an OAuth sign-up seeing the
+   * Privacy Policy for the first time, or any account whose notices moved to a
+   * new version. Refuses an acceptance-required document with the same message
+   * `recordDecisions` uses for the inverse case, so the two error strings stay
+   * paired rather than drifting into two ways of saying the same rule.
+   */
+  async acknowledgeDisclosures(
+    userId: string,
+    documents: readonly LegalAcknowledgementRecordInput['documents'][number][],
+  ): Promise<LegalConsentStateResponse> {
+    for (const entry of documents) {
+      const document = resolveLegalDocument(entry.documentId, entry.locale);
+
+      if (document === null) {
+        throw new BadRequestException(`Unknown legal document: ${entry.documentId}`);
+      }
+
+      if (document.requiresAcceptance) {
+        throw new BadRequestException(`${entry.documentId} is not a document to accept`);
+      }
+
+      if (document.version !== entry.version) {
+        throw new BadRequestException(
+          `${entry.documentId} has moved to ${document.version}; show the current version`,
+        );
+      }
+    }
+
+    await this.consents.recordMany(
+      documents.map((entry) => ({
+        userId,
+        documentId: entry.documentId,
+        version: entry.version,
+        locale: entry.locale,
+        consentKey: legalConsentKey(entry.documentId, entry.version),
+        decision: decisionForDisplayedDocument(entry.documentId),
+      })),
+    );
+
+    return this.getState(userId);
+  }
+
+  /**
    * Where a player stands.
    *
-   * Three separate answers, because they call for three different actions.
+   * Four separate answers, because they call for four different actions.
    *
    * `outstanding` holds documents requiring acceptance whose current version
    * carries **no decision at all** — ask about these. A declined or withdrawn
@@ -184,9 +236,17 @@ export class LegalConsentService {
    * privacy notice in `outstanding` would imply asking for something it is not
    * lawful to ask for.
    *
+   * `blocked` (12.4b) holds documents requiring acceptance where the player
+   * **was** asked and answered something other than `accepted`. This is the
+   * piece `outstanding` cannot carry without reopening the nagging problem it
+   * exists to close: "don't repeat the same prompt" and "let them use the
+   * product anyway" are different questions, and a caller building a consent
+   * gate needs the second answer to show the *consequence* of a no once,
+   * rather than either silently admitting or silently re-asking.
+   *
    * `satisfied` is the separate question of whether every document requiring
    * acceptance is accepted. A caller asking "may this player proceed" reads
-   * that; one asking "what do I show" reads the other two.
+   * that; one asking "what do I show" reads the other three.
    */
   async getState(
     userId: string,
@@ -217,6 +277,7 @@ export class LegalConsentService {
       decisions.find((row) => row.documentId === id && row.version === version);
 
     const outstanding: LegalDocumentSummaryResponse[] = [];
+    const blocked: LegalDocumentSummaryResponse[] = [];
     let satisfied = true;
 
     for (const id of ACCEPTANCE_REQUIRED_DOCUMENT_IDS) {
@@ -237,6 +298,10 @@ export class LegalConsentService {
       }
 
       if (decision.decision !== 'accepted') {
+        // Asked, and answered something other than yes. Not outstanding —
+        // asking again would be exactly the nag F2.27 §7 forbids — but not
+        // satisfied either, and a caller needs to know which of the two.
+        blocked.push(summarise(current));
         satisfied = false;
       }
     }
@@ -261,6 +326,7 @@ export class LegalConsentService {
       decisions,
       outstanding,
       undisclosed,
+      blocked,
       satisfied,
     };
   }

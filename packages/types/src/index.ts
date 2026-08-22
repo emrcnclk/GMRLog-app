@@ -1779,4 +1779,18 @@ export interface LegalConsentStateResponse {
    * it is not lawful to ask for.
    */
   undisclosed: LegalDocumentSummaryResponse[];
+  /**
+   * 12.4b — documents requiring acceptance where the player *was* asked and
+   * answered something other than `accepted`, at the current version.
+   *
+   * `outstanding` deliberately stops asking again once a decision is on
+   * record — that is what keeps a refusal from being nagged into a yes
+   * (F2.27 §7). But "don't repeat the same prompt" and "let them use the
+   * product anyway" are different questions, and a consent gate has to answer
+   * both: `blocked` is what tells a caller a player has already said no to
+   * something the product cannot be used without, so it can show the
+   * *consequence* of that answer once, rather than either silently letting
+   * them through or silently asking again.
+   */
+  blocked: LegalDocumentSummaryResponse[];
 }

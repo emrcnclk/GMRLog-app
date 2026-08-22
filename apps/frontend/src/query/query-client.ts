@@ -215,6 +215,8 @@ export const queryKeys = {
     all: ['legal'] as const,
     list: (locale: string) => ['legal', 'list', locale] as const,
     document: (id: string, locale: string) => ['legal', 'document', id, locale] as const,
+    /** 12.4b — this player's own consent state, distinct from the public texts above. */
+    consentState: (locale: string) => ['legal', 'consent-state', locale] as const,
   },
   integrations: {
     all: ['integrations'] as const,

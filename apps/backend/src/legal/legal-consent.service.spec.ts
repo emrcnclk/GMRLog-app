@@ -133,12 +133,13 @@ describe('recordRegistrationConsent', () => {
     }
   });
 
-  it('leaves the player satisfied, with nothing outstanding and nothing undisclosed', async () => {
+  it('leaves the player satisfied, with nothing outstanding, blocked or undisclosed', async () => {
     await service.recordRegistrationConsent(USER, currentShownDocuments());
 
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(true);
     expect(state.outstanding).toEqual([]);
+    expect(state.blocked).toEqual([]);
     expect(state.undisclosed).toEqual([]);
   });
 });
@@ -149,17 +150,18 @@ describe('getState', () => {
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
     expect(state.outstanding.map((document) => document.id)).toEqual(['terms-of-service']);
+    expect(state.blocked).toEqual([]);
     expect(state.undisclosed.map((document) => document.id).sort()).toEqual([
       'disclosure-notice',
       'privacy-policy',
     ]);
   });
 
-  it('never puts a notice in outstanding — the remedy is to show it, not to ask', async () => {
+  it('never puts a notice in outstanding or blocked — the remedy is to show it, not to ask', async () => {
     // Asking for agreement to a privacy notice would be asking for something it
-    // is not lawful to ask for. The two lists carry different instructions.
+    // is not lawful to ask for. The three lists carry different instructions.
     const state = await service.getState(USER);
-    for (const document of state.outstanding) {
+    for (const document of [...state.outstanding, ...state.blocked]) {
       expect(document.requiresAcceptance).toBe(true);
     }
     for (const document of state.undisclosed) {
@@ -176,16 +178,21 @@ describe('getState', () => {
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
     expect(state.outstanding.map((document) => document.id)).toEqual(['terms-of-service']);
+    // Not blocked: the old row was `accepted`, just at a superseded version —
+    // never having decided about the current one is "ask again", not "no".
+    expect(state.blocked).toEqual([]);
     expect(state.undisclosed).toHaveLength(DISCLOSURE_DOCUMENT_IDS.length);
     // The old rows are still on record — history, not overwritten.
     expect(state.decisions).toHaveLength(LEGAL_DOCUMENT_IDS.length);
   });
 
-  it('treats a declined contract as answered, not outstanding', async () => {
+  it('treats a declined contract as answered, not outstanding — but does not let it through, either', async () => {
     // The behaviour the decision enum exists for. A refusal that cannot be
     // recorded is indistinguishable from never having been asked, and the only
     // possible behaviour then is to ask again on every launch until the player
-    // gives in — the dark pattern F2.27 §7 forbids.
+    // gives in — the dark pattern F2.27 §7 forbids. But "don't nag" is not the
+    // same claim as "let them in anyway": `blocked` is the piece 12.4b added so
+    // a caller can tell the two apart.
     await service.recordDecisions(USER, [
       {
         documentId: 'terms-of-service',
@@ -197,10 +204,11 @@ describe('getState', () => {
 
     const state = await service.getState(USER);
     expect(state.outstanding).toEqual([]);
+    expect(state.blocked.map((document) => document.id)).toEqual(['terms-of-service']);
     expect(state.satisfied).toBe(false);
   });
 
-  it('reports a withdrawal as unsatisfied without re-prompting', async () => {
+  it('reports a withdrawal as unsatisfied and blocked, without re-prompting', async () => {
     const version = currentVersionOf('terms-of-service');
 
     await service.recordDecisions(USER, [
@@ -213,6 +221,7 @@ describe('getState', () => {
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
     expect(state.outstanding).toEqual([]);
+    expect(state.blocked.map((document) => document.id)).toEqual(['terms-of-service']);
   });
 
   it('keeps one row per version, so a re-decision updates rather than accumulates', async () => {
@@ -270,5 +279,78 @@ describe('recordDecisions', () => {
 
     expect(state.satisfied).toBe(true);
     expect(state.outstanding).toEqual([]);
+  });
+});
+
+describe('acknowledgeDisclosures', () => {
+  // 12.4b — the gap 12.4a left open: recordRegistrationConsent writes an
+  // acknowledged row for a notice shown at sign-up, but nothing wrote one for
+  // a notice shown afterwards. This is that path.
+
+  it('clears undisclosed notices without touching the terms', async () => {
+    const state = await service.acknowledgeDisclosures(USER, [
+      { documentId: 'privacy-policy', version: currentVersionOf('privacy-policy'), locale: 'en' },
+      {
+        documentId: 'disclosure-notice',
+        version: currentVersionOf('disclosure-notice'),
+        locale: 'en',
+      },
+    ]);
+
+    expect(state.undisclosed).toEqual([]);
+    // Still outstanding: acknowledging a notice is not a decision about the
+    // Terms, and must not be mistaken for one.
+    expect(state.outstanding.map((document) => document.id)).toEqual(['terms-of-service']);
+  });
+
+  it('records the acknowledgement as evidence, not silently', async () => {
+    await service.acknowledgeDisclosures(USER, [
+      { documentId: 'privacy-policy', version: currentVersionOf('privacy-policy'), locale: 'en' },
+    ]);
+
+    const rows = await repository.listByUser(USER);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.decision).toBe('acknowledged');
+  });
+
+  it('refuses a document that requires acceptance — that is what recordDecisions is for', async () => {
+    await expect(
+      service.acknowledgeDisclosures(USER, [
+        {
+          documentId: 'terms-of-service',
+          version: currentVersionOf('terms-of-service'),
+          locale: 'en',
+        },
+      ]),
+    ).rejects.toThrow(/not a document to accept/);
+  });
+
+  it('refuses a superseded version rather than recording it as current', async () => {
+    await expect(
+      service.acknowledgeDisclosures(USER, [
+        { documentId: 'privacy-policy', version: '0.0.1', locale: 'en' },
+      ]),
+    ).rejects.toThrow(/show the current version/);
+  });
+
+  it('refuses an unknown document', async () => {
+    await expect(
+      service.acknowledgeDisclosures(USER, [
+        { documentId: 'cookie-policy' as LegalDocumentId, version: '1.0.0', locale: 'en' },
+      ]),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('returns the state after recording, so a caller needs no second call', async () => {
+    const state = await service.acknowledgeDisclosures(USER, [
+      { documentId: 'privacy-policy', version: currentVersionOf('privacy-policy'), locale: 'en' },
+      {
+        documentId: 'disclosure-notice',
+        version: currentVersionOf('disclosure-notice'),
+        locale: 'en',
+      },
+    ]);
+
+    expect(state.undisclosed).toEqual([]);
   });
 });

@@ -115,6 +115,25 @@ export const legalConsentRecordSchema = z
 
 export type LegalConsentRecordInput = z.infer<typeof legalConsentRecordSchema>;
 
+/**
+ * 12.4b — `POST /me/legal-consents/acknowledgements` body.
+ *
+ * A gap 12.4a left open: `recordRegistrationConsent` writes an `acknowledged`
+ * row for every notice a *registration* displays, but nothing recorded one for
+ * a notice shown *after* an account already exists — an OAuth sign-up seeing
+ * the Privacy Policy for the first time, or any account whose notices moved to
+ * a new version. No `decision` field, because there is nothing to decide: the
+ * server always writes `acknowledged` for whatever this lists, the same
+ * derivation `recordRegistrationConsent` already applies.
+ */
+export const legalAcknowledgementRecordSchema = z
+  .object({
+    documents: z.array(legalDocumentRefSchema).min(1).max(10),
+  })
+  .strict();
+
+export type LegalAcknowledgementRecordInput = z.infer<typeof legalAcknowledgementRecordSchema>;
+
 // ---------------------------------------------------------------------------
 // 12.4c — registration profile fields.
 // ---------------------------------------------------------------------------

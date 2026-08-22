@@ -1481,6 +1481,23 @@ export class AxiosApiClient {
     return this.post<LegalConsentStateResponse>('/me/legal-consents', body);
   }
 
+  /**
+   * `POST /me/legal-consents/acknowledgements` — record that a notice was
+   * displayed, not agreed to (12.4b).
+   *
+   * The gap 12.4a left open: `register` records a notice shown at sign-up, but
+   * nothing recorded one shown afterwards — an OAuth account seeing the
+   * Privacy Policy for the first time, or any account whose notices moved to a
+   * new version. No `decision` field: there is nothing to decide, and the
+   * server refuses a document that requires acceptance rather than accept one
+   * through the wrong door.
+   */
+  acknowledgeLegalDocuments(body: {
+    documents: { documentId: LegalDocumentId; version: string; locale: LegalLocale }[];
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.post<LegalConsentStateResponse>('/me/legal-consents/acknowledgements', body);
+  }
+
   private async refreshSessionInterceptor(): Promise<boolean> {
     if (this.refreshPromise) {
       return this.refreshPromise;
