@@ -17,15 +17,15 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const disclosureNoticeTr: LegalDocumentDefinition = {
   id: 'disclosure-notice',
   locale: 'tr',
-  version: '1.0.0',
-  effectiveDate: '2026-08-21',
+  version: '1.1.0',
+  effectiveDate: '2026-08-22',
   title: 'KVKK Aydınlatma Metni',
   requiresAcceptance: false,
   body: `# Kişisel Verilerin Korunması Hakkında Aydınlatma Metni
 
-**Yürürlük tarihi:** 21 Ağustos 2026
+**Yürürlük tarihi:** 22 Ağustos 2026
 
-**Sürüm:** 1.0.0
+**Sürüm:** 1.1.0
 
 İşbu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun
 ("KVKK") 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde
@@ -43,8 +43,9 @@ kabul etmeniz istenmez.
 
 ## 2. İşlenen kişisel veriler
 
-- **Kimlik ve iletişim verileri:** e-posta adresi, kullanıcı adı, görünen ad
-  ve eklemeyi tercih ettiğiniz biyografi, profil görseli ve kapak görseli.
+- **Kimlik ve iletişim verileri:** e-posta adresi, kullanıcı adı, görünen ad,
+  doğum tarihi, ülke, dil tercihi, eklemeyi tercih ettiğiniz biyografi, profil
+  görseli ve kapak görseli ile — yalnızca vermeyi seçerseniz — ad ve soyad.
 - **Kimlik doğrulama verileri:** parolanızın tuzlanmış özeti (hash) ve oturum
   kayıtlarınız.
 - **Ürün kapsamında oluşturduğunuz veriler:** oyun kütüphanesi kayıtları ve
@@ -61,10 +62,12 @@ kabul etmeniz istenmez.
   zamanını ve sonucunu izleme kimliğiyle birlikte tutan sunucu kayıtları,
   moderasyon bildirimleri ve yönetimsel işlem kayıtları.
 
-Doğum tarihiniz, resmî adınız, telefon numaranız, posta adresiniz, ödeme
-bilgileriniz, biyometrik veya sağlık verileriniz ile herhangi bir **özel
-nitelikli kişisel veriniz işlenmemektedir.** IP adresiniz ve cihaz türünüz
-hesabınızla ilişkilendirilerek **saklanmamaktadır.**
+Telefon numaranız, posta adresiniz, ödeme bilgileriniz, biyometrik veya sağlık
+verileriniz ile herhangi bir **özel nitelikli kişisel veriniz
+işlenmemektedir.** IP adresiniz ve cihaz türünüz hesabınızla ilişkilendirilerek
+**saklanmamaktadır** — ülkeniz de IP adresinizden çıkarılmaz, kayıt sırasında
+sizin seçtiğiniz değerdir. Ad ve soyad **zorunlu değildir**; vermemeyi seçerseniz
+hizmetin hiçbir bölümü kısıtlanmaz.
 
 ## 3. İşleme amaçları
 
@@ -110,6 +113,10 @@ KVKK'nın 5. maddesi kapsamındaki hukuki sebepler şunlardır:
 | İşleme faaliyeti | Hukuki sebep |
 |---|---|
 | Hesap oluşturma, kimlik doğrulama, hizmetin sunulması | Sözleşmenin kurulması veya ifası için gerekli olması |
+| Asgari yaşın sağlandığının denetlenmesi (doğum tarihi) | Kanunlarda açıkça öngörülmesi / hukuki yükümlülük |
+| Uygulanacak tüketici hukukunun ve asgari yaşın belirlenmesi (ülke) | Hukuki yükümlülük |
+| Ürünün seçilen dilde sunulması | Sözleşmenin ifası için gerekli olması |
+| Profilde gerçek adın gösterilmesi (ad, soyad) | Açık rıza |
 | Güvenlik, kötüye kullanımın önlenmesi, moderasyon | Veri sorumlusunun meşru menfaati |
 | Kanunen saklama ve bildirim yükümlülükleri | Kanunlarda açıkça öngörülmesi / hukuki yükümlülük |
 | Harici oyun hesabının bağlanması | Açık rıza |

@@ -1,4 +1,5 @@
 import {
+  COUNTRY_CODES,
   LEGAL_DOCUMENT_IDS,
   LEGAL_LOCALES,
   type LegalDocumentId,
@@ -114,12 +115,169 @@ export const legalConsentRecordSchema = z
 
 export type LegalConsentRecordInput = z.infer<typeof legalConsentRecordSchema>;
 
-export const sessionRegisterSchema = z
+// ---------------------------------------------------------------------------
+// 12.4c — registration profile fields.
+// ---------------------------------------------------------------------------
+
+/**
+ * The age floor the Terms of Service have claimed since 12.1 — "You must be at
+ * least 13" — and which nothing enforced until this schema existed.
+ *
+ * **A global 13 is the floor, not the whole rule.** The GDPR lets each member
+ * state set its own age of consent for online services between 13 and 16, and
+ * several do (16 in Germany and the Netherlands, 15 in France, 14 in Italy and
+ * Spain, among others). Now that registration records a country, applying the
+ * right threshold per country is possible — and is deliberately *not* done
+ * here, because a partial table would be worse than a stated floor plus a
+ * documented gap. Tracked as a follow-up rather than half-implemented.
+ */
+/**
+ * 12.4c — the language the product is offered in at sign-up.
+ *
+ * Deliberately the same closed set as the legal documents rather than the loose
+ * `min(2).max(35)` string `settingsAppearancePatchSchema` accepts. A picker that
+ * offers a language the app has no content in is a promise it cannot keep, and
+ * the legal texts are the content that matters most here: choosing Turkish has
+ * to mean reading the Turkish terms, not an English document with a Turkish
+ * label on the button.
+ */
+export const localeSchema = z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]);
+
+export const MINIMUM_AGE_YEARS = 13;
+
+/** Whole years between a birth date and a reference day. */
+export function ageInYears(birthDate: Date, on: Date = new Date()): number {
+  let age = on.getUTCFullYear() - birthDate.getUTCFullYear();
+  const monthDelta = on.getUTCMonth() - birthDate.getUTCMonth();
+
+  if (monthDelta < 0 || (monthDelta === 0 && on.getUTCDate() < birthDate.getUTCDate())) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+/**
+ * 12.4c — `YYYY-MM-DD`, in the past, and at least {@link MINIMUM_AGE_YEARS} ago.
+ *
+ * A date rather than an age integer: an age is wrong the next day and cannot be
+ * re-checked. The upper bound (150 years) is not paranoia about centenarians —
+ * it catches a mistyped year, which is the common failure, before it becomes a
+ * stored date of birth nobody notices is wrong.
+ */
+export const birthDateSchema = z.string().superRefine((value, ctx) => {
+  // One `superRefine` rather than a chain of `.refine` calls, and that is not a
+  // style choice. Zod runs every refinement in a chain even after an earlier
+  // one fails, so a malformed value reached the later checks and
+  // `new Date('nonsense').toISOString()` threw a `RangeError` — a 500 where a
+  // 400 belongs. Found by the spec beside this file, not in production.
+  const fail = (message: string) => {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    fail('birth date must be YYYY-MM-DD');
+    return;
+  }
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    fail('birth date is not a real date');
+    return;
+  }
+
+  // Rejects 2005-02-30, which `Date` happily rolls over into March.
+  if (parsed.toISOString().slice(0, 10) !== value) {
+    fail('birth date is not a real date');
+    return;
+  }
+
+  if (parsed.getTime() > Date.now()) {
+    fail('birth date is in the future');
+    return;
+  }
+
+  const age = ageInYears(parsed);
+
+  // Not paranoia about centenarians: this catches a mistyped year, which is the
+  // common failure, before it becomes a stored date of birth nobody notices.
+  if (age >= 150) {
+    fail('birth date is implausibly long ago');
+    return;
+  }
+
+  if (age < MINIMUM_AGE_YEARS) {
+    fail(`you must be at least ${String(MINIMUM_AGE_YEARS)} years old`);
+  }
+});
+
+/**
+ * 12.4c — ISO 3166-1 alpha-2, checked against the shared list rather than a
+ * bare two-letter pattern. `XX` is a valid-looking code and not a country, and
+ * this value decides which consumer law and which age of consent apply.
+ */
+export const countryCodeSchema = z
+  .string()
+  .length(2)
+  .toUpperCase()
+  .refine((value) => COUNTRY_CODES.includes(value), 'unknown country code');
+
+/**
+ * 12.4c — an optional real name. Optional is the design: GMRLog is a
+ * pseudonymous identity product, `handle` and `displayName` are who you are
+ * here, and an unverified name verifies nothing.
+ *
+ * Empty string normalises to `undefined` so a form that submits blank inputs
+ * stores nothing rather than an empty string that reads as "a name we have".
+ */
+export const optionalPersonNameSchema = z
+  .string()
+  .trim()
+  .max(80)
+  .transform((value) => (value.length === 0 ? undefined : value))
+  .optional();
+
+/**
+ * 12.4c — the object half, exported so callers can `.pick()` and `.omit()`.
+ *
+ * `sessionRegisterSchema` below adds a cross-field rule, which turns it into a
+ * `ZodEffects` and takes those methods away. The stepped register form needs
+ * both: per-step slices to gate each Continue button, and the whole rule to
+ * validate a submission. Splitting them is cheaper than reimplementing either.
+ */
+export const sessionRegisterObjectSchema = z
   .object({
     email: emailSchema,
     password: passwordPolicySchema,
     displayName: displayNameSchema,
     handle: handleSchema,
+    /**
+     * 12.4c — the age floor the Terms already claimed and nothing enforced.
+     * A date, not an age: an age integer is wrong the next day.
+     */
+    birthDate: birthDateSchema,
+    /**
+     * 12.4c — chosen by the player, never derived from an IP address. The
+     * privacy policy states GMRLog does not store IP addresses, and that stays
+     * true. It decides which consumer law and which age of consent apply.
+     */
+    countryCode: countryCodeSchema,
+    /**
+     * 12.4c — the language the player wants the product in. Stored on
+     * `UserSettings.locale`, which already existed and was only reachable from
+     * Settings after the fact; asking at sign-up means the first screen after
+     * registration is already in the right language.
+     */
+    locale: localeSchema,
+    /**
+     * 12.4c — optional, and optional is the design. GMRLog is a pseudonymous
+     * identity product: `handle` and `displayName` are who you are here. A real
+     * name is offered for players who want to show one, never required, and it
+     * is not identity verification — an unverified name verifies nothing.
+     */
+    firstName: optionalPersonNameSchema,
+    lastName: optionalPersonNameSchema,
     /**
      * 12.4 — the legal documents the player was shown, at the versions they
      * were shown at.
@@ -157,6 +315,22 @@ export const sessionRegisterSchema = z
     termsAccepted: z.literal(true),
   })
   .strict();
+
+export const sessionRegisterSchema = sessionRegisterObjectSchema.superRefine((value, ctx) => {
+  // 12.4c — the language the player chose must be the language they read the
+  // documents in. Without this a registration could store "Turkish" while its
+  // consent record says the English terms were displayed, and the record
+  // would be describing a screen nobody saw.
+  for (const document of value.shownLegalDocuments) {
+    if (document.locale !== value.locale) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['shownLegalDocuments'],
+        message: `${document.documentId} was shown in ${document.locale} but the chosen language is ${value.locale}`,
+      });
+    }
+  }
+});
 
 export type SessionRegisterInput = z.infer<typeof sessionRegisterSchema>;
 

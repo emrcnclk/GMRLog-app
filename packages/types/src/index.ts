@@ -1,3 +1,5 @@
+export { COUNTRIES, COUNTRY_CODES, type CountryOption } from './countries';
+
 /**
  * Shared type surface for the GMRLOG monorepo.
  * Domain types are added in later foundation phases — not here.

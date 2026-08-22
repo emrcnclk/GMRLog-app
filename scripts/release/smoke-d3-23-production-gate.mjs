@@ -77,6 +77,10 @@ async function register(baseUrl) {
       password: 'SmokeTestPass12',
       displayName: 'D323 Gate',
       handle,
+      // 12.4c — required now; clears the 13-year floor.
+      birthDate: '1995-06-15',
+      countryCode: 'TR',
+      locale: 'en',
       shownLegalDocuments,
       termsAccepted: true,
     },

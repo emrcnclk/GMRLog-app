@@ -12,8 +12,8 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const privacyPolicyTr: LegalDocumentDefinition = {
   id: 'privacy-policy',
   locale: 'tr',
-  version: '1.0.0',
-  effectiveDate: '2026-08-21',
+  version: '1.1.0',
+  effectiveDate: '2026-08-22',
   title: 'Gizlilik Politikası',
   // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
   // that a privacy notice be *given*; the reader is informed, they do not
@@ -24,9 +24,9 @@ export const privacyPolicyTr: LegalDocumentDefinition = {
   requiresAcceptance: false,
   body: `# Gizlilik Politikası
 
-**Yürürlük tarihi:** 21 Ağustos 2026
+**Yürürlük tarihi:** 22 Ağustos 2026
 
-**Sürüm:** 1.0.0
+**Sürüm:** 1.1.0
 
 ## 1. Verilerinizden kim sorumlu
 
@@ -55,9 +55,26 @@ okunabilir biçimde değil), kullanıcı adınız, görünen adınız ve eklemey
 ederseniz biyografiniz, profil görseliniz ve kapak görseliniz. Bunlar hesabı
 oluşturmak, sizi oturuma almak ve diğer oyunculara göstermek için gereklidir.
 
-**Doğum tarihinizi, resmî adınızı, telefon numaranızı, adresinizi veya
-herhangi bir ödeme bilginizi toplamıyoruz.** GMRLog'un ücretli bir katmanı
-yoktur ve hiçbir ödeme işlemi yapılmamaktadır.
+**Doğum tarihiniz**, kayıt olurken verdiğiniz. Bunu tek bir sebeple istiyoruz:
+GMRLog 13 yaşın altındaki çocuklara yönelik değil ve doğum tarihinizi
+bilmediğimiz sürece bu kural, Kullanım Koşulları'nda arkası boş bir cümleydi.
+Yaşınızı değil tarihi saklıyoruz; çünkü yaş verdiğinizin ertesi günü yanlış olur
+ve yeniden doğrulanamaz.
+
+**Ülkeniz**, kayıt olurken seçtiğiniz — ağ bağlantınızdan çıkarmıyoruz. Hangi
+tüketici hukukunun sizi koruduğunu, hangi asgari yaşın size uygulandığını
+(birçok ülkede 13'ten yüksektir) ve verinizin nerede tutulabileceğini belirler.
+
+**Diliniz**, ürün ve bu belgeler okuduğunuz bir dilde görünsün diye.
+
+**Adınız ve soyadınız, yalnızca vermeyi seçerseniz.** Bunlar isteğe bağlıdır ve
+kayıt formu bunu açıkça yazar. GMRLog kullanıcı adı ve görünen ad üzerine
+kuruludur — hiçbir bölümünü kullanmak için gerçek adınıza ihtiyaç yoktur, onu
+doğrulamayız ve iki alanı da boş bırakmanın size hiçbir maliyeti yoktur.
+
+**Telefon numaranızı, adresinizi veya herhangi bir ödeme bilginizi
+toplamıyoruz.** GMRLog'un ücretli bir katmanı yoktur ve hiçbir ödeme işlemi
+yapılmamaktadır.
 
 ### 2.2 Oluşturduklarınız ve kaydettikleriniz
 
@@ -111,6 +128,10 @@ vardır. Gizli bir puan, gölge bir sıralama veya hakkınızda hukuki ya da ben
 | Ne yapıyoruz | GDPR m. 6 dayanağı | KVKK m. 5 dayanağı |
 |---|---|---|
 | Hesabınızı oluşturmak ve işletmek | Sözleşmenin ifası | Sözleşmenin ifası için gerekli olması |
+| Asgari yaşı sağladığınızı denetlemek (doğum tarihi) | Hukuki yükümlülük | Hukuki yükümlülük |
+| Doğru tüketici hukukunu ve asgari yaşı uygulamak (ülke) | Hukuki yükümlülük | Hukuki yükümlülük |
+| Ürünü dilinizde göstermek | Sözleşmenin ifası | Sözleşmenin ifası için gerekli olması |
+| Verdiyseniz profilinizde gerçek adınızı göstermek | Açık rıza | Açık rıza |
 | Kütüphane, günlük, inceleme ve gönderilerinizi saklamak | Sözleşmenin ifası | Sözleşmenin ifası için gerekli olması |
 | Hizmeti güvende tutmak, kötüye kullanımı önlemek, moderasyon | Meşru menfaat | Veri sorumlusunun meşru menfaati |
 | Parola sıfırlama gibi vazgeçilemez hizmet e-postaları | Sözleşmenin ifası | Sözleşmenin ifası için gerekli olması |

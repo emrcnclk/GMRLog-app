@@ -20,8 +20,8 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const privacyPolicyEn: LegalDocumentDefinition = {
   id: 'privacy-policy',
   locale: 'en',
-  version: '1.0.0',
-  effectiveDate: '2026-08-21',
+  version: '1.1.0',
+  effectiveDate: '2026-08-22',
   title: 'Privacy Policy',
   // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
   // that a privacy notice be *given*; the reader is informed, they do not
@@ -32,9 +32,9 @@ export const privacyPolicyEn: LegalDocumentDefinition = {
   requiresAcceptance: false,
   body: `# Privacy Policy
 
-**Effective date:** 21 August 2026
+**Effective date:** 22 August 2026
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Who is responsible for your data
 
@@ -63,9 +63,28 @@ readable form), your handle and display name, and — if you choose to add them
 — your bio, avatar and profile banner. We need these to create your account,
 sign you in, and show you to other players.
 
-**We do not collect your date of birth, your legal name, your phone number,
-your postal address, or any payment details.** GMRLog has no paid tier and
-performs no payment processing of any kind.
+**Your date of birth**, which you give when you register. We ask for it for one
+reason: GMRLog is not for children under 13, and until we knew your date of
+birth that rule was a sentence in our Terms with nothing behind it. We store the
+date rather than your age, because an age is wrong the day after you give it and
+cannot be checked again.
+
+**Your country**, which you choose when you register — we do not infer it from
+your network connection. It tells us which consumer law protects you, which
+minimum age applies to you (it is higher than 13 in several countries), and
+where your data may be held.
+
+**Your language**, so the product and these documents appear in a language you
+read.
+
+**Your first and last name, only if you choose to give them.** They are optional
+and the sign-up form says so. GMRLog is built on handles and display names —
+your real name is not needed to use any part of it, we do not verify it, and
+leaving both fields empty costs you nothing.
+
+**We do not collect your phone number, your postal address, or any payment
+details.** GMRLog has no paid tier and performs no payment processing of any
+kind.
 
 ### 2.2 What you create and log
 
@@ -117,6 +136,10 @@ produces a legal or similarly significant effect on you.
 | What we do | GDPR Art. 6 basis | KVKK Art. 5 basis |
 |---|---|---|
 | Create and operate your account | Performance of a contract | Necessary for performance of a contract |
+| Check you meet the minimum age (date of birth) | Legal obligation | Legal obligation |
+| Apply the right consumer law and minimum age (country) | Legal obligation | Legal obligation |
+| Show the product in your language | Performance of a contract | Necessary for performance of a contract |
+| Show a real name on your profile, if you gave one | Consent | Explicit consent |
 | Store your library, logs, reviews and posts | Performance of a contract | Necessary for performance of a contract |
 | Keep the service secure, prevent abuse, moderate | Legitimate interests | Legitimate interests of the controller |
 | Send service email you cannot opt out of, such as a password reset | Performance of a contract | Necessary for performance of a contract |

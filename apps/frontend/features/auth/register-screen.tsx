@@ -1,5 +1,5 @@
-import { Button, ErrorBanner, TextField, useTheme } from '@gmrlog/ui';
-import { sessionRegisterSchema } from '@gmrlog/validators';
+import { Button, ErrorBanner, SegmentedTabs, Text, TextField, useTheme } from '@gmrlog/ui';
+import { sessionRegisterObjectSchema } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useState, type ComponentProps } from 'react';
@@ -17,6 +17,7 @@ import { AUTH_BUTTON_HEIGHT } from './auth-layout';
 import { AuthLegalLine } from './auth-legal-line';
 import { AuthShell } from './auth-shell';
 import { AuthStepIndicator } from './auth-step-indicator';
+import { CountryPicker } from './country-picker';
 import {
   isRegisterStepComplete,
   isRegisterSubmitDisabled,
@@ -30,6 +31,23 @@ import {
  * recomposed. Split out so the step loop stays a loop.
  */
 const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
+  firstName: {
+    // 12.4c — optional, and the label says so. A field that looks required and
+    // is not is the kind of small dishonesty that makes people give data they
+    // did not have to.
+    label: 'First name (optional)',
+    autoCapitalize: 'words',
+    autoComplete: 'given-name',
+    textContentType: 'givenName',
+    returnKeyType: 'next',
+  },
+  lastName: {
+    label: 'Last name (optional)',
+    autoCapitalize: 'words',
+    autoComplete: 'family-name',
+    textContentType: 'familyName',
+    returnKeyType: 'next',
+  },
   displayName: {
     label: 'Display name',
     autoCapitalize: 'words',
@@ -83,7 +101,18 @@ const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
  * fields the player does not type. The record of what was displayed is merged
  * in at submit; the tick lives in its own state beside the submit button.
  */
-const REGISTER_FORM_SCHEMA = sessionRegisterSchema.omit({
+/**
+ * 12.4c — the two languages the product actually has content in. Offering a
+ * third would be a promise the app cannot keep, and the legal texts are the
+ * content that matters most: choosing a language here decides which translation
+ * of the Terms is presented for acceptance.
+ */
+const REGISTER_LOCALES = [
+  { id: 'en' as const, label: 'English' },
+  { id: 'tr' as const, label: 'Türkçe' },
+];
+
+const REGISTER_FORM_SCHEMA = sessionRegisterObjectSchema.omit({
   shownLegalDocuments: true,
   termsAccepted: true,
 });
@@ -113,7 +142,23 @@ export function RegisterScreen() {
   // which typecheck said plainly on the first attempt. It is merged in at submit,
   // and the submit is gated on it separately below.
   const form = useAppForm(REGISTER_FORM_SCHEMA, {
-    defaultValues: { email: '', password: '', displayName: '', handle: '' },
+    defaultValues: {
+      email: '',
+      password: '',
+      displayName: '',
+      handle: '',
+      firstName: '',
+      lastName: '',
+      birthDate: '',
+      // 12.4c — no default country. Pre-selecting one would make an
+      // unconsidered choice look like the player's own, and this value decides
+      // which consumer law and which minimum age apply to them.
+      countryCode: '',
+      // A default language is different: the app has to render in *something*
+      // before the question is asked, and English is what it already renders
+      // in. The picker starts on the truth rather than on blank.
+      locale: 'en',
+    },
     mode: 'onChange',
   });
 
@@ -203,6 +248,77 @@ export function RegisterScreen() {
             )}
           />
         ))}
+
+        {/* 12.4c — the profile step's three non-text controls. They are not in
+            `step.fields` because that list drives the generic `TextField` loop
+            above and none of these is a text input; they are still gated by the
+            same picked schema, so Continue stays disabled until they are valid. */}
+        {step.id === 'profile' ? (
+          <View style={{ gap: theme.space('space.4') }}>
+            <Controller
+              control={control}
+              name="birthDate"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextField
+                  label="Date of birth"
+                  placeholder="YYYY-MM-DD"
+                  // A text field rather than a native date picker: RN ships no
+                  // cross-platform one, and adding a library for it would mean
+                  // a web-only fork, which CLAUDE.md forbids. The format is
+                  // stated, the validator is strict, and the error says what is
+                  // wrong.
+                  keyboardType="numbers-and-punctuation"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  error={visibleFieldError(errors.birthDate, touchedFields.birthDate, isSubmitted)}
+                  editable={!submitting}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="countryCode"
+              render={({ field: { onChange, value } }) => (
+                <CountryPicker
+                  label="Country"
+                  hint="Sets which consumer law and which minimum age apply to you."
+                  // Empty string is "not chosen yet"; the picker takes null.
+                  value={value.length === 0 ? null : value}
+                  onChange={onChange}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="locale"
+              render={({ field: { onChange, value } }) => (
+                <View style={{ gap: theme.space('space.2') }}>
+                  <Text role="label" color="color.text.secondary">
+                    Language
+                  </Text>
+                  <SegmentedTabs
+                    items={REGISTER_LOCALES}
+                    activeId={value}
+                    onChange={onChange}
+                    variant="pill"
+                    accessibilityLabel="Language"
+                  />
+                  {/* Stated plainly: the choice decides which translation of
+                      the Terms the player is asked to accept, and the register
+                      body refuses a mismatch between the two. */}
+                  <Text role="bodySm" color="color.text.tertiary">
+                    Also the language of the Terms you accept.
+                  </Text>
+                </View>
+              )}
+            />
+          </View>
+        ) : null}
 
         <Button
           variant="accent"

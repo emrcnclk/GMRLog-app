@@ -98,6 +98,38 @@ describe('initial migration', () => {
     ]);
   });
 
+  // 12.4c — TASKS.md Phase 12. The registration profile columns.
+  it('adds the 12.4c registration profile columns, all of them nullable', async () => {
+    const columns = await db.prisma.$queryRawUnsafe<
+      { column_name: string; is_nullable: string; data_type: string }[]
+    >(
+      `SELECT column_name, is_nullable, data_type FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'users'
+         AND column_name IN ('first_name','last_name','birth_date','country_code')
+       ORDER BY column_name`,
+    );
+
+    expect(columns.map((row) => row.column_name)).toEqual([
+      'birth_date',
+      'country_code',
+      'first_name',
+      'last_name',
+    ]);
+
+    // Nullable including the two registration requires. Accounts that existed
+    // before these columns have no true value, and a DEFAULT would fabricate
+    // personal data — the same reason the consent table refused to backfill.
+    // The register schema is what makes a new account unable to be in that
+    // state, not a NOT NULL constraint.
+    for (const column of columns) {
+      expect(column.is_nullable, column.column_name).toBe('YES');
+    }
+
+    // A date, not a timestamp: a birth date has no time of day, and storing one
+    // would invent a precision nobody gave us.
+    expect(columns.find((row) => row.column_name === 'birth_date')?.data_type).toBe('date');
+  });
+
   // D3.25 — docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md §3.2
   it('materializes the D3.25 catalog metadata tables', async () => {
     const rows = await db.prisma.$queryRawUnsafe<{ table_name: string }[]>(

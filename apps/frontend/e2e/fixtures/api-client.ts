@@ -101,6 +101,10 @@ export async function registerUser(input: {
   handle: string;
 }): Promise<SessionCredentials> {
   const shownLegalDocuments = await currentLegalDocuments();
+  // 12.4c — registration now requires a birth date past the 13-year floor and a
+  // real country code. Fixed values: a fixture wants a deterministic account,
+  // and neither field is what any e2e test is asserting on.
+  const profile = { birthDate: '1995-06-15', countryCode: 'TR', locale: 'en' };
   return request<SessionCredentials>('/sessions/register', {
     method: 'POST',
     // Unique per call, not per handle: a deterministic key replayed a
@@ -108,7 +112,7 @@ export async function registerUser(input: {
     // earlier local run once idempotency caching kicked in — found the hard
     // way, a 401 on the very next `/me` call using that "successful" token.
     headers: { 'idempotency-key': `e2e-reg-${input.handle}-${String(Date.now())}` },
-    body: JSON.stringify({ ...input, shownLegalDocuments, termsAccepted: true }),
+    body: JSON.stringify({ ...input, ...profile, shownLegalDocuments, termsAccepted: true }),
   });
 }
 

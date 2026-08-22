@@ -1,17 +1,23 @@
-import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/validators';
+import { sessionRegisterObjectSchema, type SessionRegisterInput } from '@gmrlog/validators';
 
 /**
  * The fields a player actually types.
  *
- * 12.4 added `shownLegalDocuments` to `sessionRegisterSchema` and 12.4a added
- * `termsAccepted`; neither is one of them. One is an array of objects recording
- * what the app displayed, the other is a checkbox. Deriving this from the whole
- * schema swept them into the step machinery — the field-props map, the
- * `Controller` loop and the per-step completeness check all assume a string
- * field — so they are excluded here, at the one place that decides what a step
- * can hold.
+ * Everything excluded here is excluded for the same reason: the field-props
+ * map, the `Controller` loop and the per-step completeness check all assume a
+ * plain text input, and none of these is one. 12.4's `shownLegalDocuments` is
+ * an array of objects; 12.4a's `termsAccepted` is a checkbox; 12.4c's
+ * `birthDate`, `countryCode` and `locale` are rendered by their own controls on
+ * the profile step. `firstName` and `lastName` stay in — they are ordinary text
+ * fields and go through the loop like the rest.
  */
 export type RegisterField = Exclude<
+  keyof SessionRegisterInput,
+  'shownLegalDocuments' | 'termsAccepted' | 'birthDate' | 'countryCode' | 'locale'
+>;
+
+/** Everything a step can gate on, including the controls that are not text. */
+export type RegisterGatedField = Exclude<
   keyof SessionRegisterInput,
   'shownLegalDocuments' | 'termsAccepted'
 >;
@@ -19,8 +25,24 @@ export type RegisterField = Exclude<
 export interface RegisterStep {
   /** Stable id — used as a key and in the spec, never rendered. */
   id: string;
-  /** The fields this step puts in the bottom zone, in render order. */
+  /**
+   * The fields this step puts in the bottom zone, in render order.
+   *
+   * Text inputs only: this list drives the generic `TextField` loop.
+   */
   fields: readonly RegisterField[];
+  /**
+   * 12.4c — everything the step's schema validates, which is a superset of
+   * `fields` on the profile step.
+   *
+   * The two were the same list until the profile step arrived with three
+   * controls that are not text inputs. Collapsing them again would mean either
+   * rendering a country picker through the `TextField` loop or letting the
+   * step's Continue button open without a birth date — the second is what
+   * actually happened when this was one list, caught by the spec beside this
+   * file.
+   */
+  gates: readonly RegisterGatedField[];
   /** The label on the step's own forward button. */
   action: string;
 }
@@ -36,20 +58,57 @@ export interface RegisterStep {
  * twice (the name people read, the name the URL carries), which keeps §2's three
  * steps and leaves the last one a single password field before the submit.
  *
+ * **12.4c makes it four steps, and that is a deliberate departure from §2.**
+ * The doc was written before registration asked for a birth date, a country and
+ * a language; §2's three steps describe a form that no longer exists. The
+ * alternatives were both worse: folding five more controls into the identity
+ * step would make the first thing a new player sees the longest, and dropping
+ * the progressive disclosure entirely would discard the pattern §2 exists to
+ * establish. The new step sits third — after the account is described, before
+ * the password — because it is the least urgent group and the easiest to
+ * abandon on, which is the right place for the questions a player is most
+ * likely to hesitate over.
+ *
+ * Two of its five controls are optional (`firstName`, `lastName`), so the step
+ * can be passed through untouched by anyone who does not want to give a real
+ * name — which is the point of them being optional.
+ *
  * Each step carries the slice of the shared schema that gates it, so the
  * disabled state of "Continue" is decided by `@gmrlog/validators` and not by a
  * second set of rules written here.
  */
 export const REGISTER_STEPS: readonly RegisterStep[] = [
-  { id: 'identity', fields: ['displayName', 'handle'], action: 'Continue' },
-  { id: 'email', fields: ['email'], action: 'Continue' },
-  { id: 'password', fields: ['password'], action: 'Create account' },
+  {
+    id: 'identity',
+    fields: ['displayName', 'handle'],
+    gates: ['displayName', 'handle'],
+    action: 'Continue',
+  },
+  { id: 'email', fields: ['email'], gates: ['email'], action: 'Continue' },
+  {
+    id: 'profile',
+    fields: ['firstName', 'lastName'],
+    gates: ['firstName', 'lastName', 'birthDate', 'countryCode', 'locale'],
+    action: 'Continue',
+  },
+  { id: 'password', fields: ['password'], gates: ['password'], action: 'Create account' },
 ] as const;
 
 const STEP_SCHEMAS = [
-  sessionRegisterSchema.pick({ displayName: true, handle: true }),
-  sessionRegisterSchema.pick({ email: true }),
-  sessionRegisterSchema.pick({ password: true }),
+  sessionRegisterObjectSchema.pick({ displayName: true, handle: true }),
+  sessionRegisterObjectSchema.pick({ email: true }),
+  // 12.4c — `birthDate`, `countryCode` and `locale` are gated here too, but
+  // they are not in the step's `fields` list because that list drives the
+  // generic `TextField` loop and none of the three is a text input. The screen
+  // renders them itself; this schema is what decides whether Continue is live.
+  sessionRegisterObjectSchema.pick({
+    firstName: true,
+    lastName: true,
+    birthDate: true,
+    countryCode: true,
+    locale: true,
+  }),
+  sessionRegisterObjectSchema.pick({ password: true }),
 ] as const;
 
 /**
@@ -62,14 +121,14 @@ const STEP_SCHEMAS = [
  */
 export function isRegisterStepComplete(
   index: number,
-  values: Partial<Record<RegisterField, string>>,
+  values: Partial<Record<RegisterGatedField, string>>,
 ): boolean {
   const step = REGISTER_STEPS[index];
   const schema = STEP_SCHEMAS[index];
   if (step === undefined || schema === undefined) return false;
 
   const subset: Record<string, string> = {};
-  for (const field of step.fields) {
+  for (const field of step.gates) {
     subset[field] = values[field] ?? '';
   }
 

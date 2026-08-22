@@ -667,6 +667,33 @@ model User {
   handle          String    @unique
   displayName     String    @map("display_name")
   bio             String?
+  /// 12.4c — optional, and optional is the design. GMRLog is a pseudonymous
+  /// identity product: `handle` and `displayName` are who you are here. A real
+  /// name is offered for players who want to show one, never required, and it
+  /// is not identity verification — an unverified name verifies nothing, it
+  /// only collects.
+  firstName       String?   @map("first_name")
+  lastName        String?   @map("last_name")
+  /// 12.4c — date of birth, not an age. An age integer is wrong the next day
+  /// and cannot be re-checked; a birth date can. Its stated purpose is the age
+  /// floor the Terms of Service already claim ("You must be at least 13") and
+  /// which nothing enforced before this column existed.
+  ///
+  /// **Nullable in the database, required at registration.** Accounts created
+  /// before this column exists have no true value, and defaulting them to a
+  /// date would fabricate personal data — the same reason 12.4's consent table
+  /// refused to backfill an `accepted` row. `null` means "we never asked",
+  /// which is the truth; `sessionRegisterSchema` makes it impossible for a new
+  /// account to be in that state.
+  birthDate       DateTime? @map("birth_date") @db.Date
+  /// 12.4c — ISO 3166-1 alpha-2, chosen by the player, never derived from an IP
+  /// address. The privacy policy says GMRLog does not store IP addresses and
+  /// that stays true. Purpose: which consumer law applies, which age of consent
+  /// applies, and where data may be held.
+  ///
+  /// Nullable for the same reason as `birthDate`: guessing a country for an
+  /// existing account would be inventing a legal jurisdiction for someone.
+  countryCode     String?   @map("country_code") @db.Char(2)
   avatarKey       String?   @map("avatar_key")
   bannerKey       String?   @map("banner_key")
   /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).

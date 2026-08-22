@@ -128,6 +128,17 @@ export class SessionsService {
     const user = await this.users.create({
       handle,
       displayName: input.displayName,
+      // 12.4c — `birthDate` and `countryCode` are nullable in the database
+      // because accounts predating those columns have no true value; the schema
+      // above makes it impossible for a *new* account to be in that state, so
+      // they are always written here.
+      birthDate: new Date(`${input.birthDate}T00:00:00Z`),
+      countryCode: input.countryCode,
+      // `undefined` rather than an empty string when the player left them
+      // blank — the validator normalises "" away, so a stored empty string
+      // never gets to read as "a name we have".
+      firstName: input.firstName,
+      lastName: input.lastName,
     });
 
     await this.credentials.create({
@@ -137,7 +148,10 @@ export class SessionsService {
       secretHash,
     });
 
-    await this.settings.upsertByUser(user.id, {});
+    // 12.4c — the chosen language, so the first screen after registration is
+    // already in it. `UserSettings.locale` already existed; it was simply only
+    // reachable from Settings after the fact.
+    await this.settings.upsertByUser(user.id, { locale: input.locale });
 
     // Recorded after the account exists, because the row is keyed to the user.
     // Already validated above, so the only way this fails is the database being

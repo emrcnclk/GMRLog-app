@@ -188,6 +188,11 @@ export async function registerUser(apiBase, overrides = {}) {
           password,
           displayName: overrides.displayName ?? 'Smoke Tester',
           handle,
+          // 12.4c — required now. Fixed values: a smoke account wants to be
+          // deterministic, and the 13-year floor has to be cleared.
+          birthDate: overrides.birthDate ?? '1995-06-15',
+          countryCode: overrides.countryCode ?? 'TR',
+          locale: overrides.locale ?? 'en',
           shownLegalDocuments,
           termsAccepted: true,
         }),

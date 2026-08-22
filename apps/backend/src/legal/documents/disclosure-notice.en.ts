@@ -24,15 +24,15 @@ import type { LegalDocumentDefinition } from './legal-document.types';
 export const disclosureNoticeEn: LegalDocumentDefinition = {
   id: 'disclosure-notice',
   locale: 'en',
-  version: '1.0.0',
-  effectiveDate: '2026-08-21',
+  version: '1.1.0',
+  effectiveDate: '2026-08-22',
   title: 'KVKK Disclosure Notice',
   requiresAcceptance: false,
   body: `# Disclosure Notice under KVKK
 
-**Effective date:** 21 August 2026
+**Effective date:** 22 August 2026
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 This notice is given under Article 10 of the Turkish Personal Data Protection
 Law No. 6698 (KVKK). It is a rendering, for readers who do not read Turkish,
@@ -50,8 +50,9 @@ to accept it.
 
 ## 2. What personal data we process
 
-- **Identity and contact data:** email address, handle, display name, and any
-  bio, avatar or banner you choose to add.
+- **Identity and contact data:** email address, handle, display name, date of
+  birth, country, language preference, any bio, avatar or banner you choose to
+  add, and — only if you choose to give them — a first and last name.
 - **Authentication data:** your password as a salted hash, and your sessions.
 - **Product data you create:** game library entries and play logs, reviews,
   posts, comments, reactions, collections, tier lists, community memberships,
@@ -65,10 +66,12 @@ to accept it.
   a correlation identifier, moderation reports, and administrative action
   records.
 
-We do **not** process your date of birth, legal name, phone number, postal
-address, payment data, biometric or health data, or any special category of
-personal data. We do **not** store your IP address or device type against your
-account.
+We do **not** process your phone number, postal address, payment data,
+biometric or health data, or any special category of personal data. We do
+**not** store your IP address or device type against your account — your
+country is not inferred from your IP either, it is the value you select at
+registration. A first and last name are **not required**; declining to give
+them restricts nothing.
 
 ## 3. Why we process it
 
@@ -108,6 +111,10 @@ The legal grounds under KVKK Article 5 are:
 | Processing | Ground |
 |---|---|
 | Account creation, authentication, providing the service | Necessary for the performance of a contract |
+| Checking the minimum age is met (date of birth) | Expressly stipulated by law / legal obligation |
+| Applying the right consumer law and minimum age (country) | Legal obligation |
+| Presenting the product in the chosen language | Necessary for the performance of a contract |
+| Showing a real name on your profile (first, last name) | Explicit consent |
 | Security, abuse prevention, moderation | Legitimate interests of the controller |
 | Retention and disclosure required by law | Expressly stipulated by law / legal obligation |
 | Connecting an external gaming account | Explicit consent |

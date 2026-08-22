@@ -1399,6 +1399,14 @@ export class AxiosApiClient {
     password: string;
     displayName: string;
     handle: string;
+    /** 12.4c — `YYYY-MM-DD`. A date, not an age. */
+    birthDate: string;
+    /** 12.4c — ISO 3166-1 alpha-2, chosen by the player, never from an IP. */
+    countryCode: string;
+    /** 12.4c — also the language of the Terms presented for acceptance. */
+    locale: LegalLocale;
+    firstName?: string;
+    lastName?: string;
     shownLegalDocuments: {
       documentId: LegalDocumentId;
       version: string;

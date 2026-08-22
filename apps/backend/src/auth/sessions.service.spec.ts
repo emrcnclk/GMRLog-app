@@ -39,6 +39,10 @@ function makeUser(overrides: Partial<User> = {}): User {
     bannerBlurhash: null,
     bannerVariants: null,
     privacyId: null,
+    firstName: null,
+    lastName: null,
+    birthDate: null,
+    countryCode: null,
     creatorFeatured: false,
     accountKind: 'individual',
     cardNumber: 1,
@@ -404,6 +408,11 @@ describe('SessionsService', () => {
       password: 'secure-password-12',
       displayName: 'New Player',
       handle: 'new_player',
+      // 12.4c — a birth date comfortably past the 13-year floor, and a real
+      // country code. Both are required now.
+      birthDate: '1995-06-15',
+      countryCode: 'TR',
+      locale: 'en' as const,
       shownLegalDocuments: currentShownDocuments(),
       termsAccepted: true,
     });
@@ -443,6 +452,11 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'taken_handle',
+        // 12.4c — a birth date comfortably past the 13-year floor, and a real
+        // country code. Both are required now.
+        birthDate: '1995-06-15',
+        countryCode: 'TR',
+        locale: 'en' as const,
         shownLegalDocuments: currentShownDocuments(),
         termsAccepted: true,
       }),
@@ -635,6 +649,11 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'other_handle',
+        // 12.4c — a birth date comfortably past the 13-year floor, and a real
+        // country code. Both are required now.
+        birthDate: '1995-06-15',
+        countryCode: 'TR',
+        locale: 'en' as const,
         shownLegalDocuments: currentShownDocuments(),
         termsAccepted: true,
       }),
