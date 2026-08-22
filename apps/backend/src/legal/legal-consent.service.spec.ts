@@ -1,7 +1,12 @@
+import { LEGAL_DOCUMENT_IDS, type LegalDocumentId } from '@gmrlog/types';
 import { BadRequestException } from '@nestjs/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ACCEPTANCE_REQUIRED_DOCUMENT_IDS, resolveLegalDocument } from './documents';
+import {
+  ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
+  DISCLOSURE_DOCUMENT_IDS,
+  resolveLegalDocument,
+} from './documents';
 import { LegalConsentService } from './legal-consent.service';
 import {
   createFakeUserConsentRepository,
@@ -10,22 +15,21 @@ import {
 
 const USER = 'user-1';
 
-function currentAcceptance() {
-  return ACCEPTANCE_REQUIRED_DOCUMENT_IDS.map((documentId) => {
-    const document = resolveLegalDocument(documentId, 'en');
-    if (document === null) {
-      throw new Error(`missing legal document: ${documentId}`);
-    }
-    return { documentId, version: document.version, locale: 'en' as const };
-  });
-}
-
-function currentVersionOf(documentId: (typeof ACCEPTANCE_REQUIRED_DOCUMENT_IDS)[number]): string {
+function currentVersionOf(documentId: LegalDocumentId): string {
   const document = resolveLegalDocument(documentId, 'en');
   if (document === null) {
     throw new Error(`missing legal document: ${documentId}`);
   }
   return document.version;
+}
+
+/** Everything the sign-up screen displays, at its current version. */
+function currentShownDocuments() {
+  return LEGAL_DOCUMENT_IDS.map((documentId) => ({
+    documentId,
+    version: currentVersionOf(documentId),
+    locale: 'en' as const,
+  }));
 }
 
 let repository: FakeUserConsentRepository;
@@ -36,180 +40,194 @@ beforeEach(() => {
   service = new LegalConsentService(repository);
 });
 
-describe('assertAcceptanceIsCurrent', () => {
-  it('accepts a submission covering every required document at its current version', () => {
+describe('the acceptance / disclosure split', () => {
+  it('treats only the Terms of Service as a contract', () => {
+    // 12.4a. A privacy notice is given under GDPR Art. 13/14 and KVKK Art. 10,
+    // not agreed to; 12.4 had the Privacy Policy on the wrong side of this.
+    expect([...ACCEPTANCE_REQUIRED_DOCUMENT_IDS]).toEqual(['terms-of-service']);
+  });
+
+  it('treats both notices as disclosures', () => {
+    expect([...DISCLOSURE_DOCUMENT_IDS].sort()).toEqual(['disclosure-notice', 'privacy-policy']);
+  });
+
+  it('leaves no document in both lists or neither', () => {
+    const union = [...ACCEPTANCE_REQUIRED_DOCUMENT_IDS, ...DISCLOSURE_DOCUMENT_IDS].sort();
+    expect(union).toEqual([...LEGAL_DOCUMENT_IDS].sort());
+    expect(new Set(union).size).toBe(union.length);
+  });
+});
+
+describe('assertShownDocumentsAreCurrent', () => {
+  it('accepts a submission covering every document at its current version', () => {
     expect(() => {
-      service.assertAcceptanceIsCurrent(currentAcceptance());
+      service.assertShownDocumentsAreCurrent(currentShownDocuments());
     }).not.toThrow();
   });
 
-  it('rejects a submission missing a required document', () => {
-    const partial = currentAcceptance().slice(1);
+  it('rejects a submission missing the terms', () => {
+    const partial = currentShownDocuments().filter(
+      (entry) => entry.documentId !== 'terms-of-service',
+    );
     expect(() => {
-      service.assertAcceptanceIsCurrent(partial);
-    }).toThrow(BadRequestException);
+      service.assertShownDocumentsAreCurrent(partial);
+    }).toThrow(/Acceptance of terms-of-service is required/);
+  });
+
+  it('rejects a submission missing a notice, because an unshown notice was not given', () => {
+    // The disclosure obligation is discharged by displaying the text, not by
+    // having a copy on a server somewhere.
+    const partial = currentShownDocuments().filter(
+      (entry) => entry.documentId !== 'privacy-policy',
+    );
+    expect(() => {
+      service.assertShownDocumentsAreCurrent(partial);
+    }).toThrow(/must be shown before an account is created/);
   });
 
   it('rejects a stale version rather than silently recording it as the current one', () => {
-    // A player who left the sign-up screen open across a deploy agreed to a
-    // document that is no longer current. Recording that as consent to the new
-    // version would put a false statement in the record that exists to be
-    // evidence.
-    const stale = currentAcceptance().map((entry, index) =>
+    const stale = currentShownDocuments().map((entry, index) =>
       index === 0 ? { ...entry, version: '0.0.1' } : entry,
     );
     expect(() => {
-      service.assertAcceptanceIsCurrent(stale);
-    }).toThrow(/re-read and accept the current version/);
+      service.assertShownDocumentsAreCurrent(stale);
+    }).toThrow(/re-read the current version/);
   });
 
-  it('rejects a duplicate acceptance for the same document', () => {
-    const accepted = currentAcceptance();
-    const first = accepted[0];
+  it('rejects a duplicate entry for the same document', () => {
+    const shown = currentShownDocuments();
+    const first = shown[0];
     if (first === undefined) {
-      throw new Error('no required documents');
+      throw new Error('no documents');
     }
     expect(() => {
-      service.assertAcceptanceIsCurrent([...accepted, first]);
-    }).toThrow(/Duplicate acceptance/);
+      service.assertShownDocumentsAreCurrent([...shown, first]);
+    }).toThrow(/Duplicate entry/);
   });
 
-  it('refuses acceptance of the disclosure notice', () => {
-    // KVKK Art. 10 makes the Aydınlatma Metni a disclosure to be given, not a
-    // bargain to agree to. Storing an "acceptance" of it would manufacture a
-    // consent for processing that does not rest on consent.
-    const notice = resolveLegalDocument('disclosure-notice', 'en');
-    if (notice === null) {
-      throw new Error('missing disclosure notice');
-    }
+  it('rejects a document that does not exist', () => {
     expect(() => {
-      service.assertAcceptanceIsCurrent([
-        ...currentAcceptance(),
-        { documentId: 'disclosure-notice', version: notice.version, locale: 'en' },
+      service.assertShownDocumentsAreCurrent([
+        ...currentShownDocuments(),
+        { documentId: 'cookie-policy' as LegalDocumentId, version: '1.0.0', locale: 'en' },
       ]);
-    }).toThrow(/not a document to accept/);
+    }).toThrow(BadRequestException);
   });
 });
 
 describe('recordRegistrationConsent', () => {
-  it('stores one accepted row per required document, with the locale shown', async () => {
-    await service.recordRegistrationConsent(USER, currentAcceptance());
+  it('accepts the contract and acknowledges the notices', async () => {
+    // The verdict is derived from the document, never sent by the client, so a
+    // client cannot mislabel a privacy notice as consent.
+    await service.recordRegistrationConsent(USER, currentShownDocuments());
 
     const rows = await repository.listByUser(USER);
-    expect(rows).toHaveLength(ACCEPTANCE_REQUIRED_DOCUMENT_IDS.length);
+    expect(rows).toHaveLength(LEGAL_DOCUMENT_IDS.length);
+
     for (const row of rows) {
-      expect(row.decision).toBe('accepted');
+      expect(row.decision).toBe(
+        row.documentId === 'terms-of-service' ? 'accepted' : 'acknowledged',
+      );
       expect(row.locale).toBe('en');
       expect(row.consentKey).toBe(`${row.documentId}@${row.version}`);
     }
   });
 
-  it('leaves the player satisfied with nothing outstanding', async () => {
-    await service.recordRegistrationConsent(USER, currentAcceptance());
+  it('leaves the player satisfied, with nothing outstanding and nothing undisclosed', async () => {
+    await service.recordRegistrationConsent(USER, currentShownDocuments());
 
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(true);
     expect(state.outstanding).toEqual([]);
+    expect(state.undisclosed).toEqual([]);
   });
 });
 
 describe('getState', () => {
-  it('reports every required document as outstanding for an account that never decided', async () => {
-    // An OAuth sign-up, or an account older than the consent table. Silence is
-    // not consent (F2.27 §7), so the absence of a row is not an acceptance.
+  it('reports an account that never decided as unsatisfied, asked and undisclosed', async () => {
+    // An OAuth sign-up, or an account older than the consent table.
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
-    expect(state.outstanding.map((document) => document.id).sort()).toEqual(
-      [...ACCEPTANCE_REQUIRED_DOCUMENT_IDS].sort(),
-    );
+    expect(state.outstanding.map((document) => document.id)).toEqual(['terms-of-service']);
+    expect(state.undisclosed.map((document) => document.id).sort()).toEqual([
+      'disclosure-notice',
+      'privacy-policy',
+    ]);
   });
 
-  it('does not carry an old acceptance forward across a version bump', async () => {
+  it('never puts a notice in outstanding — the remedy is to show it, not to ask', async () => {
+    // Asking for agreement to a privacy notice would be asking for something it
+    // is not lawful to ask for. The two lists carry different instructions.
+    const state = await service.getState(USER);
+    for (const document of state.outstanding) {
+      expect(document.requiresAcceptance).toBe(true);
+    }
+    for (const document of state.undisclosed) {
+      expect(document.requiresAcceptance).toBe(false);
+    }
+  });
+
+  it('does not carry an old record forward across a version bump', async () => {
     await service.recordRegistrationConsent(
       USER,
-      currentAcceptance().map((entry) => ({ ...entry, version: '0.0.1' })),
+      currentShownDocuments().map((entry) => ({ ...entry, version: '0.0.1' })),
     );
 
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
-    expect(state.outstanding).toHaveLength(ACCEPTANCE_REQUIRED_DOCUMENT_IDS.length);
-    // The old decisions are still on record — history, not overwritten.
-    expect(state.decisions).toHaveLength(ACCEPTANCE_REQUIRED_DOCUMENT_IDS.length);
+    expect(state.outstanding.map((document) => document.id)).toEqual(['terms-of-service']);
+    expect(state.undisclosed).toHaveLength(DISCLOSURE_DOCUMENT_IDS.length);
+    // The old rows are still on record — history, not overwritten.
+    expect(state.decisions).toHaveLength(LEGAL_DOCUMENT_IDS.length);
   });
 
-  it('treats a declined document as answered, not outstanding', async () => {
-    // The behaviour this whole table exists for. A refusal that cannot be
+  it('treats a declined contract as answered, not outstanding', async () => {
+    // The behaviour the decision enum exists for. A refusal that cannot be
     // recorded is indistinguishable from never having been asked, and the only
     // possible behaviour then is to ask again on every launch until the player
     // gives in — the dark pattern F2.27 §7 forbids.
-    const terms = ACCEPTANCE_REQUIRED_DOCUMENT_IDS[0];
-    if (terms === undefined) {
-      throw new Error('no required documents');
-    }
-
     await service.recordDecisions(USER, [
       {
-        documentId: terms,
-        version: currentVersionOf(terms),
+        documentId: 'terms-of-service',
+        version: currentVersionOf('terms-of-service'),
         locale: 'en',
         decision: 'declined',
       },
     ]);
 
     const state = await service.getState(USER);
-    expect(state.outstanding.map((document) => document.id)).not.toContain(terms);
+    expect(state.outstanding).toEqual([]);
     expect(state.satisfied).toBe(false);
-  });
-
-  it('separates "not asked" from "said no" — the two are different instructions', async () => {
-    const [terms, privacy] = ACCEPTANCE_REQUIRED_DOCUMENT_IDS;
-    if (terms === undefined || privacy === undefined) {
-      throw new Error('expected two required documents');
-    }
-
-    await service.recordDecisions(USER, [
-      { documentId: terms, version: currentVersionOf(terms), locale: 'en', decision: 'declined' },
-    ]);
-
-    const state = await service.getState(USER);
-    // Declined: answered, so not asked again. Never decided: still outstanding.
-    expect(state.outstanding.map((document) => document.id)).toEqual([privacy]);
   });
 
   it('reports a withdrawal as unsatisfied without re-prompting', async () => {
-    const terms = ACCEPTANCE_REQUIRED_DOCUMENT_IDS[0];
-    if (terms === undefined) {
-      throw new Error('no required documents');
-    }
-    const version = currentVersionOf(terms);
+    const version = currentVersionOf('terms-of-service');
 
     await service.recordDecisions(USER, [
-      { documentId: terms, version, locale: 'en', decision: 'accepted' },
+      { documentId: 'terms-of-service', version, locale: 'en', decision: 'accepted' },
     ]);
     await service.recordDecisions(USER, [
-      { documentId: terms, version, locale: 'en', decision: 'withdrawn' },
+      { documentId: 'terms-of-service', version, locale: 'en', decision: 'withdrawn' },
     ]);
 
     const state = await service.getState(USER);
     expect(state.satisfied).toBe(false);
-    expect(state.outstanding.map((document) => document.id)).not.toContain(terms);
+    expect(state.outstanding).toEqual([]);
   });
 
   it('keeps one row per version, so a re-decision updates rather than accumulates', async () => {
-    const terms = ACCEPTANCE_REQUIRED_DOCUMENT_IDS[0];
-    if (terms === undefined) {
-      throw new Error('no required documents');
-    }
-    const version = currentVersionOf(terms);
+    const version = currentVersionOf('terms-of-service');
 
     await service.recordDecisions(USER, [
-      { documentId: terms, version, locale: 'en', decision: 'accepted' },
+      { documentId: 'terms-of-service', version, locale: 'en', decision: 'accepted' },
     ]);
     await service.recordDecisions(USER, [
-      { documentId: terms, version, locale: 'tr', decision: 'withdrawn' },
+      { documentId: 'terms-of-service', version, locale: 'tr', decision: 'withdrawn' },
     ]);
 
-    const rows = (await repository.listByUser(USER)).filter((row) => row.documentId === terms);
+    const rows = (await repository.listByUser(USER)).filter(
+      (row) => row.documentId === 'terms-of-service',
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.decision).toBe('withdrawn');
     expect(rows[0]?.locale).toBe('tr');
@@ -218,29 +236,21 @@ describe('getState', () => {
 
 describe('recordDecisions', () => {
   it('refuses a decision against a superseded version', async () => {
-    const terms = ACCEPTANCE_REQUIRED_DOCUMENT_IDS[0];
-    if (terms === undefined) {
-      throw new Error('no required documents');
-    }
-
     await expect(
       service.recordDecisions(USER, [
-        { documentId: terms, version: '0.0.1', locale: 'en', decision: 'accepted' },
+        { documentId: 'terms-of-service', version: '0.0.1', locale: 'en', decision: 'accepted' },
       ]),
     ).rejects.toThrow(/decide against the current version/);
   });
 
-  it('refuses a decision about the disclosure notice', async () => {
-    const notice = resolveLegalDocument('disclosure-notice', 'en');
-    if (notice === null) {
-      throw new Error('missing disclosure notice');
-    }
-
+  it('refuses a decision about a notice', async () => {
+    // There is nothing to decide. Storing an "acceptance" of a privacy notice
+    // would manufacture a consent for processing that does not rest on consent.
     await expect(
       service.recordDecisions(USER, [
         {
-          documentId: 'disclosure-notice',
-          version: notice.version,
+          documentId: 'privacy-policy',
+          version: currentVersionOf('privacy-policy'),
           locale: 'en',
           decision: 'accepted',
         },
@@ -249,13 +259,14 @@ describe('recordDecisions', () => {
   });
 
   it('returns the state after recording, so a caller needs no second call', async () => {
-    const state = await service.recordDecisions(
-      USER,
-      currentAcceptance().map((entry) => ({
-        ...entry,
-        decision: 'accepted' as const,
-      })),
-    );
+    const state = await service.recordDecisions(USER, [
+      {
+        documentId: 'terms-of-service',
+        version: currentVersionOf('terms-of-service'),
+        locale: 'en',
+        decision: 'accepted',
+      },
+    ]);
 
     expect(state.satisfied).toBe(true);
     expect(state.outstanding).toEqual([]);

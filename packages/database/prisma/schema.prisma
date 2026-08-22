@@ -2466,8 +2466,15 @@ model UserConsent {
 
 /// 12.4 — silence is not consent (F2.27 §7), so absence of a row is not a
 /// decision and every decision a player makes is recorded as one.
+///
+/// 12.4a added `acknowledged`, which is not a decision at all and that is the
+/// point: under GDPR Art. 13/14 and KVKK Art. 10 a privacy notice is *given*,
+/// not agreed to. Only the Terms of Service are a contract. `acknowledged`
+/// records that a specific version, in a specific locale, was displayed — it is
+/// evidence of disclosure, never permission for anything.
 enum ConsentDecision {
   accepted
   declined
   withdrawn
+  acknowledged
 }

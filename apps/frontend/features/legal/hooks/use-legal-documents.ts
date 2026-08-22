@@ -8,8 +8,15 @@ const DEFAULT_LOCALE: LegalLocale = 'en';
 
 export interface UseLegalDocumentsResult {
   documents: LegalDocumentSummaryResponse[];
-  /** The documents a new account must accept, at their current versions. */
-  acceptance: {
+  /**
+   * 12.4a — every document the sign-up screen displays, at its current version.
+   *
+   * All of them, not only the ones requiring acceptance: a privacy notice that
+   * was not shown has not been given, and the disclosure obligation is not
+   * discharged by having a copy on a server. What each display *means* —
+   * accepted or acknowledged — is the server's call.
+   */
+  shown: {
     documentId: LegalDocumentSummaryResponse['id'];
     version: string;
     locale: LegalLocale;
@@ -21,9 +28,9 @@ export interface UseLegalDocumentsResult {
 /**
  * 12.4 — every legal document's current version, without bodies.
  *
- * This is what the sign-up screen sends back as its acceptance: the versions it
- * actually had in front of the player, not a value the client made up. It is
- * also the cheap call a launched app makes to notice a version bump.
+ * This is what the sign-up screen sends back: the versions it actually had in
+ * front of the player, not a value the client made up. It is also the cheap
+ * call a launched app makes to notice a version bump.
  *
  * Public, so it works before an account exists — which is the whole reason
  * `/legal` takes no token.
@@ -44,13 +51,11 @@ export function useLegalDocuments(locale: LegalLocale = DEFAULT_LOCALE): UseLega
 
   return {
     documents,
-    acceptance: documents
-      .filter((document) => document.requiresAcceptance)
-      .map((document) => ({
-        documentId: document.id,
-        version: document.version,
-        locale: document.locale,
-      })),
+    shown: documents.map((document) => ({
+      documentId: document.id,
+      version: document.version,
+      locale: document.locale,
+    })),
     isPending: query.isPending,
     isError: query.isError,
   };

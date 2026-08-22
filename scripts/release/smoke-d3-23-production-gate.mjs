@@ -64,13 +64,11 @@ async function register(baseUrl) {
   if (legal.status >= 400) {
     throw new Error(`legal listing ${legal.status}: ${JSON.stringify(legal.json)}`);
   }
-  const acceptedLegalDocuments = (legal.json?.data ?? [])
-    .filter((document) => document.requiresAcceptance)
-    .map((document) => ({
-      documentId: document.id,
-      version: document.version,
-      locale: document.locale,
-    }));
+  const shownLegalDocuments = (legal.json?.data ?? []).map((document) => ({
+    documentId: document.id,
+    version: document.version,
+    locale: document.locale,
+  }));
   const { status, json } = await http('POST', '/sessions/register', {
     ...(baseUrl === undefined ? {} : { baseUrl }),
     headers: { 'idempotency-key': `reg-${handle}` },
@@ -79,7 +77,8 @@ async function register(baseUrl) {
       password: 'SmokeTestPass12',
       displayName: 'D323 Gate',
       handle,
-      acceptedLegalDocuments,
+      shownLegalDocuments,
+      termsAccepted: true,
     },
   });
   if (status >= 400) {

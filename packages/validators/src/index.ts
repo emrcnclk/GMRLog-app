@@ -72,8 +72,14 @@ export const handleSchema = z
  * The locale is recorded because a player who accepted the Turkish text agreed
  * to the Turkish wording; "they accepted the privacy policy" is not a complete
  * record of what was in front of them.
+ *
+ * 12.4a renamed this from `legalAcceptanceSchema`. It carries no verdict — it
+ * says "this version of this document, in this locale, was displayed". What
+ * that *means* is the server's call, and it depends on the document: the Terms
+ * are accepted, a privacy notice is acknowledged. A client cannot get that
+ * mapping wrong because it never sends it.
  */
-export const legalAcceptanceSchema = z
+export const legalDocumentRefSchema = z
   .object({
     documentId: z.enum(LEGAL_DOCUMENT_IDS as unknown as [LegalDocumentId, ...LegalDocumentId[]]),
     version: z.string().regex(/^\d+\.\d+\.\d+$/, 'version must be major.minor.patch'),
@@ -81,7 +87,7 @@ export const legalAcceptanceSchema = z
   })
   .strict();
 
-export type LegalAcceptanceInput = z.infer<typeof legalAcceptanceSchema>;
+export type LegalDocumentRefInput = z.infer<typeof legalDocumentRefSchema>;
 
 /**
  * 12.4 — a decision, not a boolean. `declined` is what makes "no dark patterns
@@ -89,8 +95,10 @@ export type LegalAcceptanceInput = z.infer<typeof legalAcceptanceSchema>;
  * a refusal, a refusal is indistinguishable from never having been asked, and
  * the only possible behaviour is to ask again until the player gives in.
  */
-export const legalConsentDecisionSchema = legalAcceptanceSchema
+export const legalConsentDecisionSchema = legalDocumentRefSchema
   .extend({
+    // `acknowledged` is not offered here: a player never decides to be
+    // informed. The server writes acknowledgements when it displays a notice.
     decision: z.enum(['accepted', 'declined', 'withdrawn']),
   })
   .strict();
@@ -121,21 +129,32 @@ export const sessionRegisterSchema = z
      * *response* fields, so existing consumers keep working; this is a request
      * field on the app's own registration endpoint, and the reason Phase 12
      * exists is that the app was creating accounts with no evidence of consent
-     * at all. Accepting a registration that carries none would rebuild exactly
-     * that defect behind a newer schema.
+     * at all.
      *
      * The client sends versions rather than a bare "I agree" so the server can
-     * refuse a stale acceptance — a player who left the sign-up screen open
-     * across a deploy agreed to a document that is no longer current, and
-     * recording that as consent to the new one would be a lie in the evidence.
+     * refuse a stale submission — a player who left the sign-up screen open
+     * across a deploy read a document that is no longer current, and recording
+     * that as agreement to the new one would be a lie in the evidence.
+     *
+     * 12.4a renamed this from `acceptedLegalDocuments`. It lists everything
+     * *displayed*, not everything agreed to, because only the Terms are agreed
+     * to; the Privacy Policy and the Aydınlatma Metni are notices.
      *
      * The OAuth sign-up path does not come through here: it cannot, because the
      * account is created inside the provider callback with no opportunity to
-     * ask first. Those accounts have no acceptance row, `requiresReconsent`
-     * treats that as undecided, and the consent gate catches them on first
-     * launch.
+     * ask first. Those accounts have no record, and the consent gate catches
+     * them on first launch.
      */
-    acceptedLegalDocuments: z.array(legalAcceptanceSchema).min(1).max(10),
+    shownLegalDocuments: z.array(legalDocumentRefSchema).min(1).max(10),
+    /**
+     * 12.4a — the checkbox. `literal(true)` rather than `boolean`, so the
+     * schema itself refuses a registration where the box was not ticked; there
+     * is no code path that can forget to check it.
+     *
+     * Only the Terms carry this. A privacy notice has no tick because there is
+     * nothing to tick — the reader is informed, not asked.
+     */
+    termsAccepted: z.literal(true),
   })
   .strict();
 

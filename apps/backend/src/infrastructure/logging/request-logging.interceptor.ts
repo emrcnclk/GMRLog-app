@@ -1,4 +1,6 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   type CallHandler,
   type ExecutionContext,
@@ -30,11 +32,23 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const reply = context.switchToHttp().getResponse<FastifyReply>();
     const startedAt = performance.now();
     const correlationId = resolveCorrelationId(request);
+    // The route *pattern* (e.g. `/api/v1/users/:id`), not the raw URL — keeps
+    // metric label cardinality bounded by route count rather than by every
+    // distinct ID a client ever requests. Same fallback other interceptors in
+    // this codebase use (idempotency.interceptor.ts, rate-limit.interceptor.ts):
+    // `routeOptions.url` is null for a request that matched no route (a 404).
+    const route = request.routeOptions.url ?? request.url;
 
     return next.handle().pipe(
       tap({
         next: () => {
-          this.metrics.recordHttpRequest();
+          const durationMs = Math.round(performance.now() - startedAt);
+          this.metrics.recordHttpRequest({
+            method: request.method,
+            route,
+            statusCode: reply.statusCode,
+            durationMs,
+          });
           this.logger.event(
             'info',
             {
@@ -43,12 +57,21 @@ export class RequestLoggingInterceptor implements NestInterceptor {
               method: request.method,
               url: request.url,
               statusCode: reply.statusCode,
-              durationMs: Math.round(performance.now() - startedAt),
+              durationMs,
             },
             'request completed',
           );
         },
         error: (error: unknown) => {
+          const durationMs = Math.round(performance.now() - startedAt);
+          const statusCode =
+            error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+          this.metrics.recordHttpRequest({
+            method: request.method,
+            route,
+            statusCode,
+            durationMs,
+          });
           this.logger.event(
             'warn',
             {
@@ -56,7 +79,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
               correlationId,
               method: request.method,
               url: request.url,
-              durationMs: Math.round(performance.now() - startedAt),
+              durationMs,
               error: error instanceof Error ? error.message : String(error),
             },
             'request failed',

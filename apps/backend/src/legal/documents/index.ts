@@ -42,15 +42,40 @@ export const DEFAULT_LEGAL_LOCALE: LegalLocale = 'en';
  * registry with `requiresAcceptance: true` and then be silently missing from
  * the sign-up flow.
  *
- * The Aydınlatma Metni is deliberately not here: KVKK Art. 10 makes it a
- * disclosure to be *given*, distinct from consent, and attaching an accept
- * control to it would manufacture a consent for processing that does not rest
- * on consent.
+ * Neither the Aydınlatma Metni nor the Privacy Policy is here. KVKK Art. 10 and
+ * GDPR Art. 13/14 make a privacy notice a disclosure to be *given*, distinct
+ * from consent; attaching an accept control to one manufactures a consent for
+ * processing that does not rest on consent. **Only the Terms of Service are a
+ * contract, and only a contract is accepted** — 12.4a corrected the Privacy
+ * Policy, which 12.4 had on the wrong side of this line.
  */
 export const ACCEPTANCE_REQUIRED_DOCUMENT_IDS: readonly LegalDocumentId[] =
   LEGAL_DOCUMENT_IDS.filter((id) =>
     LEGAL_DOCUMENTS.some((document) => document.id === id && document.requiresAcceptance),
   );
+
+/**
+ * 12.4a — the documents that are *given*, not agreed to.
+ *
+ * The complement of the list above, derived the same way rather than restated,
+ * so a document can never fall into both lists or neither. The Privacy Policy
+ * and the Aydınlatma Metni live here: GDPR Art. 13/14 and KVKK Art. 10 make a
+ * privacy notice a disclosure obligation, and the reader is informed rather
+ * than asked. They are still shown at sign-up and their display is still
+ * recorded — as an acknowledgement, which is evidence of disclosure and not
+ * permission for anything.
+ */
+export const DISCLOSURE_DOCUMENT_IDS: readonly LegalDocumentId[] = LEGAL_DOCUMENT_IDS.filter(
+  (id) => !ACCEPTANCE_REQUIRED_DOCUMENT_IDS.includes(id),
+);
+
+/**
+ * 12.4a — what recording the display of a document means, given what kind of
+ * document it is. One place, so no caller has to decide.
+ */
+export function decisionForDisplayedDocument(id: LegalDocumentId): 'accepted' | 'acknowledged' {
+  return ACCEPTANCE_REQUIRED_DOCUMENT_IDS.includes(id) ? 'accepted' : 'acknowledged';
+}
 
 /** 12.1 — one document in one locale, or `null` if that pairing is not published. */
 export function findLegalDocument(

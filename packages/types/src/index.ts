@@ -1731,8 +1731,15 @@ export interface LegalDocumentResponse extends LegalDocumentSummaryResponse {
   body: string;
 }
 
-/** 12.4 — a recorded decision. Not a boolean; see `UserConsent.decision`. */
-export type LegalConsentDecisionValue = 'accepted' | 'declined' | 'withdrawn';
+/**
+ * 12.4 — a recorded decision. Not a boolean; see `UserConsent.decision`.
+ *
+ * 12.4a added `acknowledged`, which is not a decision at all and that is the
+ * point: a privacy notice is *given* under GDPR Art. 13/14 and KVKK Art. 10, not
+ * agreed to. It records that a version was displayed — evidence of disclosure,
+ * never permission.
+ */
+export type LegalConsentDecisionValue = 'accepted' | 'declined' | 'withdrawn' | 'acknowledged';
 
 /** 12.4 — one decision on record, for one document at one version. */
 export interface LegalConsentRecordResponse {
@@ -1757,8 +1764,17 @@ export interface LegalConsentRecordResponse {
 export interface LegalConsentStateResponse {
   /** Every decision on record, newest first. History, not just the current state. */
   decisions: LegalConsentRecordResponse[];
-  /** Required documents whose current version carries no decision at all. Ask about these. */
+  /** Documents requiring acceptance whose current version carries no decision. Ask about these. */
   outstanding: LegalDocumentSummaryResponse[];
-  /** True only when every required document is `accepted` at its current version. */
+  /** True only when every document requiring acceptance is `accepted` at its current version. */
   satisfied: boolean;
+  /**
+   * 12.4a — notices whose current version has not been shown to this player yet.
+   *
+   * Separate from `outstanding` because the remedy is different: an outstanding
+   * document needs an answer, an undisclosed notice needs to be *displayed*.
+   * Putting a privacy notice in `outstanding` would imply asking for something
+   * it is not lawful to ask for.
+   */
+  undisclosed: LegalDocumentSummaryResponse[];
 }

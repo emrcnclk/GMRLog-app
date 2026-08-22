@@ -15,7 +15,13 @@ export const privacyPolicyTr: LegalDocumentDefinition = {
   version: '1.0.0',
   effectiveDate: '2026-08-21',
   title: 'Gizlilik Politikası',
-  requiresAcceptance: true,
+  // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
+  // that a privacy notice be *given*; the reader is informed, they do not
+  // consent to it. Presenting it with an accept control would blur the same
+  // line the Aydınlatma Metni was already kept on the right side of. It is
+  // still shown, still linked from sign-up, and its display is still recorded —
+  // as an acknowledgement.
+  requiresAcceptance: false,
   body: `# Gizlilik Politikası
 
 **Yürürlük tarihi:** 21 Ağustos 2026

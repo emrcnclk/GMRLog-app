@@ -23,7 +23,13 @@ export const privacyPolicyEn: LegalDocumentDefinition = {
   version: '1.0.0',
   effectiveDate: '2026-08-21',
   title: 'Privacy Policy',
-  requiresAcceptance: true,
+  // 12.4a — a notice, not a bargain. GDPR Art. 13/14 and KVKK Art. 10 require
+  // that a privacy notice be *given*; the reader is informed, they do not
+  // consent to it. Presenting it with an accept control would blur the same
+  // line the Aydınlatma Metni was already kept on the right side of. It is
+  // still shown, still linked from sign-up, and its display is still recorded —
+  // as an acknowledgement.
+  requiresAcceptance: false,
   body: `# Privacy Policy
 
 **Effective date:** 21 August 2026

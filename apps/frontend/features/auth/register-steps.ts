@@ -3,14 +3,18 @@ import { sessionRegisterSchema, type SessionRegisterInput } from '@gmrlog/valida
 /**
  * The fields a player actually types.
  *
- * 12.4 added `acceptedLegalDocuments` to `sessionRegisterSchema`, and it is not
- * one of them: it is an array of objects recording what the app displayed, not
- * an input. Deriving this from the whole schema swept it into the step machinery
- * — the field-props map, the `Controller` loop and the per-step completeness
- * check all assume a string field — so it is excluded here, at the one place
- * that decides what a step can hold.
+ * 12.4 added `shownLegalDocuments` to `sessionRegisterSchema` and 12.4a added
+ * `termsAccepted`; neither is one of them. One is an array of objects recording
+ * what the app displayed, the other is a checkbox. Deriving this from the whole
+ * schema swept them into the step machinery — the field-props map, the
+ * `Controller` loop and the per-step completeness check all assume a string
+ * field — so they are excluded here, at the one place that decides what a step
+ * can hold.
  */
-export type RegisterField = Exclude<keyof SessionRegisterInput, 'acceptedLegalDocuments'>;
+export type RegisterField = Exclude<
+  keyof SessionRegisterInput,
+  'shownLegalDocuments' | 'termsAccepted'
+>;
 
 export interface RegisterStep {
   /** Stable id — used as a key and in the spec, never rendered. */
@@ -75,11 +79,17 @@ export function isRegisterStepComplete(
 /**
  * 12.4 — whether the register screen's forward/submit button is disabled.
  *
- * Extracted from the screen so the one rule that is easy to get wrong is
- * testable without rendering: **the last step also waits on the legal listing.**
- * A player cannot agree to a document the app has not loaded, and submitting
- * without the versions would either fail server-side or, worse, record consent
- * to something never displayed.
+ * Extracted from the screen so the two rules that are easy to get wrong are
+ * testable without rendering.
+ *
+ * **The last step waits on the legal listing.** A player cannot agree to a
+ * document the app has not loaded, and submitting without the versions would
+ * either fail server-side or, worse, record agreement to something never shown.
+ *
+ * **The last step waits on the tick (12.4a).** The wire schema types
+ * `termsAccepted` as `literal(true)`, so an unticked submission is refused
+ * anyway — but a button that submits and then fails is a worse experience than
+ * one that stays visibly disabled until the box is ticked.
  */
 export function isRegisterSubmitDisabled(input: {
   busy: boolean;
@@ -87,6 +97,7 @@ export function isRegisterSubmitDisabled(input: {
   isLastStep: boolean;
   isFormValid: boolean;
   legalReady: boolean;
+  termsAccepted: boolean;
 }): boolean {
   if (input.busy || !input.stepComplete) {
     return true;
@@ -96,5 +107,5 @@ export function isRegisterSubmitDisabled(input: {
     return false;
   }
 
-  return !input.isFormValid || !input.legalReady;
+  return !input.isFormValid || !input.legalReady || !input.termsAccepted;
 }

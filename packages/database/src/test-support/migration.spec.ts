@@ -79,12 +79,23 @@ describe('initial migration', () => {
 
     // A decision, not a boolean — `declined` is what makes a refusal
     // distinguishable from never having been asked.
+    //
+    // `acknowledged` (12.4a) is the odd one out and deliberately so: it is not a
+    // decision at all. A privacy notice is *given* under GDPR Art. 13/14 and
+    // KVKK Art. 10, so its record says "this version was displayed", never
+    // "this was agreed to". Order matters — it is `enumsortorder`, and
+    // `acknowledged` was appended by a later migration rather than slotted in.
     const decisions = await db.prisma.$queryRawUnsafe<{ enumlabel: string }[]>(
       `SELECT enumlabel FROM pg_enum e
        JOIN pg_type t ON t.oid = e.enumtypid
        WHERE t.typname = 'ConsentDecision' ORDER BY e.enumsortorder`,
     );
-    expect(decisions.map((row) => row.enumlabel)).toEqual(['accepted', 'declined', 'withdrawn']);
+    expect(decisions.map((row) => row.enumlabel)).toEqual([
+      'accepted',
+      'declined',
+      'withdrawn',
+      'acknowledged',
+    ]);
   });
 
   // D3.25 — docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md §3.2

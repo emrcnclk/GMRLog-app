@@ -1383,22 +1383,28 @@ export class AxiosApiClient {
   /**
    * `POST /sessions/register` — register (S1 §14.2).
    *
-   * 12.4 — `acceptedLegalDocuments` is required, not optional. The caller sends
-   * the versions it actually displayed so the server can refuse a stale
-   * acceptance: a player who left the sign-up screen open across a deploy
-   * agreed to a document that is no longer current, and recording that as
-   * consent to the new one would be a false statement in the evidence.
+   * 12.4 — the legal fields are required, not optional. The caller sends the
+   * versions it actually displayed so the server can refuse a stale submission:
+   * a player who left the sign-up screen open across a deploy read a document
+   * that is no longer current, and recording that as agreement to the new one
+   * would be a false statement in the evidence.
+   *
+   * 12.4a — `shownLegalDocuments` lists everything displayed and `termsAccepted`
+   * carries the tick. Only the Terms are accepted; the notices are acknowledged,
+   * and the server derives which is which from the document itself, so a client
+   * cannot mislabel a privacy notice as consent.
    */
   register(body: {
     email: string;
     password: string;
     displayName: string;
     handle: string;
-    acceptedLegalDocuments: {
+    shownLegalDocuments: {
       documentId: LegalDocumentId;
       version: string;
       locale: LegalLocale;
     }[];
+    termsAccepted: true;
   }): Promise<ApiEnvelope<{ accessToken: string; refreshToken: string }>> {
     return this.request<{ accessToken: string; refreshToken: string }>({
       method: 'POST',

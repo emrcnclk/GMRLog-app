@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
   DEFAULT_LEGAL_LOCALE,
+  DISCLOSURE_DOCUMENT_IDS,
   LEGAL_DOCUMENTS,
   findLegalDocument,
   legalConsentKey,
@@ -51,20 +52,26 @@ describe('legal document registry', () => {
     }
   });
 
-  it('requires acceptance of the terms and the privacy policy, but not the disclosure notice', () => {
-    // KVKK Art. 10 makes the Aydınlatma Metni a disclosure to be given, not a
-    // bargain to agree to. Attaching an accept control to it would manufacture
-    // a consent for processing that does not rest on consent.
-    expect([...ACCEPTANCE_REQUIRED_DOCUMENT_IDS].sort()).toEqual([
-      'privacy-policy',
-      'terms-of-service',
-    ]);
+  it('requires acceptance of the terms, and of nothing else', () => {
+    // 12.4a. Only a contract is accepted. GDPR Art. 13/14 and KVKK Art. 10 make
+    // a privacy notice something *given* — the reader is informed, not asked —
+    // so attaching an accept control to one manufactures a consent for
+    // processing that does not rest on consent. 12.1 drew this line for the
+    // Aydınlatma Metni and 12.4a extended it to the Privacy Policy, which had
+    // been on the wrong side of it.
+    expect([...ACCEPTANCE_REQUIRED_DOCUMENT_IDS]).toEqual(['terms-of-service']);
 
     for (const document of LEGAL_DOCUMENTS) {
       expect(document.requiresAcceptance, `${document.id}/${document.locale}`).toBe(
-        document.id !== 'disclosure-notice',
+        document.id === 'terms-of-service',
       );
     }
+  });
+
+  it('splits every document into exactly one of the two lists', () => {
+    const union = [...ACCEPTANCE_REQUIRED_DOCUMENT_IDS, ...DISCLOSURE_DOCUMENT_IDS].sort();
+    expect(union).toEqual([...LEGAL_DOCUMENT_IDS].sort());
+    expect(new Set(union).size).toBe(union.length);
   });
 });
 

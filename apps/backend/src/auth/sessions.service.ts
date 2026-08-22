@@ -104,11 +104,15 @@ export class SessionsService {
     const email = normalizeEmail(input.email);
     const handle = input.handle;
 
-    // 12.4 — before anything is created. A registration whose acceptance is
+    // 12.4 — before anything is created. A registration whose submission is
     // stale or incomplete fails here, so there is never an account whose
     // consent record is missing or says something untrue about what the player
     // was shown. Cheapest check first, and it needs no database round-trip.
-    this.legalConsent.assertAcceptanceIsCurrent(input.acceptedLegalDocuments);
+    //
+    // 12.4a — `termsAccepted` needs no check of its own: the schema types it
+    // `literal(true)`, so a registration where the box was not ticked never
+    // reaches this method.
+    this.legalConsent.assertShownDocumentsAreCurrent(input.shownLegalDocuments);
 
     const existingHandle = await this.users.findByHandle(handle);
     if (existingHandle != null) {
@@ -139,7 +143,7 @@ export class SessionsService {
     // Already validated above, so the only way this fails is the database being
     // unavailable — in which case the registration fails loudly rather than
     // leaving an account with no evidence of consent behind it.
-    await this.legalConsent.recordRegistrationConsent(user.id, input.acceptedLegalDocuments);
+    await this.legalConsent.recordRegistrationConsent(user.id, input.shownLegalDocuments);
 
     return this.issueCredentialPair(user.id);
   }

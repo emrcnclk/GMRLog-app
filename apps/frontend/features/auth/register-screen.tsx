@@ -79,10 +79,14 @@ const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
  * of all at once.
  */
 /**
- * 12.4 — the schema the form validates: the wire schema minus the acceptance
- * record, which the player does not type.
+ * 12.4 / 12.4a — the schema the form validates: the wire schema minus the two
+ * fields the player does not type. The record of what was displayed is merged
+ * in at submit; the tick lives in its own state beside the submit button.
  */
-const REGISTER_FORM_SCHEMA = sessionRegisterSchema.omit({ acceptedLegalDocuments: true });
+const REGISTER_FORM_SCHEMA = sessionRegisterSchema.omit({
+  shownLegalDocuments: true,
+  termsAccepted: true,
+});
 
 type RegisterFormInput = import('zod').infer<typeof REGISTER_FORM_SCHEMA>;
 
@@ -94,6 +98,9 @@ export function RegisterScreen() {
   const [banner, setBanner] = useState<AuthUiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  // 12.4a — the tick. Local state rather than a form field: it is not one of
+  // the four values the player types, and the step machinery assumes strings.
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // 12.4 — the versions actually in front of the player, fetched from the
   // public `/legal` listing rather than made up client-side.
@@ -132,7 +139,8 @@ export function RegisterScreen() {
     stepComplete,
     isLastStep,
     isFormValid: isValid,
-    legalReady: legal.acceptance.length > 0,
+    legalReady: legal.shown.length > 0,
+    termsAccepted,
   });
 
   const onSubmit = handleSubmit(async (input: RegisterFormInput) => {
@@ -140,9 +148,15 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       // 12.4 — the versions actually shown, sent so the server can refuse a
-      // stale acceptance rather than record consent to a document the player
-      // never saw.
-      await register({ ...input, acceptedLegalDocuments: legal.acceptance });
+      // stale submission rather than record agreement to a document the player
+      // never saw. 12.4a — the tick travels separately, because only the Terms
+      // are accepted; the notices are acknowledged, and the server decides
+      // which is which from the document itself.
+      await register({
+        ...input,
+        shownLegalDocuments: legal.shown,
+        termsAccepted: true,
+      });
     } catch (error) {
       setBanner(mapAuthError(error, isOnline));
     } finally {
@@ -241,7 +255,7 @@ export function RegisterScreen() {
           actually creates the account is the one where the sentence means
           something. 12.3 gave both routes real documents, so the two words are
           links now — the follow-up 3.10 raised and 3.11 re-raised is closed. */}
-      <AuthLegalLine />
+      <AuthLegalLine termsAccepted={termsAccepted} onTermsAcceptedChange={setTermsAccepted} />
     </AuthShell>
   );
 }

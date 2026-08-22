@@ -7,12 +7,14 @@ import type {
   LegalDocumentSummaryResponse,
   LegalLocale,
 } from '@gmrlog/types';
-import type { LegalAcceptanceInput, LegalConsentDecisionInput } from '@gmrlog/validators';
+import type { LegalConsentDecisionInput, LegalDocumentRefInput } from '@gmrlog/validators';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import {
   ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
   DEFAULT_LEGAL_LOCALE,
+  DISCLOSURE_DOCUMENT_IDS,
+  decisionForDisplayedDocument,
   legalConsentKey,
   resolveLegalDocument,
 } from './documents';
@@ -50,25 +52,36 @@ export class LegalConsentService {
    * Validates what a registration submitted against what is actually current.
    *
    * Rejects rather than silently correcting. A player who left the sign-up
-   * screen open across a deploy accepted a document that is no longer current;
-   * quietly recording that as consent to the new version would put a false
+   * screen open across a deploy read a document that is no longer current;
+   * quietly recording that as agreement to the new version would put a false
    * statement in the very record that exists to be evidence.
+   *
+   * 12.4a — the submission now lists what was *displayed*. Every document must
+   * be present and current, whether it is a contract or a notice: a privacy
+   * notice that was not shown has not been given, and the disclosure obligation
+   * is not discharged by having a copy on a server somewhere.
    */
-  assertAcceptanceIsCurrent(accepted: readonly LegalAcceptanceInput[]): void {
-    const byDocument = new Map<string, LegalAcceptanceInput>();
+  assertShownDocumentsAreCurrent(shown: readonly LegalDocumentRefInput[]): void {
+    const byDocument = new Map<string, LegalDocumentRefInput>();
 
-    for (const entry of accepted) {
+    for (const entry of shown) {
       if (byDocument.has(entry.documentId)) {
-        throw new BadRequestException(`Duplicate acceptance for ${entry.documentId}`);
+        throw new BadRequestException(`Duplicate entry for ${entry.documentId}`);
       }
       byDocument.set(entry.documentId, entry);
     }
 
-    for (const id of ACCEPTANCE_REQUIRED_DOCUMENT_IDS) {
+    const required = [...ACCEPTANCE_REQUIRED_DOCUMENT_IDS, ...DISCLOSURE_DOCUMENT_IDS];
+
+    for (const id of required) {
       const entry = byDocument.get(id);
 
       if (entry === undefined) {
-        throw new BadRequestException(`Acceptance of ${id} is required`);
+        throw new BadRequestException(
+          ACCEPTANCE_REQUIRED_DOCUMENT_IDS.includes(id)
+            ? `Acceptance of ${id} is required`
+            : `${id} must be shown before an account is created`,
+        );
       }
 
       const current = resolveLegalDocument(id, entry.locale);
@@ -80,38 +93,41 @@ export class LegalConsentService {
       if (current.version !== entry.version) {
         // The client is a version behind. Better a failed registration the
         // player can retry against the current text than an account whose
-        // consent record says something untrue.
+        // record says something untrue.
         throw new BadRequestException(
-          `${id} has moved to ${current.version}; re-read and accept the current version`,
+          `${id} has moved to ${current.version}; re-read the current version`,
         );
       }
     }
 
     for (const entry of byDocument.values()) {
-      const document = resolveLegalDocument(entry.documentId, entry.locale);
-
-      if (!document?.requiresAcceptance) {
-        // The Aydınlatma Metni is a disclosure, not a bargain (12.1). Accepting
-        // it would manufacture a consent for processing that does not rest on
-        // consent, so the route refuses rather than storing it.
-        throw new BadRequestException(`${entry.documentId} is not a document to accept`);
+      if (resolveLegalDocument(entry.documentId, entry.locale) === null) {
+        throw new BadRequestException(`Unknown legal document: ${entry.documentId}`);
       }
     }
   }
 
-  /** Records a registration's acceptances. Called inside the register flow. */
+  /**
+   * Records what a registration displayed.
+   *
+   * **The verdict is derived here, not sent by the client.** The Terms are
+   * `accepted` — the schema's `termsAccepted: literal(true)` guarantees the box
+   * was ticked before this runs — and every notice is `acknowledged`. A client
+   * cannot mislabel a privacy notice as consent because it never gets to say
+   * what a display means.
+   */
   async recordRegistrationConsent(
     userId: string,
-    accepted: readonly LegalAcceptanceInput[],
+    shown: readonly LegalDocumentRefInput[],
   ): Promise<void> {
     await this.consents.recordMany(
-      accepted.map((entry) => ({
+      shown.map((entry) => ({
         userId,
         documentId: entry.documentId,
         version: entry.version,
         locale: entry.locale,
         consentKey: legalConsentKey(entry.documentId, entry.version),
-        decision: 'accepted' as const,
+        decision: decisionForDisplayedDocument(entry.documentId),
       })),
     );
   }
@@ -156,14 +172,21 @@ export class LegalConsentService {
   /**
    * Where a player stands.
    *
-   * `outstanding` holds required documents whose current version carries **no
-   * decision at all**. A declined or withdrawn version is not outstanding — it
-   * was asked and answered — which is what stops the app re-prompting a refusal
-   * on every launch (F2.27 §7: "no dark patterns that re-enable after refusal",
-   * "silence is not consent"). `satisfied` is the separate question of whether
-   * every required document is accepted; a caller that needs to know "may this
-   * player proceed" reads that, and a caller that needs to know "what should I
-   * ask about" reads `outstanding`.
+   * Three separate answers, because they call for three different actions.
+   *
+   * `outstanding` holds documents requiring acceptance whose current version
+   * carries **no decision at all** — ask about these. A declined or withdrawn
+   * version is not outstanding: it was asked and answered, which is what stops
+   * the app re-prompting a refusal on every launch (F2.27 §7).
+   *
+   * `undisclosed` (12.4a) holds notices whose current version has not been
+   * shown. The remedy is to *display* it, not to ask about it — putting a
+   * privacy notice in `outstanding` would imply asking for something it is not
+   * lawful to ask for.
+   *
+   * `satisfied` is the separate question of whether every document requiring
+   * acceptance is accepted. A caller asking "may this player proceed" reads
+   * that; one asking "what do I show" reads the other two.
    */
   async getState(
     userId: string,
@@ -179,6 +202,20 @@ export class LegalConsentService {
       decidedAt: row.decidedAt.toISOString(),
     }));
 
+    const summarise = (
+      document: NonNullable<ReturnType<typeof resolveLegalDocument>>,
+    ): LegalDocumentSummaryResponse => ({
+      id: document.id,
+      locale: document.locale,
+      version: document.version,
+      effectiveDate: document.effectiveDate,
+      title: document.title,
+      requiresAcceptance: document.requiresAcceptance,
+    });
+
+    const recordFor = (id: LegalDocumentId, version: string) =>
+      decisions.find((row) => row.documentId === id && row.version === version);
+
     const outstanding: LegalDocumentSummaryResponse[] = [];
     let satisfied = true;
 
@@ -189,21 +226,12 @@ export class LegalConsentService {
         continue;
       }
 
-      const decision = decisions.find(
-        (row) => row.documentId === id && row.version === current.version,
-      );
+      const decision = recordFor(id, current.version);
 
       if (decision === undefined) {
         // Never asked at this version — an OAuth sign-up, an account older than
         // this table, or a version bump since the last acceptance.
-        outstanding.push({
-          id: current.id,
-          locale: current.locale,
-          version: current.version,
-          effectiveDate: current.effectiveDate,
-          title: current.title,
-          requiresAcceptance: current.requiresAcceptance,
-        });
+        outstanding.push(summarise(current));
         satisfied = false;
         continue;
       }
@@ -213,9 +241,26 @@ export class LegalConsentService {
       }
     }
 
+    const undisclosed: LegalDocumentSummaryResponse[] = [];
+
+    for (const id of DISCLOSURE_DOCUMENT_IDS) {
+      const current = resolveLegalDocument(id, locale);
+
+      if (current === null) {
+        continue;
+      }
+
+      // Any record of this version counts as shown. There is no "wrong" answer
+      // to a notice — the obligation is discharged by display, not by a verdict.
+      if (recordFor(id, current.version) === undefined) {
+        undisclosed.push(summarise(current));
+      }
+    }
+
     return {
       decisions,
       outstanding,
+      undisclosed,
       satisfied,
     };
   }

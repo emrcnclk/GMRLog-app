@@ -74,6 +74,7 @@ describe('isRegisterSubmitDisabled', () => {
     isLastStep: true,
     isFormValid: true,
     legalReady: true,
+    termsAccepted: true,
   };
 
   it('enables the submit once the form and the legal listing are both ready', () => {

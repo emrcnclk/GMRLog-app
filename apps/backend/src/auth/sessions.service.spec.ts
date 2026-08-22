@@ -1,4 +1,6 @@
-import { ACCEPTANCE_REQUIRED_DOCUMENT_IDS, resolveLegalDocument } from '../legal/documents';
+import { LEGAL_DOCUMENT_IDS } from '@gmrlog/types';
+
+import { resolveLegalDocument } from '../legal/documents';
 import { LegalConsentService } from '../legal/legal-consent.service';
 import { createFakeUserConsentRepository } from '../legal/testing/fake-repositories';
 import type {
@@ -296,10 +298,13 @@ function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
 /**
  * 12.4 — the register flow now records consent, so the spec has to supply it.
  * Built from the live registry rather than hardcoded so a version bump does not
- * silently turn these into stale-acceptance tests.
+ * silently turn these into stale-submission tests.
+ *
+ * 12.4a — every document, not only the ones requiring acceptance: a notice that
+ * was not shown has not been given.
  */
-function currentAcceptance() {
-  return ACCEPTANCE_REQUIRED_DOCUMENT_IDS.map((documentId) => {
+function currentShownDocuments() {
+  return LEGAL_DOCUMENT_IDS.map((documentId) => {
     const document = resolveLegalDocument(documentId, 'en');
     if (document === null) {
       throw new Error(`missing legal document: ${documentId}`);
@@ -399,7 +404,8 @@ describe('SessionsService', () => {
       password: 'secure-password-12',
       displayName: 'New Player',
       handle: 'new_player',
-      acceptedLegalDocuments: currentAcceptance(),
+      shownLegalDocuments: currentShownDocuments(),
+      termsAccepted: true,
     });
 
     expect(result).toEqual({
@@ -437,7 +443,8 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'taken_handle',
-        acceptedLegalDocuments: currentAcceptance(),
+        shownLegalDocuments: currentShownDocuments(),
+        termsAccepted: true,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
@@ -628,7 +635,8 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'other_handle',
-        acceptedLegalDocuments: currentAcceptance(),
+        shownLegalDocuments: currentShownDocuments(),
+        termsAccepted: true,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
