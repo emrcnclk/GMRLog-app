@@ -124,8 +124,14 @@ export class LegalConsentService {
   async recordRegistrationConsent(
     userId: string,
     shown: readonly LegalDocumentRefInput[],
+    // 12.4 — the registration writes the user, the credential, the settings
+    // row and these together, and a caller that has opened a transaction for
+    // all four passes the repository bound to it. Defaults to this service's
+    // own, so every existing call site is unchanged; what it must never do is
+    // reach past a caller's transaction and commit on its own connection.
+    consents: UserConsentRepository = this.consents,
   ): Promise<void> {
-    await this.consents.recordMany(
+    await consents.recordMany(
       shown.map((entry) => ({
         userId,
         documentId: entry.documentId,

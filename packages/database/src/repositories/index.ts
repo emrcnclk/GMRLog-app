@@ -1,3 +1,4 @@
+export { withTransaction } from './types';
 export type { DatabaseClient } from './types';
 
 export { PrismaUserRepository, type UserRepository } from './user.repository';

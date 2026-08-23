@@ -91,7 +91,17 @@ export interface AxiosApiClientConfig {
   getAccessToken: () => string | null | Promise<string | null>;
   getRefreshToken: () => string | null | Promise<string | null>;
   onSessionRefreshed: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
-  onSessionCleared: () => Promise<void>;
+  /**
+   * The session could not be recovered and has been dropped.
+   *
+   * `error` carries *why* when the server said so — 12.6's `ACCOUNT_DELETED`
+   * is the case that matters: `enforceGracePeriod` runs on refresh too, so an
+   * account whose 30 days lapsed fails here rather than at sign-in. Without it
+   * the caller cannot tell "the account no longer exists" from an ordinary
+   * expiry, and the copy written for that case is never shown. `undefined`
+   * when there was no server response to read a reason from.
+   */
+  onSessionCleared: (error?: FrontendApiError) => Promise<void>;
   createRequestId?: () => string;
   /** Max network retries for idempotent GETs (default 1). */
   maxRetries?: number;
@@ -127,6 +137,15 @@ function defaultRequestId(): string {
   return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Why a refresh attempt ended. `reason` is the server's own refusal when there
+ * was a response to read one from — see `AxiosApiClientConfig.onSessionCleared`.
+ */
+interface RefreshOutcome {
+  recovered: boolean;
+  reason: FrontendApiError | null;
+}
+
 type RetriableConfig = InternalAxiosRequestConfig & {
   _retryCount?: number;
   _skipUnauthorizedRecovery?: boolean;
@@ -138,7 +157,7 @@ type RetriableConfig = InternalAxiosRequestConfig & {
  */
 export class AxiosApiClient {
   private readonly http: AxiosInstance;
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshOutcome> | null = null;
   private readonly maxRetries: number;
 
   constructor(private readonly config: AxiosApiClientConfig) {
@@ -172,12 +191,12 @@ export class AxiosApiClient {
         const status = error.response?.status;
 
         if (status === 401 && !original._skipUnauthorizedRecovery) {
-          const recovered = await this.refreshSessionInterceptor();
-          if (recovered) {
+          const outcome = await this.refreshSessionInterceptor();
+          if (outcome.recovered) {
             original._skipUnauthorizedRecovery = true;
             return this.http.request(original);
           }
-          await this.config.onSessionCleared();
+          await this.config.onSessionCleared(outcome.reason ?? undefined);
         }
 
         if (
@@ -1531,7 +1550,7 @@ export class AxiosApiClient {
     return this.delete<AccountDeletionStatusResponse>('/me/account/deletion');
   }
 
-  private async refreshSessionInterceptor(): Promise<boolean> {
+  private async refreshSessionInterceptor(): Promise<RefreshOutcome> {
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
@@ -1539,20 +1558,51 @@ export class AxiosApiClient {
     this.refreshPromise = (async () => {
       const refreshToken = await this.config.getRefreshToken();
       if (!refreshToken) {
-        return false;
+        return { recovered: false, reason: null };
       }
       try {
         const response = await this.http.post<
           ApiEnvelope<{ accessToken: string; refreshToken: string }>
-        >('/sessions/refresh', { refreshToken }, { headers: { Authorization: undefined } });
+        >(
+          '/sessions/refresh',
+          { refreshToken },
+          {
+            headers: { Authorization: undefined },
+            // A 401 from the refresh route *is* the answer — there is nothing
+            // left to recover with. Without this flag the response
+            // interceptor treats it like any other 401 and calls back into
+            // this method, which returns the very promise it is running
+            // inside: the refresh never settles and the sign-out never
+            // happens. Every 401 refusal on this route hit that, including
+            // 12.6's `ACCOUNT_DELETED`.
+            ...({ _skipUnauthorizedRecovery: true } as object),
+          },
+        );
         const tokens = response.data.data;
         if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) {
-          return false;
+          return { recovered: false, reason: null };
         }
         await this.config.onSessionRefreshed(tokens);
-        return true;
-      } catch {
-        return false;
+        return { recovered: true, reason: null };
+      } catch (error) {
+        // The refresh still fails and the session still goes — but *why* it
+        // failed is carried out rather than swallowed. A blanket catch here
+        // is what made 12.6's `ACCOUNT_DELETED` copy unreachable from its
+        // most likely trigger: a background 401 -> refresh on an account
+        // whose grace period lapsed signed the player out as if by ordinary
+        // expiry.
+        // The response interceptor converts before it rethrows, so this is
+        // normally already a `FrontendApiError` carrying the server's envelope;
+        // a throw from outside that path is converted rather than dropped.
+        return {
+          recovered: false,
+          reason:
+            error instanceof FrontendApiError
+              ? error
+              : axios.isAxiosError(error)
+                ? this.toApiError(error)
+                : null,
+        };
       } finally {
         this.refreshPromise = null;
       }

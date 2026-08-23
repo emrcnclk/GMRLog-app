@@ -13,6 +13,7 @@ import { useCallback } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { useLegalDocument } from '../hooks/use-legal-document';
+import { useLegalLocale } from '../hooks/use-legal-locale';
 import { legalVersionLine } from '../model/legal-model';
 
 import { LEGAL_MEASURE } from './legal-document-screen';
@@ -27,7 +28,11 @@ import { LEGAL_MEASURE } from './legal-document-screen';
  */
 function GateDocumentBody({ documentId }: { documentId: LegalDocumentId }) {
   const theme = useTheme();
-  const view = useLegalDocument(documentId);
+  // The gate is the one place a document is read *in order to decide*, so the
+  // translation shown here and the `locale` the decision is recorded against
+  // have to be the same one — `useDecideLegalConsent` resolves it identically.
+  const { locale } = useLegalLocale();
+  const view = useLegalDocument(documentId, locale);
 
   const onRetry = useCallback(() => {
     void view.refresh();

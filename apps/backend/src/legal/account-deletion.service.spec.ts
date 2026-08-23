@@ -42,6 +42,10 @@ describe('AccountDeletionService', () => {
     $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 
+  // 12.6 — `cancelDeletion` releases the caller's own `deletion` rate-limit
+  // window so a cancel-then-re-request inside the same day isn't held at 429.
+  const redis = { del: vi.fn() };
+
   let service: AccountDeletionService;
 
   beforeEach(() => {
@@ -52,7 +56,8 @@ describe('AccountDeletionService', () => {
     prisma.communityMember.findMany.mockResolvedValue([]);
     prisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
 
-    service = new AccountDeletionService(prisma as never);
+    redis.del.mockResolvedValue(1);
+    service = new AccountDeletionService(prisma as never, redis as never);
   });
 
   afterEach(() => {
@@ -106,6 +111,28 @@ describe('AccountDeletionService', () => {
       expect(prisma.accountDeletionRequest.update).toHaveBeenCalledWith({
         where: { userId: USER },
         data: { cancelledAt: now },
+      });
+    });
+
+    it('releases the deletion rate-limit window so a same-day re-request is not held at 429', async () => {
+      prisma.accountDeletionRequest.findUnique.mockResolvedValue(makeRequest());
+
+      await service.cancelDeletion(USER);
+
+      expect(redis.del).toHaveBeenCalledWith(`ratelimit:deletion:user:${USER}`);
+    });
+
+    it('still cancels when the rate-limit release fails', async () => {
+      // The limiter fails open when Redis is down; a cancellation already
+      // committed to the database must not be reported as failed because a
+      // cache write did not land.
+      prisma.accountDeletionRequest.findUnique.mockResolvedValue(makeRequest());
+      redis.del.mockRejectedValueOnce(new Error('redis not ready'));
+
+      await expect(service.cancelDeletion(USER)).resolves.toEqual({
+        pending: false,
+        requestedAt: null,
+        deletesAt: null,
       });
     });
 

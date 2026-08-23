@@ -2,7 +2,7 @@ import { Button, ErrorBanner, TextField, useTheme } from '@gmrlog/ui';
 import { sessionCreateSchema, type SessionCreateInput } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Mail } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { View } from 'react-native';
 
@@ -33,10 +33,25 @@ export function LoginScreen() {
   const theme = useTheme();
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const sessionEndedNotice = useAuthStore((s) => s.sessionEndedNotice);
+  const clearSessionEndedNotice = useAuthStore((s) => s.clearSessionEndedNotice);
   const isOnline = useConnectivityStore((s) => s.isOnline);
   const [banner, setBanner] = useState<AuthUiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<'providers' | 'email'>('providers');
+
+  // 12.6 — a session the player did not end, ended for a reason they need to
+  // read: an account whose deletion grace period lapsed fails on refresh, in
+  // the background, and lands them here. Consumed once and cleared, so it
+  // cannot reappear over a later, unrelated sign-in attempt. It goes into the
+  // same `banner` the form uses rather than a second surface — §1 gives this
+  // screen exactly one place for a message.
+  useEffect(() => {
+    if (sessionEndedNotice !== null) {
+      setBanner(sessionEndedNotice);
+      clearSessionEndedNotice();
+    }
+  }, [sessionEndedNotice, clearSessionEndedNotice]);
 
   const form = useAppForm(sessionCreateSchema, {
     defaultValues: { email: '', password: '' },

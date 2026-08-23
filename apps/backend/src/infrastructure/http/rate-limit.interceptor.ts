@@ -72,6 +72,24 @@ const CLASS_POLICIES: Readonly<Record<RateLimitClassName, RateLimitPolicy>> = {
   public: { limit: 60, windowMs: 60_000 },
 };
 
+/**
+ * The Redis key one class + identifier's sliding window lives under.
+ *
+ * Exported, with `rateLimitUserIdentifier`, so a domain that legitimately
+ * *undoes* the action a window was counting can release it rather than leave
+ * the player held for the rest of a 24-hour bucket — see
+ * `AccountDeletionService.cancelDeletion`. Nothing else should reach for
+ * these: a caller clearing a window it did not undo is defeating the limiter.
+ */
+export function rateLimitWindowKey(rateClass: RateLimitClassName, identifier: string): string {
+  return `ratelimit:${rateClass}:${identifier}`;
+}
+
+/** The identifier half of {@link rateLimitWindowKey} for an authenticated caller. */
+export function rateLimitUserIdentifier(userId: string): string {
+  return `user:${userId}`;
+}
+
 interface WindowResult {
   limited: boolean;
   remaining: number;
@@ -143,7 +161,7 @@ export class RateLimitInterceptor implements NestInterceptor {
     policy: RateLimitPolicy,
   ): Promise<WindowResult | null> {
     try {
-      return await this.consume(`ratelimit:${rateClass}:${identifier}`, policy);
+      return await this.consume(rateLimitWindowKey(rateClass, identifier), policy);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.event('warn', { error: message, rateClass }, 'RATE_LIMIT_REDIS_UNAVAILABLE');
@@ -186,7 +204,7 @@ export class RateLimitInterceptor implements NestInterceptor {
   private resolveIdentifier(request: FastifyRequest & IdentityCarrier): string {
     const identity = request[REQUEST_IDENTITY_KEY];
     if (identity !== undefined && isAuthenticatedIdentity(identity)) {
-      return `user:${identity.userId}`;
+      return rateLimitUserIdentifier(identity.userId);
     }
     const forwarded = request.headers['x-forwarded-for'];
     const ip = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : request.ip;

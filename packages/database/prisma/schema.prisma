@@ -2461,8 +2461,15 @@ model SyncConflict {
 /// document would silently carry an old acceptance forward across a change to
 /// the very rights it granted.
 model UserConsent {
-  id      String @id @default(cuid())
-  userId  String @map("user_id")
+  id String @id @default(cuid())
+  /// Exact insertion order, and the only thing that resolves "the newest
+  /// decision" without ambiguity. `decidedAt` is millisecond-precision, so two
+  /// decisions recorded in the same millisecond — a batch, or a client
+  /// retrying — cannot be ordered by it, and in an append-only table
+  /// "which one is current" is the whole question. Not exposed on the wire;
+  /// `decidedAt` remains the fact a reader cares about.
+  sequence Int    @default(autoincrement())
+  userId   String @map("user_id")
   /// The legal document id — `terms-of-service`, `privacy-policy`,
   /// `disclosure-notice`. Stored as text rather than an enum so adding a
   /// document is a code change and not a migration; the registry in
@@ -2487,8 +2494,17 @@ model UserConsent {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, documentId, version])
+  /// **Append-only: one row per decision, not one row per version.**
+  /// `(user, document, version)` was unique, which made a re-decision an
+  /// UPDATE in place — a player who accepted 1.0.0, withdrew, then accepted
+  /// again left one row saying `accepted`, and the withdrawal in between was
+  /// unrecoverable. That is the evidentiary gap the repository's own docstring
+  /// says this design avoids: under KVKK and the GDPR the controller has to be
+  /// able to show what a player was asked and what they answered, including a
+  /// window during which consent was not held. The current answer for a
+  /// version is the newest row for it (`decidedAt` desc), never the only one.
   @@index([userId, documentId])
+  @@index([userId, documentId, version, sequence])
   @@map("user_consents")
 }
 

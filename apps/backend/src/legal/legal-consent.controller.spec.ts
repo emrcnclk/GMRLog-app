@@ -63,7 +63,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  consents.rows.clear();
+  consents.rows.length = 0;
 });
 
 describe('GET /me/legal-consents', () => {

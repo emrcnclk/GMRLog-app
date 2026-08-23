@@ -1,13 +1,20 @@
 import type { AccountDeletionStatusResponse } from '@gmrlog/types';
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { Redis } from 'ioredis';
 
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import {
+  rateLimitUserIdentifier,
+  rateLimitWindowKey,
+} from '../infrastructure/http/rate-limit.interceptor';
+import { PLATFORM_REDIS } from '../infrastructure/redis/redis.constants';
 
 const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -56,7 +63,10 @@ const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
  */
 @Injectable()
 export class AccountDeletionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PLATFORM_REDIS) private readonly redis: Redis,
+  ) {}
 
   async requestDeletion(userId: string): Promise<AccountDeletionStatusResponse> {
     const existing = await this.prisma.accountDeletionRequest.findUnique({ where: { userId } });
@@ -101,7 +111,31 @@ export class AccountDeletionService {
       data: { cancelledAt: new Date() },
     });
 
+    await this.releaseDeletionRateLimit(userId);
+
     return { pending: false, requestedAt: null, deletesAt: null };
+  }
+
+  /**
+   * The `deletion` class is 1 per 24 hours, and `POST` and this `DELETE` are
+   * two halves of one gesture: a player who requests deletion, cancels, and
+   * then changes their mind again the same day would otherwise be held at 429
+   * for the rest of the bucket on a right §7 promises them. The limiter is
+   * there to stop a rare, expensive action being *repeated*, and a cancel is
+   * the player undoing the request it counted — so the window goes with it.
+   *
+   * Only ever reached from the cancel path, and only for the caller's own
+   * window. Failures are swallowed on purpose: the limiter itself fails open
+   * when Redis is unavailable (`tryConsume`), and a cancellation that has
+   * already been committed to the database must not be reported as failed
+   * because a cache write did not land.
+   */
+  private async releaseDeletionRateLimit(userId: string): Promise<void> {
+    try {
+      await this.redis.del(rateLimitWindowKey('deletion', rateLimitUserIdentifier(userId)));
+    } catch {
+      // See above — advisory, never load-bearing.
+    }
   }
 
   async getStatus(userId: string): Promise<AccountDeletionStatusResponse> {

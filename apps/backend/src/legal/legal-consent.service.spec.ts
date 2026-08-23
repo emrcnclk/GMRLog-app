@@ -270,7 +270,13 @@ describe('getState', () => {
     expect(state.blocked.map((document) => document.id)).toEqual(['terms-of-service']);
   });
 
-  it('keeps one row per version, so a re-decision updates rather than accumulates', async () => {
+  it('keeps every decision on a version, newest first, rather than overwriting', async () => {
+    // This used to assert the opposite — one row per version, updated in
+    // place — which is what the `(user, document, version)` UNIQUE index
+    // enforced. It meant an accept -> withdraw -> accept sequence left a single
+    // row saying `accepted` and no trace of the window in between: exactly the
+    // evidence a controller has to be able to produce under KVKK / GDPR, and
+    // exactly what this repository's own docstring said it kept.
     const version = currentVersionOf('terms-of-service');
 
     await service.recordDecisions(USER, [
@@ -279,13 +285,23 @@ describe('getState', () => {
     await service.recordDecisions(USER, [
       { documentId: 'terms-of-service', version, locale: 'tr', decision: 'withdrawn' },
     ]);
+    await service.recordDecisions(USER, [
+      { documentId: 'terms-of-service', version, locale: 'tr', decision: 'accepted' },
+    ]);
 
     const rows = (await repository.listByUser(USER)).filter(
       (row) => row.documentId === 'terms-of-service',
     );
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.decision).toBe('withdrawn');
-    expect(rows[0]?.locale).toBe('tr');
+    expect(rows.map((row) => row.decision)).toEqual(['accepted', 'withdrawn', 'accepted']);
+
+    // The newest is still the current answer — history does not mean the
+    // service has to sift through it.
+    const current = await repository.findDecision(USER, 'terms-of-service', version);
+    expect(current?.decision).toBe('accepted');
+    expect(current?.locale).toBe('tr');
+
+    const state = await service.getState(USER);
+    expect(state.satisfied).toBe(true);
   });
 });
 

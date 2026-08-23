@@ -1,10 +1,12 @@
-import type { LegalDocumentSummaryResponse, LegalLocale } from '@gmrlog/types';
+import {
+  DEFAULT_LEGAL_LOCALE,
+  type LegalDocumentSummaryResponse,
+  type LegalLocale,
+} from '@gmrlog/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { useApiClient } from '../../../src/api/api-provider';
 import { queryKeys } from '../../../src/query/query-client';
-
-const DEFAULT_LOCALE: LegalLocale = 'en';
 
 export interface UseLegalDocumentsResult {
   documents: LegalDocumentSummaryResponse[];
@@ -35,7 +37,9 @@ export interface UseLegalDocumentsResult {
  * Public, so it works before an account exists — which is the whole reason
  * `/legal` takes no token.
  */
-export function useLegalDocuments(locale: LegalLocale = DEFAULT_LOCALE): UseLegalDocumentsResult {
+export function useLegalDocuments(
+  locale: LegalLocale = DEFAULT_LEGAL_LOCALE,
+): UseLegalDocumentsResult {
   const api = useApiClient();
 
   const query = useQuery({

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../infrastructure/database/prisma.module';
+import { RedisModule } from '../infrastructure/redis/redis.module';
 
 import { AccountDeletionService } from './account-deletion.service';
 
@@ -15,7 +16,10 @@ import { AccountDeletionService } from './account-deletion.service';
  * `PrismaModule`.
  */
 @Module({
-  imports: [PrismaModule],
+  // `RedisModule` for one thing only: releasing the caller's own `deletion`
+  // rate-limit window when they cancel (`releaseDeletionRateLimit`). Still no
+  // auth dependency, so the line described above is unchanged.
+  imports: [PrismaModule, RedisModule],
   providers: [AccountDeletionService],
   exports: [AccountDeletionService],
 })

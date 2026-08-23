@@ -1,4 +1,4 @@
-import type { LegalDocumentId, LegalLocale } from '@gmrlog/types';
+import { DEFAULT_LEGAL_LOCALE, type LegalDocumentId, type LegalLocale } from '@gmrlog/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
@@ -6,8 +6,6 @@ import { useApiClient } from '../../../src/api/api-provider';
 import { queryKeys } from '../../../src/query/query-client';
 import { useConnectivityStore } from '../../../src/state/stores';
 import { resolveLegalView, type LegalViewModel } from '../model/legal-model';
-
-const DEFAULT_LOCALE: LegalLocale = 'en';
 
 export interface UseLegalDocumentResult extends LegalViewModel {
   refresh: () => Promise<void>;
@@ -29,7 +27,7 @@ export interface UseLegalDocumentResult extends LegalViewModel {
  */
 export function useLegalDocument(
   document: LegalDocumentId | null,
-  locale: LegalLocale = DEFAULT_LOCALE,
+  locale: LegalLocale = DEFAULT_LEGAL_LOCALE,
 ): UseLegalDocumentResult {
   const api = useApiClient();
   const queryClient = useQueryClient();

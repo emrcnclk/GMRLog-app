@@ -20,6 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { NoopEmailService } from '../infrastructure/email/noop-email.service';
+import type { RegistrationTransaction } from './registration-transaction';
 import { parseBackendEnv } from '../infrastructure/config/env.schema';
 import { MemoryPasswordResetStore } from './password-reset.store';
 import { TokenService } from './jwt/token.service';
@@ -326,6 +327,8 @@ describe('SessionsService', () => {
   let tokens: TokenService;
   let passwordResetStore: MemoryPasswordResetStore;
   let email: NoopEmailService;
+  let consents: ReturnType<typeof createFakeUserConsentRepository>;
+  let registrationTransaction: RegistrationTransaction;
   let service: SessionsService;
   const env = parseBackendEnv({});
 
@@ -342,6 +345,12 @@ describe('SessionsService', () => {
       verifyOptions: { issuer: env.JWT_ISSUER },
     });
     tokens = new TokenService(jwt, env);
+    consents = createFakeUserConsentRepository();
+    // 12.4 — the real provider opens a Prisma transaction and rebuilds the four
+    // repositories against it. There is no transaction to open here, so the
+    // fake runs the callback against the same fakes the service reads from —
+    // which is the seam the token exists to give.
+    registrationTransaction = (fn) => fn({ users, credentials, settings, consents });
     service = new SessionsService(
       sessions,
       credentials,
@@ -351,11 +360,12 @@ describe('SessionsService', () => {
       env,
       passwordResetStore as never,
       email,
-      new LegalConsentService(createFakeUserConsentRepository()),
+      new LegalConsentService(consents),
       // 12.6 — this suite exercises login/register/refresh, not the deletion
       // grace period (`account-deletion.service.spec.ts` does that); a no-op
       // stub keeps `issueCredentialPair` callable without a real database.
       { enforceGracePeriod: async () => undefined } as unknown as AccountDeletionService,
+      registrationTransaction,
     );
   });
 

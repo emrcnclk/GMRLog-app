@@ -42,6 +42,7 @@ import {
 import { TokenService } from './jwt/token.service';
 import { hashPassword, verifyPassword } from './password';
 import { PasswordResetStore } from './password-reset.store';
+import { REGISTRATION_TRANSACTION, type RegistrationTransaction } from './registration-transaction';
 import { countUsableSignInMethods } from './sign-in-methods';
 
 /**
@@ -71,6 +72,8 @@ export class SessionsService {
     @Inject(EMAIL_PORT) private readonly email: EmailPort,
     private readonly legalConsent: LegalConsentService,
     private readonly accountDeletion: AccountDeletionService,
+    @Inject(REGISTRATION_TRANSACTION)
+    private readonly registrationTransaction: RegistrationTransaction,
   ) {}
 
   async login(input: SessionCreateInput): Promise<SessionCredentialResponse> {
@@ -127,40 +130,61 @@ export class SessionsService {
     }
 
     const secretHash = await hashPassword(input.password);
-    const user = await this.users.create({
-      handle,
-      displayName: input.displayName,
-      // 12.4c — `birthDate` and `countryCode` are nullable in the database
-      // because accounts predating those columns have no true value; the schema
-      // above makes it impossible for a *new* account to be in that state, so
-      // they are always written here.
-      birthDate: new Date(`${input.birthDate}T00:00:00Z`),
-      countryCode: input.countryCode,
-      // `undefined` rather than an empty string when the player left them
-      // blank — the validator normalises "" away, so a stored empty string
-      // never gets to read as "a name we have".
-      firstName: input.firstName,
-      lastName: input.lastName,
+
+    // 12.4 — one transaction for all four writes. They were four independent
+    // calls under a comment that claimed a failure part-way through "fails
+    // loudly rather than leaving an account with no evidence of consent behind
+    // it": it did fail loudly, and it also left the account. A transient error
+    // after the credential landed produced a real, password-holding account
+    // with no `UserConsent` row, and every retry then hit the
+    // `ConflictException` above ("Handle is already in use"), so it could never
+    // finish registering and never gain one. Now the whole thing commits or
+    // none of it does, and a retry meets a world where the handle is free.
+    const user = await this.registrationTransaction(async (repositories) => {
+      const created = await repositories.users.create({
+        handle,
+        displayName: input.displayName,
+        // 12.4c — `birthDate` and `countryCode` are nullable in the database
+        // because accounts predating those columns have no true value; the schema
+        // above makes it impossible for a *new* account to be in that state, so
+        // they are always written here.
+        birthDate: new Date(`${input.birthDate}T00:00:00Z`),
+        countryCode: input.countryCode,
+        // `undefined` rather than an empty string when the player left them
+        // blank — the validator normalises "" away, so a stored empty string
+        // never gets to read as "a name we have".
+        firstName: input.firstName,
+        lastName: input.lastName,
+      });
+
+      await repositories.credentials.create({
+        user: { connect: { id: created.id } },
+        type: 'password',
+        providerRef: email,
+        secretHash,
+      });
+
+      // 12.4c — the chosen language, so the first screen after registration is
+      // already in it. `UserSettings.locale` already existed; it was simply only
+      // reachable from Settings after the fact.
+      await repositories.settings.upsertByUser(created.id, { locale: input.locale });
+
+      // Recorded after the account exists inside the same transaction, because
+      // the row is keyed to the user. Already validated above, so the only way
+      // this fails is the database being unavailable — and now that rolls the
+      // account back with it.
+      await this.legalConsent.recordRegistrationConsent(
+        created.id,
+        input.shownLegalDocuments,
+        repositories.consents,
+      );
+
+      return created;
     });
 
-    await this.credentials.create({
-      user: { connect: { id: user.id } },
-      type: 'password',
-      providerRef: email,
-      secretHash,
-    });
-
-    // 12.4c — the chosen language, so the first screen after registration is
-    // already in it. `UserSettings.locale` already existed; it was simply only
-    // reachable from Settings after the fact.
-    await this.settings.upsertByUser(user.id, { locale: input.locale });
-
-    // Recorded after the account exists, because the row is keyed to the user.
-    // Already validated above, so the only way this fails is the database being
-    // unavailable — in which case the registration fails loudly rather than
-    // leaving an account with no evidence of consent behind it.
-    await this.legalConsent.recordRegistrationConsent(user.id, input.shownLegalDocuments);
-
+    // Outside the transaction on purpose: issuing a session is not part of the
+    // account's existence, and holding a transaction open across token signing
+    // and a session insert would widen the lock window for no benefit.
     return this.issueCredentialPair(user.id);
   }
 

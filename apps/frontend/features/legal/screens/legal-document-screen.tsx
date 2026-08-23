@@ -14,6 +14,7 @@ import { useCallback } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { useLegalDocument } from '../hooks/use-legal-document';
+import { useLegalLocale } from '../hooks/use-legal-locale';
 import { legalVersionLine } from '../model/legal-model';
 
 /**
@@ -38,7 +39,11 @@ export interface LegalDocumentScreenProps {
 export function LegalDocumentScreen({ document, backLabel = '← Back' }: LegalDocumentScreenProps) {
   const theme = useTheme();
   const router = useRouter();
-  const view = useLegalDocument(document);
+  // A signed-in reader gets their own language; a visitor on the sign-in
+  // screen gets the fallback, which is what `useLegalLocale` returns when
+  // there is no account to have a preference.
+  const { locale } = useLegalLocale();
+  const view = useLegalDocument(document, locale);
 
   const onBack = useCallback(() => {
     router.back();

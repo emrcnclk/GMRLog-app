@@ -48,7 +48,7 @@ describe('initial migration', () => {
 
   // 12.4 — TASKS.md Phase 12. The consent record is evidence, so its shape is
   // asserted rather than left to the table count above.
-  it('materializes the 12.4 consent record with a version-scoped unique key', async () => {
+  it('materializes the 12.4 consent record as an append-only, version-scoped log', async () => {
     const columns = await db.prisma.$queryRawUnsafe<{ column_name: string }[]>(
       `SELECT column_name FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name = 'user_consents'`,
@@ -61,13 +61,20 @@ describe('initial migration', () => {
       'document_id',
       'id',
       'locale',
+      // Exact insertion order. `decided_at` is millisecond-precision, so it
+      // cannot resolve "which decision is current" once a version can carry
+      // more than one row.
+      'sequence',
       'updated_at',
       'user_id',
       'version',
     ]);
 
-    // The version belongs in the key: accepting 1.0.0 says nothing about 1.1.0,
-    // and a key without it would carry an old acceptance silently forward.
+    // The table is append-only: one row per decision, so that an
+    // accept -> withdraw -> accept sequence stays legible instead of collapsing
+    // to whatever was decided last. The `(user, document, version)` UNIQUE that
+    // used to be here is what made that collapse happen, and its absence is the
+    // invariant now worth locking down.
     const indexes = await db.prisma.$queryRawUnsafe<{ indexdef: string }[]>(
       `SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'user_consents'`,
     );
@@ -76,9 +83,18 @@ describe('initial migration', () => {
     const unique = indexes.find(
       (row) => row.indexdef.includes('UNIQUE') && !row.indexdef.includes('_pkey'),
     );
-    expect(unique?.indexdef).toContain('user_id');
-    expect(unique?.indexdef).toContain('document_id');
-    expect(unique?.indexdef).toContain('version');
+    expect(unique).toBeUndefined();
+
+    // The version still belongs in the lookup: accepting 1.0.0 says nothing
+    // about 1.1.0, and the read path resolves the newest decision per version.
+    const covering = indexes.find(
+      (row) =>
+        row.indexdef.includes('user_id') &&
+        row.indexdef.includes('document_id') &&
+        row.indexdef.includes('version') &&
+        row.indexdef.includes('sequence'),
+    );
+    expect(covering).toBeDefined();
 
     // A decision, not a boolean — `declined` is what makes a refusal
     // distinguishable from never having been asked.

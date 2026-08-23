@@ -1,3 +1,4 @@
+import { asLegalLocale, DEFAULT_LEGAL_LOCALE } from '@gmrlog/types';
 import { Button, ErrorBanner, SegmentedTabs, Text, TextField, useTheme } from '@gmrlog/ui';
 import { sessionRegisterObjectSchema } from '@gmrlog/validators';
 import { useRouter } from 'expo-router';
@@ -131,10 +132,6 @@ export function RegisterScreen() {
   // the four values the player types, and the step machinery assumes strings.
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // 12.4 — the versions actually in front of the player, fetched from the
-  // public `/legal` listing rather than made up client-side.
-  const legal = useLegalDocuments();
-
   // The form validates the four fields the player types. `acceptedLegalDocuments`
   // is deliberately omitted: it is not something anyone enters, it is a record of
   // what the app displayed, and putting an array of objects into a form whose
@@ -171,6 +168,17 @@ export function RegisterScreen() {
   const values = useWatch({ control });
   const busy = submitting || isSubmitting;
 
+  // 12.4 — the versions actually in front of the player, fetched from the
+  // public `/legal` listing rather than made up client-side.
+  //
+  // 12.4c — in the language the player just picked, not always English. The
+  // listing is what `shownLegalDocuments` submits, and each entry carries its
+  // own `locale` straight into `UserConsent.locale`; leaving it on the
+  // fallback would record a Turkish registrant as having agreed to the
+  // English wording they were never shown. Fetched below `values` rather than
+  // above the form for that reason — it now depends on a field.
+  const legal = useLegalDocuments(asLegalLocale(values.locale) ?? DEFAULT_LEGAL_LOCALE);
+
   const step = REGISTER_STEPS[stepIndex];
   const isLastStep = stepIndex === REGISTER_STEPS.length - 1;
   // Each step's own fields gate its forward button; the last one also waits on
@@ -197,10 +205,26 @@ export function RegisterScreen() {
       // never saw. 12.4a — the tick travels separately, because only the Terms
       // are accepted; the notices are acknowledged, and the server decides
       // which is which from the document itself.
+      // The tick itself, not a literal standing in for it. `isRegisterSubmitDisabled`
+      // does gate the button on this state today, but that coupling lives in a
+      // different file from the call site: a hardcoded `true` here submits an
+      // acceptance regardless of the box the moment that gating changes, which
+      // is precisely the false consent record `literal(true)` on the wire
+      // schema exists to make impossible. The guard both narrows the type back
+      // to `true` and makes the impossible case fail rather than lie.
+      if (!termsAccepted) {
+        setBanner({
+          kind: 'validation',
+          title: 'Terms not accepted',
+          description: 'Tick the box to confirm you accept the Terms of Service.',
+        });
+        return;
+      }
+
       await register({
         ...input,
         shownLegalDocuments: legal.shown,
-        termsAccepted: true,
+        termsAccepted,
       });
     } catch (error) {
       setBanner(mapAuthError(error, isOnline));

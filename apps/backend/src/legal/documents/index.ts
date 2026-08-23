@@ -1,4 +1,5 @@
 import {
+  DEFAULT_LEGAL_LOCALE,
   LEGAL_DOCUMENT_IDS,
   type LegalConsentKey,
   type LegalDocumentId,
@@ -30,11 +31,12 @@ export const LEGAL_DOCUMENTS: readonly LegalDocumentDefinition[] = [
 
 /**
  * 12.1 — the locale served when a request names none, or names one we do not
- * publish. English rather than Turkish because the product UI is English; the
- * Turkish Aydınlatma Metni remains the operative text for KVKK purposes
- * regardless of which locale a given reader is served.
+ * publish. Now defined in `@gmrlog/types` and re-exported here so the registry
+ * keeps its familiar import site: the clients that ask for a document and the
+ * registry that resolves one have to agree on the fallback, and a second copy
+ * on the frontend is exactly how that agreement drifts.
  */
-export const DEFAULT_LEGAL_LOCALE: LegalLocale = 'en';
+export { DEFAULT_LEGAL_LOCALE };
 
 /**
  * 12.1 — the documents a new account must accept. Derived from the documents

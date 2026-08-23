@@ -1,6 +1,6 @@
 import type { TierSlot, TierSlotGame } from '@prisma/client';
 
-import type { DatabaseClient } from './types';
+import { withTransaction, type DatabaseClient } from './types';
 
 export interface TierSlotGameWrite {
   gameId: string;
@@ -55,7 +55,7 @@ export class PrismaTierSlotRepository implements TierSlotRepository {
   }
 
   async replaceSlots(tierListId: string, slots: TierSlotWrite[]): Promise<TierSlotBoardRow[]> {
-    await this.db.$transaction(async (tx) => {
+    await withTransaction(this.db, async (tx) => {
       await tx.tierSlot.deleteMany({ where: { tierListId } });
       for (const slot of slots) {
         await tx.tierSlot.create({

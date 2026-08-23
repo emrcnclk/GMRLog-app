@@ -1695,6 +1695,35 @@ export type LegalLocale = 'en' | 'tr';
 export const LEGAL_LOCALES = ['en', 'tr'] as const satisfies readonly LegalLocale[];
 
 /**
+ * 12.1 — the locale served when a request names none, or names one we do not
+ * publish. English rather than Turkish because the product UI is English; the
+ * Turkish Aydinlatma Metni remains the operative text for KVKK purposes
+ * regardless of which locale a given reader is served.
+ *
+ * Lives here rather than in the backend's document registry because both sides
+ * of the wire need the same answer: the registry resolves a requested locale
+ * against it, and every client that asks for a document or records a consent
+ * has to fall back to the same one. Three frontend hooks had each declared
+ * their own copy, which is three chances for the default to drift.
+ */
+export const DEFAULT_LEGAL_LOCALE: LegalLocale = 'en';
+
+/**
+ * 12.1 — narrows an arbitrary stored preference (`UserSettings.locale` is free
+ * text, and may carry a region — `tr-TR`) to a locale the legal registry
+ * actually publishes. Returns `null` rather than the default when it cannot,
+ * so a caller can tell "not a locale we publish" from "the player chose
+ * English".
+ */
+export function asLegalLocale(value: string | null | undefined): LegalLocale | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const base = value.split('-')[0]?.toLowerCase() ?? '';
+  return (LEGAL_LOCALES as readonly string[]).includes(base) ? (base as LegalLocale) : null;
+}
+
+/**
  * 12.1 — the versioning rule, stated once so 12.4 does not have to invent it:
  * `major.minor.patch`, and **a major or minor bump requires re-consent while a
  * patch does not**. A patch is reserved for changes that cannot alter what a

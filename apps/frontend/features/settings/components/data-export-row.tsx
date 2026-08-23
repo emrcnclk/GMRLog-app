@@ -19,7 +19,10 @@ function DataExportRowComponent() {
       <Text role="title" color="color.text.primary">
         Download your data
       </Text>
-      <Text role="meta" color="color.text.tertiary">
+      {/* A sentence, so `body` — CLAUDE.md's design law reserves `meta` for
+          counts, timestamps, ranks, platforms and section kickers, and
+          "sentences stay in body". */}
+      <Text role="body" color="color.text.tertiary">
         POST /me/export — account, gaming activity, social, technical and optional categories, once
         every 24 hours.
       </Text>
