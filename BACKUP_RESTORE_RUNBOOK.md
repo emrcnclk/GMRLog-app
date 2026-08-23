@@ -149,6 +149,18 @@ scp deploy@api.gmrlog.com:/opt/gmrlog/deploy/backups/postgres-<stamp>.sql.gz ./b
 sh infrastructure/docker/scripts/restore-dry-run.sh backups/postgres-<stamp>.sql.gz
 ```
 
+Two prerequisites, both enforced by the script rather than left to you to remember:
+
+- `infrastructure/docker/.env.production.local` has to exist (`pnpm docker:prod:init`) —
+  it is the env file the production-parity stack reads, and the same one
+  `pnpm docker:prod:up` passes to compose.
+- **The dev stack has to be down** (`pnpm docker:down`). The prod overlay does not rename
+  `postgres`, so both stacks use the container name `gmrlog-postgres` under the same
+  compose project — meaning a dry run started while the dev stack is up would `DROP` the
+  developer's own database rather than a throwaway one. The script reads the container's
+  `com.docker.compose.project.config_files` label and refuses if it wasn't created by the
+  prod overlay, instead of guessing.
+
 It brings up the local production-parity stack if it isn't already running, runs the
 **exact same DROP DATABASE / CREATE DATABASE / psql load sequence**
 `infrastructure/deploy/scripts/restore.sh` runs on the real host (so a pass here is
