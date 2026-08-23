@@ -22,8 +22,9 @@ export interface CollectionToolbarProps {
  * The layout toggle is a single button that shows the layout it will switch
  * *to*, not the one you are in — a two-state control that describes its own
  * action is read correctly far more often than one that describes state.
- * `accessibilityState.checked` still carries the current mode for screen
- * readers, where the visual metaphor is unavailable.
+ * The current mode still reaches a screen reader, where the visual metaphor
+ * is unavailable: `accessibilityState.checked` carries it on native and
+ * `aria-checked` on web, which is the only one of the pair RNW forwards.
  */
 function CollectionToolbarComponent({
   sort,
@@ -59,7 +60,6 @@ function CollectionToolbarComponent({
             key={option}
             selected={sort === option}
             accessibilityLabel={`Sort by ${COLLECTION_SORT_LABELS[option]}`}
-            accessibilityState={{ selected: sort === option }}
             onPress={() => {
               onChangeSort(option);
             }}
