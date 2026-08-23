@@ -25,6 +25,7 @@ DOMAIN=""
 EMAIL=""
 HOST=""
 APP_ORIGIN=""
+IMAGE=""
 FORCE="false"
 OUT_DIR="./.deploy-secrets-output"
 
@@ -34,6 +35,7 @@ while [ $# -gt 0 ]; do
     --email) EMAIL="$2"; shift 2 ;;
     --host) HOST="$2"; shift 2 ;;
     --app-origin) APP_ORIGIN="$2"; shift 2 ;;
+    --image) IMAGE="$2"; shift 2 ;;
     --force) FORCE="true"; shift ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^#//'
@@ -47,8 +49,13 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$DOMAIN" ] || [ -z "$EMAIL" ]; then
-  echo "usage: $0 --domain <api-hostname> --email <letsencrypt-email> [--host <ssh-host, defaults to --domain>] [--app-origin https://app.example.com] [--force]" >&2
+  echo "usage: $0 --domain <api-hostname> --email <letsencrypt-email> [--host <ssh-host, defaults to --domain>] [--app-origin https://app.example.com] [--image ghcr.io/owner/repo/backend] [--force]" >&2
   exit 1
+fi
+if [ -z "$IMAGE" ]; then
+  echo "note: --image not given — GMRLOG_IMAGE will be left as the template's OWNER/REPO"
+  echo "      placeholder, and preflight (step 4 below) will fail on it until you either"
+  echo "      pass --image or edit GMRLOG_IMAGE in .env.deploy.local by hand."
 fi
 
 HOST="${HOST:-$DOMAIN}"
@@ -95,6 +102,9 @@ ENV_LOCAL="infrastructure/deploy/.env.deploy.local"
 GEN_ARGS=(--domain "$DOMAIN" --email "$EMAIL")
 if [ -n "$APP_ORIGIN" ]; then
   GEN_ARGS+=(--app-origin "$APP_ORIGIN")
+fi
+if [ -n "$IMAGE" ]; then
+  GEN_ARGS+=(--image "$IMAGE")
 fi
 if [ "$FORCE" = "true" ]; then
   GEN_ARGS+=(--force)
