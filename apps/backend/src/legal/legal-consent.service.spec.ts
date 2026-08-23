@@ -1,6 +1,6 @@
 import { LEGAL_DOCUMENT_IDS, type LegalDocumentId } from '@gmrlog/types';
 import { BadRequestException } from '@nestjs/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ACCEPTANCE_REQUIRED_DOCUMENT_IDS,
@@ -12,6 +12,15 @@ import {
   createFakeUserConsentRepository,
   type FakeUserConsentRepository,
 } from './testing/fake-repositories';
+
+// resolveLegalDocument is wrapped in a spy so a single test (the patch-bump
+// reconsent case below) can stand up a "current" version that does not exist
+// in the real registry, without disturbing every other test in this file —
+// the default implementation just forwards to the real one.
+vi.mock('./documents', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./documents')>();
+  return { ...actual, resolveLegalDocument: vi.fn(actual.resolveLegalDocument) };
+});
 
 const USER = 'user-1';
 
@@ -34,10 +43,20 @@ function currentShownDocuments() {
 
 let repository: FakeUserConsentRepository;
 let service: LegalConsentService;
+let realResolveLegalDocument: typeof resolveLegalDocument;
+
+beforeAll(async () => {
+  ({ resolveLegalDocument: realResolveLegalDocument } =
+    await vi.importActual<typeof import('./documents')>('./documents'));
+});
 
 beforeEach(() => {
   repository = createFakeUserConsentRepository();
   service = new LegalConsentService(repository);
+});
+
+afterEach(() => {
+  vi.mocked(resolveLegalDocument).mockImplementation(realResolveLegalDocument);
 });
 
 describe('the acceptance / disclosure split', () => {
@@ -184,6 +203,33 @@ describe('getState', () => {
     expect(state.undisclosed).toHaveLength(DISCLOSURE_DOCUMENT_IDS.length);
     // The old rows are still on record — history, not overwritten.
     expect(state.decisions).toHaveLength(LEGAL_DOCUMENT_IDS.length);
+  });
+
+  it('carries an accepted decision forward across a patch bump, per requiresReconsent', async () => {
+    // requiresReconsent('1.0.0', '1.0.1') is false — a patch cannot alter what
+    // was agreed to. getState must honour that instead of flagging every
+    // patch release as a fresh outstanding acceptance.
+    const version = currentVersionOf('terms-of-service');
+    const [major, minor, patch] = version.split('.').map(Number) as [number, number, number];
+    const bumpedVersion = `${String(major)}.${String(minor)}.${String(patch + 1)}`;
+
+    await service.recordDecisions(USER, [
+      { documentId: 'terms-of-service', version, locale: 'en', decision: 'accepted' },
+    ]);
+
+    vi.mocked(resolveLegalDocument).mockImplementation((id, locale) => {
+      const document = realResolveLegalDocument(id, locale);
+      if (document === null || id !== 'terms-of-service') {
+        return document;
+      }
+      return { ...document, version: bumpedVersion };
+    });
+
+    const state = await service.getState(USER);
+
+    expect(state.outstanding).toEqual([]);
+    expect(state.blocked).toEqual([]);
+    expect(state.satisfied).toBe(true);
   });
 
   it('treats a declined contract as answered, not outstanding — but does not let it through, either', async () => {

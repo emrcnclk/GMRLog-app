@@ -20,6 +20,7 @@ import {
   DISCLOSURE_DOCUMENT_IDS,
   decisionForDisplayedDocument,
   legalConsentKey,
+  requiresReconsent,
   resolveLegalDocument,
 } from './documents';
 import { LEGAL_CONSENT_REPOSITORY } from './legal.tokens';
@@ -287,14 +288,30 @@ export class LegalConsentService {
         continue;
       }
 
-      const decision = recordFor(id, current.version);
+      let decision = recordFor(id, current.version);
 
       if (decision === undefined) {
-        // Never asked at this version — an OAuth sign-up, an account older than
-        // this table, or a version bump since the last acceptance.
-        outstanding.push(summarise(current));
-        satisfied = false;
-        continue;
+        // No decision at the current version. Before treating that as
+        // outstanding, check whether an older version's decision still
+        // covers it — requiresReconsent's whole point is that a patch bump
+        // must not re-prompt someone who already answered.
+        const priorDecision = decisions
+          .filter((row) => row.documentId === id)
+          .sort((a, b) => (a.decidedAt < b.decidedAt ? 1 : -1))[0];
+
+        if (
+          priorDecision !== undefined &&
+          !requiresReconsent(priorDecision.version, current.version)
+        ) {
+          decision = priorDecision;
+        } else {
+          // Never asked at this version, and any prior decision is stale —
+          // an OAuth sign-up, an account older than this table, or a major/
+          // minor bump since the last acceptance.
+          outstanding.push(summarise(current));
+          satisfied = false;
+          continue;
+        }
       }
 
       if (decision.decision !== 'accepted') {
