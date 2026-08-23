@@ -202,6 +202,13 @@ export class AccountDeletionService {
         where: { ownerId: userId, visibility: 'private', deletedAt: null },
         data: { deletedAt: now },
       }),
+      this.prisma.quote.updateMany({
+        where: { authorId: userId, visibility: 'private', deletedAt: null },
+        data: { deletedAt: now },
+      }),
+      // Public quotes are left with authorId still pointing to the anonymized
+      // user (Rule 1), same as public posts/reviews. The author identity is
+      // scrubbed above in the User update.
       // Rule 4 — credentials, links and sessions have no reason to survive.
       this.prisma.authCredential.deleteMany({ where: { userId } }),
       this.prisma.connectedAccount.deleteMany({ where: { userId } }),

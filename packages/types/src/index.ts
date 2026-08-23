@@ -1852,6 +1852,14 @@ export interface DataExportGamingActivity {
     createdAt: string;
   }[];
   tierLists: { id: string; title: string; visibility: string; createdAt: string }[];
+  quotes: {
+    id: string;
+    targetType: string;
+    targetId: string;
+    body: string;
+    visibility: string;
+    createdAt: string;
+  }[];
   communityMemberships: { communityId: string; role: string; joinedAt: string }[];
   eventParticipations: { eventId: string; state: string; createdAt: string }[];
   achievementProgress: {

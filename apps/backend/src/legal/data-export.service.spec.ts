@@ -24,6 +24,7 @@ describe('DataExportService', () => {
     reaction: { findMany: emptyFindMany() },
     collection: { findMany: emptyFindMany() },
     tierList: { findMany: emptyFindMany() },
+    quote: { findMany: emptyFindMany() },
     communityMember: { findMany: emptyFindMany() },
     eventParticipation: { findMany: emptyFindMany() },
     achievementProgress: { findMany: emptyFindMany() },
@@ -117,6 +118,51 @@ describe('DataExportService', () => {
     expect(prisma.message.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ deletedAt: null }) }),
     );
+    expect(prisma.quote.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ deletedAt: null }) }),
+    );
+  });
+
+  it('includes both public and private quotes — visibility is not filtered, only soft-deletion is', async () => {
+    prisma.quote.findMany.mockResolvedValue([
+      {
+        id: 'quote-1',
+        targetType: 'post',
+        targetId: 'post-1',
+        body: 'A public quote',
+        visibility: 'public',
+        createdAt: now,
+      },
+      {
+        id: 'quote-2',
+        targetType: 'review',
+        targetId: 'review-1',
+        body: 'A private quote',
+        visibility: 'private',
+        createdAt: now,
+      },
+    ]);
+
+    const result = await service.buildExport(USER);
+
+    expect(result.categories.gamingActivity.quotes).toEqual([
+      {
+        id: 'quote-1',
+        targetType: 'post',
+        targetId: 'post-1',
+        body: 'A public quote',
+        visibility: 'public',
+        createdAt: now.toISOString(),
+      },
+      {
+        id: 'quote-2',
+        targetType: 'review',
+        targetId: 'review-1',
+        body: 'A private quote',
+        visibility: 'private',
+        createdAt: now.toISOString(),
+      },
+    ]);
   });
 
   it('resolves friendships from both directions of the canonical low/high edge', async () => {

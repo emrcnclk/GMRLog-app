@@ -34,6 +34,7 @@ const fakePrisma = {
   review: { updateMany: vi.fn() },
   collection: { updateMany: vi.fn() },
   tierList: { updateMany: vi.fn() },
+  quote: { updateMany: vi.fn() },
   authCredential: { deleteMany: vi.fn() },
   connectedAccount: { deleteMany: vi.fn() },
   session: { deleteMany: vi.fn() },

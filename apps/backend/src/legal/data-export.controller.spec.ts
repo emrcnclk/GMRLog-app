@@ -52,6 +52,7 @@ const fakePrisma = {
   reaction: { findMany: emptyFindMany() },
   collection: { findMany: emptyFindMany() },
   tierList: { findMany: emptyFindMany() },
+  quote: { findMany: emptyFindMany() },
   communityMember: { findMany: emptyFindMany() },
   eventParticipation: { findMany: emptyFindMany() },
   achievementProgress: { findMany: emptyFindMany() },

@@ -34,6 +34,7 @@ describe('AccountDeletionService', () => {
     review: { updateMany: vi.fn() },
     collection: { updateMany: vi.fn() },
     tierList: { updateMany: vi.fn() },
+    quote: { updateMany: vi.fn() },
     authCredential: { deleteMany: vi.fn() },
     connectedAccount: { deleteMany: vi.fn() },
     session: { deleteMany: vi.fn() },
@@ -191,7 +192,13 @@ describe('AccountDeletionService', () => {
 
       // Rule 2 — only private-visibility content is soft-deleted; anything
       // reachable by anyone else is left alone and merely loses its author.
-      for (const model of [prisma.post, prisma.review, prisma.collection, prisma.tierList]) {
+      for (const model of [
+        prisma.post,
+        prisma.review,
+        prisma.collection,
+        prisma.tierList,
+        prisma.quote,
+      ]) {
         expect(model.updateMany).toHaveBeenCalledWith(
           expect.objectContaining({
             where: expect.objectContaining({ visibility: 'private', deletedAt: null }),
@@ -199,6 +206,14 @@ describe('AccountDeletionService', () => {
           }),
         );
       }
+
+      // Public quotes are never touched by the where clause above — they
+      // keep their (now-anonymised) authorId, same as public posts/reviews.
+      expect(prisma.quote.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ authorId: USER, visibility: 'private' }),
+        }),
+      );
 
       // Rule 4 — credentials, links and sessions are removed outright.
       expect(prisma.authCredential.deleteMany).toHaveBeenCalledWith({ where: { userId: USER } });
