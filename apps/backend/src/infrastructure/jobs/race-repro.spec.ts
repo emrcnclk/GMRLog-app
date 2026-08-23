@@ -2,6 +2,12 @@ import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  isRedisReachable,
+  shouldSkipWithoutRedis,
+  TEST_REDIS_URL,
+} from '../redis/testing/redis-availability';
+
 import { JobsService } from './jobs.service';
 
 /**
@@ -32,53 +38,62 @@ import { JobsService } from './jobs.service';
  * independent connect race can't happen. This test forces a getQueue() call
  * into the 'connect' window on every run (via the 'connect' event, not
  * timing luck) and asserts no unhandled rejection occurs.
+ *
+ * Because the real server is the point, this suite skips itself when none
+ * answers rather than timing out — but only off CI, which always provisions
+ * one, so an unreachable Redis there stays a failure.
  */
-describe('10.1 JobsService Redis-connect race', () => {
-  let connection: Redis | undefined;
-  let worker: Worker | undefined;
+const redisReachable = await isRedisReachable();
 
-  afterEach(async () => {
-    await worker?.close();
-    connection?.disconnect();
-  });
+describe.skipIf(shouldSkipWithoutRedis(redisReachable))(
+  '10.1 JobsService Redis-connect race',
+  () => {
+    let connection: Redis | undefined;
+    let worker: Worker | undefined;
 
-  it('getQueue() during ioredis "connect" status does not race a second connect()', async () => {
-    connection = new Redis(process.env['REDIS_URL'] ?? 'redis://127.0.0.1:6379', {
-      lazyConnect: true,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
-    const service = new JobsService(connection);
-
-    const rejections: unknown[] = [];
-    const onRejection = (reason: unknown) => rejections.push(reason);
-    process.on('unhandledRejection', onRejection);
-
-    const statuses: string[] = [];
-    connection.on('connect', () => {
-      // Mirrors the real race: a second, independent consumer calling
-      // getQueue() while ioredis is mid-transition from 'connect' to
-      // 'ready', deterministically instead of relying on timing luck.
-      statuses.push(connection?.status ?? 'unknown');
-      service.getQueue('race-repro-queue');
+    afterEach(async () => {
+      await worker?.close();
+      connection?.disconnect();
     });
 
-    // Same shape as IntegrationsWorkerService.onModuleInit: a real Worker
-    // sharing the connection triggers the first, legitimate connect().
-    worker = new Worker('race-repro-queue', async () => undefined, {
-      connection,
-      concurrency: 1,
+    it('getQueue() during ioredis "connect" status does not race a second connect()', async () => {
+      connection = new Redis(TEST_REDIS_URL, {
+        lazyConnect: true,
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false,
+      });
+      const service = new JobsService(connection);
+
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on('unhandledRejection', onRejection);
+
+      const statuses: string[] = [];
+      connection.on('connect', () => {
+        // Mirrors the real race: a second, independent consumer calling
+        // getQueue() while ioredis is mid-transition from 'connect' to
+        // 'ready', deterministically instead of relying on timing luck.
+        statuses.push(connection?.status ?? 'unknown');
+        service.getQueue('race-repro-queue');
+      });
+
+      // Same shape as IntegrationsWorkerService.onModuleInit: a real Worker
+      // sharing the connection triggers the first, legitimate connect().
+      worker = new Worker('race-repro-queue', async () => undefined, {
+        connection,
+        concurrency: 1,
+      });
+
+      await new Promise((resolve) => connection?.once('ready', resolve));
+      // Let any fire-and-forget rejection from a reintroduced bug land.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      process.off('unhandledRejection', onRejection);
+
+      // Confirms the test actually exercised the vulnerable window, not that
+      // it silently no-opped.
+      expect(statuses).toContain('connect');
+      expect(rejections).toHaveLength(0);
     });
-
-    await new Promise((resolve) => connection?.once('ready', resolve));
-    // Let any fire-and-forget rejection from a reintroduced bug land.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    process.off('unhandledRejection', onRejection);
-
-    // Confirms the test actually exercised the vulnerable window, not that
-    // it silently no-opped.
-    expect(statuses).toContain('connect');
-    expect(rejections).toHaveLength(0);
-  });
-});
+  },
+);
