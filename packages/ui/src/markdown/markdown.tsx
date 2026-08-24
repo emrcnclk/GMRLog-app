@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { Text } from '../components/text';
 import { useTheme } from '../theme/theme-provider';
-import type { SemanticTypeRole } from '../theme/tokens';
+import type { SemanticColorToken, SemanticTypeRole } from '../theme/tokens';
 
 import {
   parseMarkdown,
@@ -23,7 +23,27 @@ const HEADING_ROLE: Record<1 | 2 | 3, SemanticTypeRole> = {
   3: 'title3',
 };
 
-function Spans({ spans }: { spans: MarkdownSpan[] }) {
+/**
+ * The inline runs of one block.
+ *
+ * `role` and `color` are the enclosing block's, and passing them is not
+ * optional decoration. `Text` writes an explicit `fontSize`/`lineHeight`/
+ * `fontWeight`/`fontFamily`/`color` for whichever role it resolves, so a
+ * nested `Text` left on the defaults stamps `body` + `text.primary` over the
+ * block that contains it rather than inheriting from it. Measured on the
+ * rendered Terms of Service: every `##` heading came out 15px/400, identical
+ * to the paragraph under it, and every paragraph came out `text.primary`
+ * instead of `text.secondary`.
+ */
+function Spans({
+  spans,
+  role,
+  color,
+}: {
+  spans: MarkdownSpan[];
+  role: SemanticTypeRole;
+  color: SemanticColorToken;
+}) {
   return (
     <>
       {spans.map((span, index) => (
@@ -31,6 +51,8 @@ function Spans({ spans }: { spans: MarkdownSpan[] }) {
           // Spans are positional within an immutable parsed block; there is no
           // stable id to key on and the list never reorders.
           key={`${String(index)}:${span.text.slice(0, 12)}`}
+          role={role}
+          color={color}
           // Weight 500 is the ceiling the design law allows — strong is a step
           // in weight, never a jump to bold.
           style={span.strong ? { fontWeight: '500' } : undefined}
@@ -48,7 +70,7 @@ function Block({ block }: { block: MarkdownBlock }) {
   if (block.kind === 'heading') {
     return (
       <Text role={HEADING_ROLE[block.level]} color="color.text.primary">
-        <Spans spans={block.spans} />
+        <Spans spans={block.spans} role={HEADING_ROLE[block.level]} color="color.text.primary" />
       </Text>
     );
   }
@@ -56,7 +78,7 @@ function Block({ block }: { block: MarkdownBlock }) {
   if (block.kind === 'paragraph') {
     return (
       <Text role="body" color="color.text.secondary">
-        <Spans spans={block.spans} />
+        <Spans spans={block.spans} role="body" color="color.text.secondary" />
       </Text>
     );
   }
@@ -75,7 +97,7 @@ function Block({ block }: { block: MarkdownBlock }) {
               —
             </Text>
             <Text role="body" color="color.text.secondary" style={{ flex: 1 }}>
-              <Spans spans={item} />
+              <Spans spans={item} role="body" color="color.text.secondary" />
             </Text>
           </View>
         ))}
@@ -107,7 +129,7 @@ function Block({ block }: { block: MarkdownBlock }) {
             if (cellIndex === 0) {
               return (
                 <Text key={`cell-${String(cellIndex)}`} role="body" color="color.text.primary">
-                  <Spans spans={cell} />
+                  <Spans spans={cell} role="body" color="color.text.primary" />
                 </Text>
               );
             }
@@ -120,7 +142,7 @@ function Block({ block }: { block: MarkdownBlock }) {
                   </Text>
                 )}
                 <Text role="bodySm" color="color.text.secondary">
-                  <Spans spans={cell} />
+                  <Spans spans={cell} role="bodySm" color="color.text.secondary" />
                 </Text>
               </View>
             );
