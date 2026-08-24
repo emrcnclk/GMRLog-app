@@ -41,6 +41,16 @@ When code and these docs disagree, the docs win — unless the code reveals the 
 
 **One codebase, two platforms.** `apps/frontend` renders native and web from the same source through React Native Web. Never fork a web-only implementation. Tap targets ≥44px on both.
 
+## Testing
+
+**The frontend can render now — use it.** Until 2026-08-24 the suite had 139 spec files and not one mounted a component, so 406 `.tsx` files had zero render coverage. That was not a choice: any spec reaching `react-native`, even transitively through `@gmrlog/ui`, died on `SyntaxError: Unexpected token 'typeof'` because React Native's `index.js` is Flow-typed and Vite's parser rejects it. `apps/frontend/vitest.config.ts` unblocks it — `react-native` → `react-native-web`, `react-native-svg` pinned to its ESM build, `expo-image` and two RN internals stubbed under `test-support/`, `globalThis.expo`/`__DEV__` shimmed, native-adjacent deps inlined so `resolve.alias` applies at all.
+
+- **A render spec is `*.render.spec.tsx` and opens with `// @vitest-environment happy-dom`.** The default environment stays `node` so the existing pure-logic specs keep their speed; a render spec costs about 30s of collect on its own.
+- **Mount through `renderWithTheme` (`test-support/render.tsx`), never `render` directly.** Every `@gmrlog/ui` component resolves values through `useTheme()` and throws outside a provider. It takes a scheme, so `preference: 'light'` is how you assert the light half of a token pair.
+- **`@gmrlog/ui` resolves from `dist`, so a change to `packages/ui/src` is invisible to a render spec until `pnpm turbo run build --filter=@gmrlog/ui`.** This is the same shape as the `@gmrlog/database` dist trap below, and it bites harder here: a spec that should fail passes, which reads as "the test is written correctly" rather than "the test never saw the change". Found while verifying that the new specs actually catch the defects they pin — they appeared to pass against deliberately broken source until the rebuild.
+- **Prove a new render spec fails.** Reintroduce the defect, rebuild, watch it go red, restore. A render assertion that was never seen failing is worth very little, and the cost of checking is one rebuild.
+- **Computed styles work** — `getComputedStyle(el).fontSize` / `.textTransform` / `.fontFamily` resolve, which is what makes the type ramp and the `meta`-versus-`body` rule assertable. Prefer `queryByRole` over a `[role="..."]` selector: RNW emits implicit landmark roles (a `<section>` has `region` with no attribute) that an attribute selector walks straight past.
+
 ## Engineering rules
 
 - **Compose from `@gmrlog/ui`.** Check the package before writing any new component. `Rail`, `StatTile`, `RarityBadge`, `DistributionBars`, `SegmentedTabs`, `Chip`, `Card`, `Avatar`, `EmptyState`, `Skeleton`, `ListItem`, `NavHeader` cover most needs. A new primitive needs a reason you can state.

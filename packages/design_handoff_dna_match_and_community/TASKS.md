@@ -1134,6 +1134,20 @@ Append findings here as you go — decisions taken, doc corrections, anything th
 
 ---
 
+### 2026-08-24 — The frontend can render in tests now. The reason it never could was a hard parse block, not a decision.
+
+Asked what the frontend suite was missing, the honest answer turned out not to be a failing test — 835 passed, none skipped — but a missing category. **139 spec files, zero `.spec.tsx`, zero components ever mounted, against 406 `.tsx` files.** `home-screen.spec.ts` does not test `HomeScreen`; it tests `resolveHomeFeedView`, the pure function deciding which state to show. The decision was covered, the drawing of it was not — which is exactly why four of this phase's five defects sailed through a green suite.
+
+**Why it had never been done.** Any spec that reached `react-native`, even transitively through `@gmrlog/ui`, failed with `SyntaxError: Unexpected token 'typeof'`: React Native's `index.js` is Flow-typed and Vite's parser rejects it outright. CLAUDE.md recorded this back at 1.4 as "vitest cannot parse it"; it was still true, and it is a blocked path rather than a preference.
+
+**Five things had to be true, each found by measuring the next failure rather than by planning.** `react-native` aliased to `react-native-web` — anchored with a regex, because the object form matches by prefix and quietly rewrote `react-native-web` into `react-native-web-web`. `react-native-svg` pinned to its published ESM build, since its `"react-native": "src/index.ts"` entry pulled Flow-typed sources straight back in, plus stubs for the two RN internals its build imports. `expo-image` stubbed, because it calls `requireNativeViewManager` at module scope and took the whole `@gmrlog/ui` barrel with it. `globalThis.expo` and `__DEV__` shimmed. And native-adjacent deps inlined — vitest externalises `node_modules`, and an externalised module never sees `resolve.alias` at all, which is why the alias appeared to do nothing for several rounds.
+
+**The specs were proved to fail before being trusted.** Reverting the Markdown fix and rebuilding `@gmrlog/ui` turns two of them red with the precise symptom measured in the browser — `expected 15 to be greater than 15`, heading at body size — and reverting the Dialog fix turns the other two red. Both restored afterwards.
+
+**That check surfaced the trap worth carrying forward:** `@gmrlog/ui` resolves from `dist`, so the first attempt at proving the tests fail _passed_, against source that was deliberately broken. A test that cannot see the change reads exactly like a test that is written correctly. Rebuild the package before believing a render spec either way; it is now a rule in CLAUDE.md's new Testing section along with the rest of the harness contract.
+
+Frontend 835 → **846 tests**, 134 → 138 files, and the existing node-environment specs are untouched — cleanup registers only when a `document` exists, so they never pay for react-dom.
+
 ### 2026-08-24 — The three verification debts the render pass left open, closed. Nothing in Phase 12 is unrendered now.
 
 The render pass named what it had not covered: register steps 2–4, the export download and delete confirm flows, and a sweep that had only ever run in unit tests. All three were walked against the live stack. **The two things the pass could not have found by reading code, it found by typing into the form.**
