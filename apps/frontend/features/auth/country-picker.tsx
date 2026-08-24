@@ -3,6 +3,8 @@ import { ListItem, SearchField, Text, useTheme } from '@gmrlog/ui';
 import { memo, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
+import { searchCountries } from './country-search';
+
 /**
  * How many matches to render at once.
  *
@@ -31,18 +33,7 @@ function CountryPickerComponent({ value, onChange, label, hint }: CountryPickerP
     [value],
   );
 
-  const matches = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-
-    if (needle.length === 0) {
-      return [];
-    }
-
-    return COUNTRIES.filter(
-      (country) =>
-        country.name.toLowerCase().includes(needle) || country.code.toLowerCase() === needle,
-    );
-  }, [query]);
+  const matches = useMemo(() => searchCountries(query), [query]);
 
   return (
     <View style={{ gap: theme.space('space.2') }}>
