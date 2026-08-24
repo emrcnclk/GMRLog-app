@@ -23,8 +23,8 @@ function DataExportRowComponent() {
           counts, timestamps, ranks, platforms and section kickers, and
           "sentences stay in body". */}
       <Text role="body" color="color.text.tertiary">
-        POST /me/export — account, gaming activity, social, technical and optional categories, once
-        every 24 hours.
+        A machine-readable copy of your account, gaming activity, social connections, technical
+        records and anything optional you added. Available once every 24 hours.
       </Text>
       {dataExport.error ? (
         <ErrorBanner title={dataExport.error.title} description={dataExport.error.description} />

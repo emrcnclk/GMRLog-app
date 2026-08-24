@@ -26,7 +26,20 @@ import { LEGAL_MEASURE } from './legal-document-screen';
  * calling the hook inside a loop in the parent would tie the number of hook
  * calls to server-driven data — exactly what the rules of hooks forbid.
  */
-function GateDocumentBody({ documentId }: { documentId: LegalDocumentId }) {
+function GateDocumentBody({
+  documentId,
+  showHeader = true,
+}: {
+  documentId: LegalDocumentId;
+  /**
+   * The disclose step lists several documents under one generic screen title,
+   * so each body has to name itself. The review step's own `GateShell` title
+   * is already "Review the <document>" carrying the same version line, and
+   * printing it again put the title on screen three times and the version
+   * twice before the first sentence of the document. Seen by rendering it.
+   */
+  showHeader?: boolean;
+}) {
   const theme = useTheme();
   // The gate is the one place a document is read *in order to decide*, so the
   // translation shown here and the `locale` the decision is recorded against
@@ -40,7 +53,7 @@ function GateDocumentBody({ documentId }: { documentId: LegalDocumentId }) {
 
   return (
     <View style={{ gap: theme.space('space.3') }}>
-      {view.title.length > 0 ? (
+      {showHeader && view.title.length > 0 ? (
         <View style={{ gap: theme.space('space.1') }}>
           <Text role="title3" color="color.text.primary">
             {view.title}
@@ -181,7 +194,7 @@ export function DecideGateScreen({
       title={`Review the ${document.title}`}
       meta={legalVersionLine(document.version, document.effectiveDate)}
     >
-      <GateDocumentBody documentId={document.id} />
+      <GateDocumentBody documentId={document.id} showHeader={false} />
 
       <View style={{ gap: theme.space('space.3') }}>
         <Button

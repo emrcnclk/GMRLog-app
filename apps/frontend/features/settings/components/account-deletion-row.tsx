@@ -64,7 +64,11 @@ function AccountDeletionRowComponent() {
           </Text>
         </>
       ) : (
-        <Text role="meta" color="color.text.tertiary">
+        // A sentence, so `body` — the same call the pending branch above already
+        // makes, and the one the export row's own comment spells out. `meta`
+        // set it in monospace uppercase, which reads as a system stamp rather
+        // than as the plainest warning on the screen.
+        <Text role="body" color="color.text.secondary">
           Starts a 30-day grace period. You can cancel any time before it ends; after that, deletion
           is permanent.
         </Text>
