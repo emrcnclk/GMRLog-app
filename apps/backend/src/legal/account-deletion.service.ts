@@ -14,9 +14,20 @@ import {
   rateLimitUserIdentifier,
   rateLimitWindowKey,
 } from '../infrastructure/http/rate-limit.interceptor';
+import { AppLogger } from '../infrastructure/logging/app-logger.service';
 import { PLATFORM_REDIS } from '../infrastructure/redis/redis.constants';
 
 const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * How many expired accounts one sweep run erases.
+ *
+ * Each erasure is its own multi-statement transaction across a dozen tables,
+ * so an unbounded batch would hold the pool for as long as the backlog is
+ * long. The sweep is scheduled daily and the queue re-runs it, so a backlog
+ * drains over consecutive runs rather than in one lock-heavy pass.
+ */
+const DELETION_SWEEP_BATCH = 100;
 
 /**
  * 12.6 — the right `privacy-policy.en.ts` §6/§7 has promised since 12.1: a
@@ -66,6 +77,7 @@ export class AccountDeletionService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PLATFORM_REDIS) private readonly redis: Redis,
+    private readonly logger: AppLogger,
   ) {}
 
   async requestDeletion(userId: string): Promise<AccountDeletionStatusResponse> {
@@ -159,13 +171,14 @@ export class AccountDeletionService {
    * The grace-period check `SessionsService.issueCredentialPair` runs before
    * every token issuance — login, register, refresh, every OAuth path.
    *
-   * No scheduled job runs the 30-day erasure yet (out of this task's scope —
-   * see the module doc). Credential issuance is the substitute: it is the one
-   * moment a lazy check costs nothing extra, because the account is already
-   * being looked up. An account that never comes back to request a new token
-   * past its `deletesAt` would never be swept by this alone — that gap is
-   * real and is the scheduled-job follow-up this task leaves as a TODO, not a
-   * defect in the check itself.
+   * This is the cheap half of a pair, not the whole mechanism. Credential
+   * issuance is the one moment a lazy check costs nothing extra, because the
+   * account is already being looked up — but an account that never comes back
+   * to request a token past its `deletesAt` is invisible to it. 12.6 left that
+   * gap open as a TODO; `runExpiredDeletionSweep` below closes it, scheduled
+   * daily as `maintenance.account-deletion.sweep`. Keep both: the sweep bounds
+   * the delay to a day, and this check makes it impossible to hand a token to
+   * an account whose window has passed in the meantime.
    *
    * Three states, one no-op and two exits:
    * - no request, or a cancelled one → no-op, issuance proceeds.
@@ -200,6 +213,65 @@ export class AccountDeletionService {
       code: 'ACCOUNT_DELETED',
       message: 'This account has been permanently deleted.',
     });
+  }
+
+  /**
+   * Erase every account whose grace period has already expired.
+   *
+   * `enforceGracePeriod` runs only when the account comes back to ask for a
+   * token, which is the cheapest possible check but leaves a real hole 12.6
+   * recorded and did not close: **an account that never signs in again is
+   * never erased.** The 30-day promise in `privacy-policy.en.ts` §7 is not
+   * conditional on the player returning to collect it, so a request that
+   * expires in silence has to be honoured by something that runs on its own.
+   * This is that something; `maintenance.account-deletion.sweep` calls it.
+   *
+   * Deliberately no `UnauthorizedException` here. `enforceGracePeriod` throws
+   * because it is refusing a credential to a caller; the sweep has no caller
+   * to refuse, and a thrown 401 inside a worker is just a failed job.
+   *
+   * One account's failure does not abort the batch. A single row that cannot
+   * be erased — a foreign key nothing anticipated, a row another transaction
+   * holds — must not indefinitely postpone everyone else's erasure, which is
+   * the compliance failure this whole method exists to prevent. Failures are
+   * logged per account and the run reports them.
+   */
+  async runExpiredDeletionSweep(now: Date = new Date()): Promise<{
+    erased: number;
+    failed: number;
+  }> {
+    const due = await this.prisma.accountDeletionRequest.findMany({
+      where: { cancelledAt: null, erasedAt: null, deletesAt: { lte: now } },
+      select: { userId: true },
+      orderBy: { deletesAt: 'asc' },
+      take: DELETION_SWEEP_BATCH,
+    });
+
+    let erased = 0;
+    let failed = 0;
+
+    for (const { userId } of due) {
+      try {
+        await this.eraseAccount(userId);
+        erased += 1;
+      } catch (error: unknown) {
+        failed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.event(
+          'error',
+          { userId, error: message },
+          'account.deletion.sweep.account.failed',
+        );
+      }
+    }
+
+    this.logger.event(
+      failed > 0 ? 'warn' : 'info',
+      { erased, failed, due: due.length },
+      'account.deletion.sweep.completed',
+    );
+
+    return { erased, failed };
   }
 
   private async eraseAccount(userId: string): Promise<void> {

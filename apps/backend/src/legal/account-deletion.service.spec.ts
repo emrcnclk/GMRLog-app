@@ -1,6 +1,8 @@
 import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AppLogger } from '../infrastructure/logging/app-logger.service';
+
 import { AccountDeletionService } from './account-deletion.service';
 
 const USER = 'user-1';
@@ -25,6 +27,7 @@ describe('AccountDeletionService', () => {
   const prisma = {
     accountDeletionRequest: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
     },
@@ -46,6 +49,8 @@ describe('AccountDeletionService', () => {
   // window so a cancel-then-re-request inside the same day isn't held at 429.
   const redis = { del: vi.fn() };
 
+  const logger = { event: vi.fn() } as unknown as AppLogger;
+
   let service: AccountDeletionService;
 
   beforeEach(() => {
@@ -57,7 +62,7 @@ describe('AccountDeletionService', () => {
     prisma.$transaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops));
 
     redis.del.mockResolvedValue(1);
-    service = new AccountDeletionService(prisma as never, redis as never);
+    service = new AccountDeletionService(prisma as never, redis as never, logger);
   });
 
   afterEach(() => {
@@ -281,6 +286,70 @@ describe('AccountDeletionService', () => {
       expect(prisma.community.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [] }, deletedAt: null },
         data: { deletedAt: now },
+      });
+    });
+  });
+
+  describe('runExpiredDeletionSweep', () => {
+    // The gap 12.6 recorded and left open: `enforceGracePeriod` only fires when
+    // the account comes back for a token, so an account that never returns was
+    // never erased even though its 30 days had passed.
+    it('erases only requests that are due, live and uncancelled', async () => {
+      prisma.accountDeletionRequest.findMany.mockResolvedValue([{ userId: USER }]);
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.runExpiredDeletionSweep(now);
+
+      expect(result).toEqual({ erased: 1, failed: 0 });
+      expect(prisma.accountDeletionRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { cancelledAt: null, erasedAt: null, deletesAt: { lte: now } },
+        }),
+      );
+      expect(prisma.user.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('takes a bounded batch, oldest first', async () => {
+      prisma.accountDeletionRequest.findMany.mockResolvedValue([]);
+
+      await service.runExpiredDeletionSweep(now);
+
+      expect(prisma.accountDeletionRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { deletesAt: 'asc' }, take: 100 }),
+      );
+    });
+
+    it('keeps going when one account fails, and reports it', async () => {
+      // One unerasable row must not postpone everyone else's erasure — that is
+      // the compliance failure the sweep exists to prevent, not just noise.
+      prisma.accountDeletionRequest.findMany.mockResolvedValue([
+        { userId: 'user-bad' },
+        { userId: 'user-good' },
+      ]);
+      prisma.$transaction
+        .mockRejectedValueOnce(new Error('fk violation'))
+        .mockImplementationOnce((ops: Promise<unknown>[]) => Promise.all(ops));
+      prisma.user.update.mockResolvedValue({});
+
+      const result = await service.runExpiredDeletionSweep(now);
+
+      expect(result).toEqual({ erased: 1, failed: 1 });
+      // Both were attempted: the loop did not stop at the first failure.
+      // (`user.update` is not the probe here — `eraseAccount` calls it while
+      // *building* the `$transaction` array, so it registers even for the row
+      // whose transaction then rejects.)
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not throw the 401 the credential path throws', async () => {
+      // `enforceGracePeriod` throws because it is refusing a caller a token.
+      // The sweep has no caller, and a 401 inside a worker is just a failed job.
+      prisma.accountDeletionRequest.findMany.mockResolvedValue([{ userId: USER }]);
+      prisma.user.update.mockResolvedValue({});
+
+      await expect(service.runExpiredDeletionSweep(now)).resolves.toEqual({
+        erased: 1,
+        failed: 0,
       });
     });
   });

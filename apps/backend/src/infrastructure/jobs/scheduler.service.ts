@@ -4,6 +4,7 @@ import { toBullJobId } from './bull-job-id';
 import {
   JOB_GAME_METADATA_BACKFILL_SCAN,
   JOB_GAME_METADATA_REFRESH_SCAN,
+  JOB_MAINTENANCE_ACCOUNT_DELETION_SWEEP,
   JOB_MAINTENANCE_NOTIFICATION_CLEANUP,
   JOB_MAINTENANCE_SESSION_CLEANUP,
   JOB_MAINTENANCE_UPLOAD_CLEANUP,
@@ -51,6 +52,22 @@ export class SchedulerService implements OnModuleInit {
       {
         jobId: toBullJobId('repeat:maintenance.session.cleanup'),
         repeat: { pattern: '0 3 * * *' },
+        removeOnComplete: { age: 86_400, count: 100 },
+        removeOnFail: false,
+      },
+    );
+
+    // 12.6 follow-up. Daily, at :30 past the session cleanup hour so the two
+    // heaviest transactional sweeps do not start together. A deletion is
+    // legally due the moment `deletesAt` passes, so the interval is a day
+    // rather than a week; the batch cap means a backlog drains over
+    // consecutive runs.
+    await queue.add(
+      JOB_MAINTENANCE_ACCOUNT_DELETION_SWEEP,
+      createJobPayload({}, { idempotencyKey: 'scheduled:maintenance.account-deletion.sweep' }),
+      {
+        jobId: toBullJobId('repeat:maintenance.account-deletion.sweep'),
+        repeat: { pattern: '30 3 * * *' },
         removeOnComplete: { age: 86_400, count: 100 },
         removeOnFail: false,
       },

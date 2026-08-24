@@ -9,6 +9,7 @@ import { AppLogger } from '../logging/app-logger.service';
 import type { EventReminderJobData } from './event-reminder.publisher';
 import type { JobPayload } from './job-payload';
 import { JOBS_CONNECTION } from './jobs.constants';
+import { AccountDeletionSweepProcessor } from './processors/account-deletion-sweep.processor';
 import { EventReminderProcessor } from './processors/event-reminder.processor';
 import { FeedFanoutProcessor } from './processors/feed-fanout.processor';
 import { ImageProcessingProcessor } from './processors/image-processing.processor';
@@ -43,13 +44,20 @@ export class WorkerRunnerService implements OnModuleInit, OnModuleDestroy {
     private readonly logger: AppLogger,
     uploadCleanup: UploadCleanupProcessor,
     notificationCleanup: NotificationCleanupProcessor,
+    accountDeletionSweep: AccountDeletionSweepProcessor,
     sessionCleanup: SessionCleanupProcessor,
     feedFanout: FeedFanoutProcessor,
     eventReminder: EventReminderProcessor,
     private readonly imageProcessing: ImageProcessingProcessor,
     private readonly searchIndex: SearchIndexProcessor,
   ) {
-    this.maintenanceProcessors = [uploadCleanup, notificationCleanup, sessionCleanup, feedFanout];
+    this.maintenanceProcessors = [
+      uploadCleanup,
+      notificationCleanup,
+      sessionCleanup,
+      accountDeletionSweep,
+      feedFanout,
+    ];
     this.notificationProcessors = [eventReminder];
   }
 

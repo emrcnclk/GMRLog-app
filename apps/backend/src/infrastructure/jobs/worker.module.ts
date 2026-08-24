@@ -10,6 +10,7 @@ import { FollowsModule } from '../../follows/follows.module';
 import { GameCatalogWorkerService } from '../../games/metadata/game-catalog-worker.service';
 import { MetadataModule } from '../../games/metadata/metadata.module';
 import { IntegrationsModule } from '../../integrations/integrations.module';
+import { AccountDeletionModule } from '../../legal/account-deletion.module';
 import { AppConfigModule } from '../config/config.module';
 import { PrismaModule } from '../database/prisma.module';
 import { PrismaService } from '../database/prisma.service';
@@ -18,6 +19,7 @@ import { MeiliModule } from '../search/meili.module';
 import { StorageModule } from '../storage/storage.module';
 
 import { JobsModule } from './jobs.module';
+import { AccountDeletionSweepProcessor } from './processors/account-deletion-sweep.processor';
 import { EventReminderProcessor } from './processors/event-reminder.processor';
 import { FeedFanoutProcessor } from './processors/feed-fanout.processor';
 import { ImageProcessingProcessor } from './processors/image-processing.processor';
@@ -48,6 +50,9 @@ import {
     MeiliModule,
     IntegrationsModule,
     MetadataModule,
+    // 12.6 follow-up — the sweep processor's only dependency. Exports the
+    // service and imports nothing from auth, so the module line stays acyclic.
+    AccountDeletionModule,
   ],
   providers: [
     {
@@ -73,6 +78,7 @@ import {
     UploadCleanupProcessor,
     NotificationCleanupProcessor,
     SessionCleanupProcessor,
+    AccountDeletionSweepProcessor,
     FeedFanoutProcessor,
     EventReminderProcessor,
     ImageProcessingProcessor,
