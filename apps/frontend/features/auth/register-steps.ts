@@ -94,6 +94,16 @@ export const REGISTER_STEPS: readonly RegisterStep[] = [
   { id: 'password', fields: ['password'], gates: ['password'], action: 'Create account' },
 ] as const;
 
+/**
+ * The sign-up subtitle, kept beside the step list because it names how many
+ * steps there are. 12.4c added the `profile` step and left the screen saying
+ * "Three steps" while the indicator directly under it read "Step 1 of 4" —
+ * both wrong and both visible at once, on the first screen a new player sees.
+ * `register-steps.spec.ts` now ties the wording to `REGISTER_STEPS.length`.
+ */
+export const REGISTER_SUBTITLE =
+  'A handle, an email, a few details, a password. Four steps, and the record starts.';
+
 const STEP_SCHEMAS = [
   sessionRegisterObjectSchema.pick({ displayName: true, handle: true }),
   sessionRegisterObjectSchema.pick({ email: true }),

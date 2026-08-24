@@ -23,6 +23,7 @@ import {
   isRegisterStepComplete,
   isRegisterSubmitDisabled,
   REGISTER_STEPS,
+  REGISTER_SUBTITLE,
   type RegisterField,
 } from './register-steps';
 
@@ -94,8 +95,8 @@ const FIELD_PROPS: Record<RegisterField, ComponentProps<typeof TextField>> = {
  *
  * Layout only, as everywhere in Phase 3: `useAppForm`, `sessionRegisterSchema`,
  * `mapAuthError`, `ErrorBanner` and `useAuthStore().register` are exactly what
- * they were. What changed is that the four fields arrive in three steps instead
- * of all at once.
+ * they were. What changed is that the fields arrive a step at a time instead
+ * of all at once — four steps since 12.4c added the profile one.
  */
 /**
  * 12.4 / 12.4a — the schema the form validates: the wire schema minus the two
@@ -247,7 +248,7 @@ export function RegisterScreen() {
   return (
     <AuthShell
       headline="Create your digital home."
-      body="A handle, an email, a password. Three steps, and the record starts."
+      body={REGISTER_SUBTITLE}
       topZoneFooter={<AuthStepIndicator count={REGISTER_STEPS.length} activeIndex={stepIndex} />}
     >
       {/* Same position §1 gives it on Login: above the bottom zone. */}

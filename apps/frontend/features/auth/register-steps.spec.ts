@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { isRegisterStepComplete, isRegisterSubmitDisabled, REGISTER_STEPS } from './register-steps';
+import {
+  isRegisterStepComplete,
+  isRegisterSubmitDisabled,
+  REGISTER_STEPS,
+  REGISTER_SUBTITLE,
+} from './register-steps';
 
 const VALID = {
   displayName: 'Emircan',
@@ -36,6 +41,16 @@ describe('register steps', () => {
     expect(REGISTER_STEPS[1]?.fields).toEqual(['email']);
     expect(REGISTER_STEPS[2]?.id).toBe('profile');
     expect(REGISTER_STEPS[3]?.fields).toEqual(['password']);
+  });
+
+  it('names the real step count in the sign-up subtitle', () => {
+    // The screen said "Three steps" while the indicator under it read "Step 1
+    // of 4" — 12.4c added the fourth step and left the prose behind. Found by
+    // rendering the screen, not by a test, which is why there is one now.
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+    expect(REGISTER_SUBTITLE.toLowerCase()).toContain(
+      `${String(words[REGISTER_STEPS.length])} steps`,
+    );
   });
 
   it('covers every text field exactly once — none dropped, none asked twice', () => {
