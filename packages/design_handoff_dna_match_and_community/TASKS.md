@@ -1134,6 +1134,24 @@ Append findings here as you go — decisions taken, doc corrections, anything th
 
 ---
 
+### 2026-08-24 — Phase 12's live render pass. Six surfaces seen for the first time; five defects, all found by looking.
+
+Every task from 12.3 onward closed with the same sentence — the stack is up under the production overlay with no published ports, so the screen was not rendered. That boundary is gone: no containers were running at all, so the dev stack came up with its ports published and the whole phase was walked at 375 and 1280 in both schemes. **What the phase had been proving by types and unit tests was, in five places, wrong.**
+
+**The environment cost most of the session and produced its own trap entry.** A native Windows PostgreSQL service holds 5432 and shadows the container — same user, same database name, different database (151 tables, `users.id` a `uuid`, no consent or deletion tables). Prisma reported it as a corrupt client, including a `P2022` naming the column `sütunu`, which is Turkish for "column" and comes from the native install's localized error text being mis-parsed. Full account in CLAUDE.md's environment traps, including the one-call diagnosis (`select current_setting('data_directory')` **from the host**) and why `docker exec psql` hides it.
+
+**The five defects.**
+
+1. **Every heading in every legal document rendered at body size** (`@gmrlog/ui`'s `Markdown`). `Spans` wrapped each inline run in a bare `<Text>`, which defaults to `role="body"`/`text.primary` and writes explicit values, so the child stamped body over whatever role the block chose. `## 1. What this is` measured 15px/400 — identical to the paragraph beneath it. Paragraph colour was wrong the same way. All five call sites affected. This is the single largest thing 12.3 could not see.
+2. **Sign-up said "Three steps"** while the indicator directly under it read "Step 1 of 4" — 12.4c added the profile step and left the prose. The count was pinned by a test; the copy was tied to nothing.
+3. **The export row showed a raw API route to the user** — "POST /me/export — …" — the same leak `legal-documents.spec.ts` forbids inside legal bodies.
+4. **The delete-account warning was `role="meta"`**, so the plainest sentence on the screen rendered monospace uppercase. Its own sibling branch already did this correctly.
+5. **The consent gate's review step printed the document title three times and its version twice** before the first sentence of the terms.
+
+**What the pass confirmed as already correct**, rather than only what it broke: `aria-checked` reaches the DOM on 12.4a's checkbox at a 44px target; the auth legal links are underlined, `role="link"`, labelled and 44px (12.3's open question); the 680 measure resolves exactly at 1280 and does not overflow at 375; the light palette is value-for-value §2; `cache-control: public, max-age=300` is served on `/legal`; registration works end to end against a live backend (12.4's untested round-trip); `/me/legal-consents` reports Terms `accepted` and both notices `acknowledged`, which is 12.4a's split working; and **pressing Accept in the browser wrote `terms-of-service 1.0.0 accepted` to `user_consents`** — 12.4b's round-trip, proved to the database.
+
+**Not covered, stated rather than implied.** Register steps 2–4 were not walked, so the country picker's search behaviour and the date field — named in 12.4c's own note — are still unseen; only step 1 was rendered. The export download's save-to-device round trip was not exercised, nor the delete confirm dialog past the row itself. Screenshots remain unavailable (`visibilityState: 'hidden'`), so every measurement here is computed style, not a sighting. One thing is reported and deliberately not fixed: each legal document's Markdown body opens with its own `# Title` and "Effective date / Version" front matter, which the reader chrome also displays — a duplication that is now more visible because headings render at their real size. Whether the body or the chrome should yield is a composition call for a design task, not something to settle inside a verification pass.
+
 ### 2026-08-23 — The two carried debts, cleared. Not tasks in this file; recorded because both were about claims this file makes.
 
 Taken after Phase 12 closed and the queue emptied. Two things every task from 12.4b onward carried in its closing paragraph, both re-measured rather than re-asserted.
