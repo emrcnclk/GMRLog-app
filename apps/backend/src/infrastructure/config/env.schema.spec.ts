@@ -59,6 +59,25 @@ describe('parseBackendEnv', () => {
     ).toThrow(/DATABASE_URL/);
   });
 
+  // Bug 3. A missing Steam key used to be silently survivable: the client
+  // factory fell back to `MockSteamWebApiClient` and the box came up serving
+  // fixture libraries as real player data. Production boot must refuse instead.
+  it('rejects production when STEAM_WEB_API_KEY is absent', () => {
+    expect(() =>
+      parseBackendEnv({
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        JWT_SECRET: 'a'.repeat(48),
+        DATABASE_URL: 'postgresql://gmrlog:gmrlog@localhost:5432/gmrlog?schema=public',
+        REDIS_URL: 'redis://localhost:6379',
+        S3_BUCKET: 'gmrlog',
+        S3_ENDPOINT: 'http://localhost:9000',
+        SMTP_HOST: 'mailpit',
+        MEILI_HOST: 'http://localhost:7700',
+      }),
+    ).toThrow(/STEAM_WEB_API_KEY/);
+  });
+
   it('accepts production when all required keys are explicit', () => {
     expect(() =>
       parseBackendEnv({
@@ -71,6 +90,7 @@ describe('parseBackendEnv', () => {
         S3_ENDPOINT: 'http://localhost:9000',
         SMTP_HOST: 'mailpit',
         MEILI_HOST: 'http://localhost:7700',
+        STEAM_WEB_API_KEY: 'a-real-steam-key',
       }),
     ).not.toThrow();
   });

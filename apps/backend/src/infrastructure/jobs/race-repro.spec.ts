@@ -2,6 +2,12 @@ import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import {
+  isRedisReachable,
+  shouldSkipWithoutRedis,
+  TEST_REDIS_URL,
+} from '../redis/testing/redis-availability';
+
 import { JobsService } from './jobs.service';
 
 /**
@@ -32,6 +38,13 @@ import { JobsService } from './jobs.service';
  * independent connect race can't happen. This test forces a getQueue() call
  * into the 'connect' window on every run (via the 'connect' event, not
  * timing luck) and asserts no unhandled rejection occurs.
+ *
+ * Because the real server is the point, this test skips itself when none
+ * answers rather than timing out — but only off CI, which always provisions
+ * one, so an unreachable Redis there stays a failure. The probe runs inside
+ * the test rather than beside `describe`: this package compiles as CommonJS,
+ * where a top-level `await` is a `tsc` error even though vitest's own esbuild
+ * transform accepts it.
  */
 describe('10.1 JobsService Redis-connect race', () => {
   let connection: Redis | undefined;
@@ -42,8 +55,20 @@ describe('10.1 JobsService Redis-connect race', () => {
     connection?.disconnect();
   });
 
-  it('getQueue() during ioredis "connect" status does not race a second connect()', async () => {
-    connection = new Redis(process.env['REDIS_URL'] ?? 'redis://127.0.0.1:6379', {
+  it('getQueue() during ioredis "connect" status does not race a second connect()', async (ctx) => {
+    const reachable = await isRedisReachable();
+    ctx.skip(
+      shouldSkipWithoutRedis(reachable),
+      `no Redis at ${TEST_REDIS_URL} — this test needs a real server`,
+    );
+    if (!reachable) {
+      // Not skipped and not reachable means CI, which provisions Redis — a
+      // real fault, and worth naming rather than leaving as the bare 5s
+      // timeout the connect retry below would otherwise produce.
+      throw new Error(`no Redis at ${TEST_REDIS_URL}, which CI is expected to provide`);
+    }
+
+    connection = new Redis(TEST_REDIS_URL, {
       lazyConnect: true,
       maxRetriesPerRequest: null,
       enableReadyCheck: false,

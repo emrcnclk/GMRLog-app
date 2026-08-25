@@ -10,7 +10,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -19,6 +18,8 @@ import { LoggerModule } from '../infrastructure/logging/logger.module';
 import { IntegrationsModule } from './integrations.module';
 import { IntegrationJobsPublisher } from './integration-jobs.publisher';
 import { MockSteamWebApiClient, STEAM_WEB_API_CLIENT } from './steam/steam-web-api.client';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const steamClient = new MockSteamWebApiClient();
 
@@ -385,14 +386,15 @@ beforeAll(async () => {
       enqueueCleanup: async () => null,
       enqueueRetry: async () => null,
     })
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
 });
 
 afterAll(async () => {

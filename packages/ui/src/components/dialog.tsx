@@ -57,7 +57,22 @@ export function Dialog({ title, children, visible, onClose, actions, style }: Di
           }}
         />
         <View
-          accessibilityRole="summary"
+          // `accessibilityRole="summary"` was here and reached the DOM as
+          // `role="region"` — a landmark, not a dialog. RNW's `Modal` does put
+          // `aria-modal="true"` on its own outer container, but that container
+          // carries no role, and `aria-modal` on a roleless element announces
+          // nothing. Measured on the delete-account confirmation: a screen
+          // reader was told "region", never "dialog".
+          //
+          // `role="dialog"` is the cross-platform spelling, not a web-only
+          // prop: React Native's own `Role` union lists `dialog`
+          // (`Libraries/Components/View/ViewAccessibility.js`) and RNW derives
+          // the DOM `role` from it. `accessibilityViewIsModal` is the iOS
+          // counterpart for containing VoiceOver inside the dialog.
+          role="dialog"
+          aria-modal
+          aria-label={title}
+          accessibilityViewIsModal
           style={[
             {
               width: '100%',

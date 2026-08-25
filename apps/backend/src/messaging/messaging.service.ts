@@ -1,4 +1,5 @@
 ﻿import type {
+  BlockRepository,
   Conversation,
   ConversationParticipantRepository,
   ConversationRepository,
@@ -14,8 +15,15 @@ import type {
   MessageListQueryInput,
 } from '@gmrlog/validators';
 import { MESSAGE_LIST_DEFAULT_LIMIT } from '@gmrlog/validators';
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
+import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
 import { PaginatedPayload } from '../infrastructure/http/paginated-payload';
 
 import {
@@ -42,6 +50,7 @@ export class MessagingService {
     private readonly participants: ConversationParticipantRepository,
     @Inject(MESSAGE_REPOSITORY) private readonly messages: MessageRepository,
     @Inject(MESSAGING_USER_REPOSITORY) private readonly users: UserRepository,
+    @Inject(BLOCK_REPOSITORY) private readonly blocks: BlockRepository,
   ) {}
   async listConversations(actorId: string): Promise<ConversationResponse[]> {
     await this.requireActiveUser(actorId);
@@ -70,6 +79,10 @@ export class MessagingService {
     for (const userId of participantIds) {
       if (userId !== actorId) {
         await this.requireActiveUser(userId);
+        // Bug 9 — a block has to stop the conversation being opened at all,
+        // otherwise blocking someone only stops them from following you while
+        // leaving your inbox wide open to them.
+        await this.assertNotBlocked(actorId, userId);
       }
     }
     const kind = participantIds.length === 2 ? 'direct' : 'group';
@@ -114,6 +127,7 @@ export class MessagingService {
     }
     const conversation = await this.requireParticipantConversation(conversationId, actorId);
     await this.requireActiveUser(actorId);
+    await this.assertNotBlockedInConversation(conversation, actorId);
     const message = await this.messages.create({
       conversation: { connect: { id: conversationId } },
       sender: { connect: { id: actorId } },
@@ -122,6 +136,42 @@ export class MessagingService {
     const touched = await this.conversations.touchLastMessage(conversation.id, message.createdAt);
     return this.projectConversation(touched, actorId);
   }
+  /**
+   * Bug 9 — sending was unguarded, so blocking someone stopped nothing: they
+   * could keep messaging the person who blocked them in any conversation the
+   * two already shared. Checked in both directions, because a block is meant to
+   * be symmetric in effect.
+   *
+   * Scoped to direct conversations on purpose. In a group, refusing everyone's
+   * messages because one member blocked the sender would turn `block` into a
+   * way to silence someone in a shared room — a griefing vector, and a product
+   * decision rather than a bug fix. A blocked pair cannot open a *new*
+   * conversation together (see `createConversation`), so this only leaves group
+   * rooms that predate the block.
+   */
+  private async assertNotBlockedInConversation(
+    conversation: Conversation,
+    actorId: string,
+  ): Promise<void> {
+    if (conversation.kind !== 'direct') {
+      return;
+    }
+    const participantRows = await this.participants.listByConversation(conversation.id);
+    for (const row of participantRows) {
+      if (row.userId !== actorId) {
+        await this.assertNotBlocked(actorId, row.userId);
+      }
+    }
+  }
+
+  /** Same code and copy as `FriendsService.assertNotBlocked`, so every relationship
+   * surface answers a blocked interaction identically. */
+  private async assertNotBlocked(actorId: string, otherUserId: string): Promise<void> {
+    if (await this.blocks.existsEitherDirection(actorId, otherUserId)) {
+      throw new ConflictException('Cannot interact with a blocked user');
+    }
+  }
+
   private async projectConversation(
     conversation: Conversation,
     actorId: string,

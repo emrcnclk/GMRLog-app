@@ -5,6 +5,7 @@ import { create } from 'zustand';
 
 import { FrontendApiError, type AxiosApiClient } from '../api/axios-client';
 import { isAccessTokenExpired } from '../auth/jwt';
+import { mapAuthError, type AuthUiError } from '../auth/map-auth-error';
 import type { SessionManager } from '../auth/session-manager';
 import { queryKeys } from '../query/query-client';
 
@@ -30,6 +31,22 @@ export interface AuthStoreState {
    * screen — see `login-screen.tsx` / `register-screen.tsx`.
    */
   bootstrapping: boolean;
+  /**
+   * Why the session ended without the player asking, when the server said.
+   *
+   * 12.6 — an account whose 30-day deletion grace period lapsed fails its
+   * *refresh*, not only its sign-in (`enforceGracePeriod` runs on every token
+   * issuance). Until this existed the axios interceptor swallowed that
+   * refusal and the player was returned to the sign-in screen with nothing to
+   * read, exactly as if their session had merely expired. The sign-in screen
+   * consumes this once and clears it.
+   *
+   * Null for an ordinary expiry: "your session ended" is not news worth a
+   * banner, and showing one on every timeout would train players to dismiss
+   * the one case that matters.
+   */
+  sessionEndedNotice: AuthUiError | null;
+  clearSessionEndedNotice: () => void;
   bindRuntime: (runtime: AuthRuntime) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (input: SessionRegisterInput) => Promise<void>;
@@ -106,6 +123,7 @@ async function clearLocalSession(
   manager: SessionManager,
   queryClient: QueryClient,
   set: (partial: Partial<AuthStoreState>) => void,
+  sessionEndedNotice: AuthUiError | null = null,
 ): Promise<void> {
   await manager.clearSession();
   queryClient.clear();
@@ -114,15 +132,42 @@ async function clearLocalSession(
     accessToken: null,
     authenticated: false,
     bootstrapping: false,
+    sessionEndedNotice,
   });
 }
 
+/**
+ * Only a refusal the player needs to read survives into a banner. An expired
+ * or revoked session is the ordinary case and says nothing useful; 12.6's
+ * `ACCOUNT_DELETED` is the one the interceptor used to swallow, and the
+ * `unavailable` cases tell a player the sign-in they are about to attempt
+ * will not work either.
+ */
+function noticeForEndedSession(error: FrontendApiError | undefined): AuthUiError | null {
+  if (error === undefined) {
+    return null;
+  }
+  const notice = mapAuthError(error, true);
+  return notice.kind === 'unauthorized' && error.envelope?.error.code !== 'ACCOUNT_DELETED'
+    ? null
+    : notice;
+}
+
 /** Used by Axios 401 recovery when refresh fails. */
-export async function clearAuthAfterInterceptorFailure(manager: SessionManager): Promise<void> {
+export async function clearAuthAfterInterceptorFailure(
+  manager: SessionManager,
+  error?: FrontendApiError,
+): Promise<void> {
+  const notice = noticeForEndedSession(error);
   if (runtime) {
-    await clearLocalSession(manager, runtime.queryClient, (partial) => {
-      useAuthStore.setState(partial);
-    });
+    await clearLocalSession(
+      manager,
+      runtime.queryClient,
+      (partial) => {
+        useAuthStore.setState(partial);
+      },
+      notice,
+    );
     return;
   }
   await manager.clearSession();
@@ -131,6 +176,7 @@ export async function clearAuthAfterInterceptorFailure(manager: SessionManager):
     accessToken: null,
     authenticated: false,
     bootstrapping: false,
+    sessionEndedNotice: notice,
   });
 }
 
@@ -139,6 +185,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   accessToken: null,
   authenticated: false,
   bootstrapping: true,
+  sessionEndedNotice: null,
+
+  clearSessionEndedNotice: () => {
+    set({ sessionEndedNotice: null });
+  },
 
   bindRuntime: (next) => {
     runtime = next;

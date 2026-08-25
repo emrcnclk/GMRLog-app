@@ -5,6 +5,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { OptionalGuestGuard } from '../auth/guards/optional-guest.guard';
 import { createZodDto } from '../infrastructure/http/zod-validation.pipe';
+import { ProfileVisibilityGuard } from '../profile-visibility/profile-visibility.guard';
 
 import { ProfileHeroService } from './profile-hero.service';
 
@@ -21,6 +22,7 @@ export class ProfileHeroController {
   constructor(private readonly profileHero: ProfileHeroService) {}
 
   @Get(':id/hero')
+  @UseGuards(ProfileVisibilityGuard)
   getHero(@Param() params: ProfileHeroSubjectUserIdParamDto): Promise<ProfileHeroResponse> {
     return this.profileHero.getHero(params.id);
   }

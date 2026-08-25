@@ -1,6 +1,6 @@
 import type { Notification, Prisma } from '@prisma/client';
 
-import type { DatabaseClient } from './types';
+import { withTransaction, type DatabaseClient } from './types';
 
 export interface NotificationListCursor {
   createdAt: Date;
@@ -110,7 +110,7 @@ export class PrismaNotificationRepository implements NotificationRepository {
     if (ids.length === 0) {
       return 0;
     }
-    const result = await this.db.$transaction(async (tx) => {
+    const result = await withTransaction(this.db, async (tx) => {
       return tx.notification.updateMany({
         where: { recipientId, id: { in: [...ids] }, readAt: null },
         data: { readAt: new Date() },

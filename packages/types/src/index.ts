@@ -1,3 +1,5 @@
+export { COUNTRIES, COUNTRY_CODES, type CountryOption } from './countries';
+
 /**
  * Shared type surface for the GMRLOG monorepo.
  * Domain types are added in later foundation phases — not here.
@@ -1669,4 +1671,305 @@ export interface CreatorProfileResponse {
   featuredPosts: PostResponse[];
   guides: PostResponse[];
   collections: CollectionResponse[];
+}
+
+/**
+ * 12.1 — Legal document identity. Three documents, not two: KVKK requires an
+ * Aydınlatma Metni (disclosure notice) distinct from the privacy policy, and
+ * treats explicit consent as a separate act from that disclosure.
+ *
+ * The id is stable, kebab-case and URL-safe because it is also the path
+ * segment 12.2 serves (`GET /api/v1/legal/:document`).
+ */
+export type LegalDocumentId = 'terms-of-service' | 'privacy-policy' | 'disclosure-notice';
+
+export const LEGAL_DOCUMENT_IDS = [
+  'terms-of-service',
+  'privacy-policy',
+  'disclosure-notice',
+] as const satisfies readonly LegalDocumentId[];
+
+/** 12.1 — the two audiences the jurisdiction decision commits to. */
+export type LegalLocale = 'en' | 'tr';
+
+export const LEGAL_LOCALES = ['en', 'tr'] as const satisfies readonly LegalLocale[];
+
+/**
+ * 12.1 — the locale served when a request names none, or names one we do not
+ * publish. English rather than Turkish because the product UI is English; the
+ * Turkish Aydinlatma Metni remains the operative text for KVKK purposes
+ * regardless of which locale a given reader is served.
+ *
+ * Lives here rather than in the backend's document registry because both sides
+ * of the wire need the same answer: the registry resolves a requested locale
+ * against it, and every client that asks for a document or records a consent
+ * has to fall back to the same one. Three frontend hooks had each declared
+ * their own copy, which is three chances for the default to drift.
+ */
+export const DEFAULT_LEGAL_LOCALE: LegalLocale = 'en';
+
+/**
+ * 12.1 — narrows an arbitrary stored preference (`UserSettings.locale` is free
+ * text, and may carry a region — `tr-TR`) to a locale the legal registry
+ * actually publishes. Returns `null` rather than the default when it cannot,
+ * so a caller can tell "not a locale we publish" from "the player chose
+ * English".
+ */
+export function asLegalLocale(value: string | null | undefined): LegalLocale | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const base = value.split('-')[0]?.toLowerCase() ?? '';
+  return (LEGAL_LOCALES as readonly string[]).includes(base) ? (base as LegalLocale) : null;
+}
+
+/**
+ * 12.1 — the versioning rule, stated once so 12.4 does not have to invent it:
+ * `major.minor.patch`, and **a major or minor bump requires re-consent while a
+ * patch does not**. A patch is reserved for changes that cannot alter what a
+ * reader agreed to — typography, a broken link, a translation fix. Anything
+ * that changes a right, a purpose, a retention period or a recipient is at
+ * least a minor bump, which means every existing acceptance goes stale.
+ */
+export interface LegalDocumentVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+/** 12.1 — `1.0.0`. The wire format for {@link LegalDocumentVersion}. */
+export type LegalDocumentVersionString = string;
+
+/**
+ * 12.1 — what 12.4 persists per acceptance: `"privacy-policy@1.0.0"`. One
+ * opaque string rather than two columns, so a consent row cannot drift into a
+ * document/version pair that never existed.
+ */
+export type LegalConsentKey = string;
+
+/** 12.1 — metadata without the body. The listing 12.2 serves for drift checks. */
+export interface LegalDocumentSummaryResponse {
+  id: LegalDocumentId;
+  locale: LegalLocale;
+  version: LegalDocumentVersionString;
+  effectiveDate: string;
+  title: string;
+  requiresAcceptance: boolean;
+}
+
+/** 12.1 — the full document. `body` is Markdown. */
+export interface LegalDocumentResponse extends LegalDocumentSummaryResponse {
+  body: string;
+}
+
+/**
+ * 12.4 — a recorded decision. Not a boolean; see `UserConsent.decision`.
+ *
+ * 12.4a added `acknowledged`, which is not a decision at all and that is the
+ * point: a privacy notice is *given* under GDPR Art. 13/14 and KVKK Art. 10, not
+ * agreed to. It records that a version was displayed — evidence of disclosure,
+ * never permission.
+ */
+export type LegalConsentDecisionValue = 'accepted' | 'declined' | 'withdrawn' | 'acknowledged';
+
+/** 12.4 — one decision on record, for one document at one version. */
+export interface LegalConsentRecordResponse {
+  documentId: LegalDocumentId;
+  version: LegalDocumentVersionString;
+  locale: LegalLocale;
+  decision: LegalConsentDecisionValue;
+  decidedAt: string;
+}
+
+/**
+ * 12.4 — where a player stands against the documents that require acceptance.
+ *
+ * `outstanding` and `satisfied` are separate on purpose, and the gap between
+ * them is the whole point. A player who **declined** the current version is not
+ * satisfied, but they are also not outstanding: they were asked and they
+ * answered. Collapsing the two into one boolean leaves the app no way to tell
+ * "has not been asked" from "said no", and the only behaviour available then is
+ * to ask again on every launch — which is precisely the dark pattern F2.27 §7
+ * forbids.
+ */
+export interface LegalConsentStateResponse {
+  /** Every decision on record, newest first. History, not just the current state. */
+  decisions: LegalConsentRecordResponse[];
+  /** Documents requiring acceptance whose current version carries no decision. Ask about these. */
+  outstanding: LegalDocumentSummaryResponse[];
+  /** True only when every document requiring acceptance is `accepted` at its current version. */
+  satisfied: boolean;
+  /**
+   * 12.4a — notices whose current version has not been shown to this player yet.
+   *
+   * Separate from `outstanding` because the remedy is different: an outstanding
+   * document needs an answer, an undisclosed notice needs to be *displayed*.
+   * Putting a privacy notice in `outstanding` would imply asking for something
+   * it is not lawful to ask for.
+   */
+  undisclosed: LegalDocumentSummaryResponse[];
+  /**
+   * 12.4b — documents requiring acceptance where the player *was* asked and
+   * answered something other than `accepted`, at the current version.
+   *
+   * `outstanding` deliberately stops asking again once a decision is on
+   * record — that is what keeps a refusal from being nagged into a yes
+   * (F2.27 §7). But "don't repeat the same prompt" and "let them use the
+   * product anyway" are different questions, and a consent gate has to answer
+   * both: `blocked` is what tells a caller a player has already said no to
+   * something the product cannot be used without, so it can show the
+   * *consequence* of that answer once, rather than either silently letting
+   * them through or silently asking again.
+   */
+  blocked: LegalDocumentSummaryResponse[];
+}
+
+/**
+ * 12.5 — one player's data, in the five categories
+ * `docs/11_SECURITY/PRIVACY_POLICY.md`'s own table names (GDPR Art. 15/20,
+ * KVKK Art. 11). Computed signals the player never supplied — archetype
+ * scores, reputation badges, DNA similarity — are deliberately out of this
+ * pass; §2.6 of the Privacy Policy already frames those as visible product
+ * features, not data collected from the player, and 12.5's brief is a
+ * portable copy of what GMRLog was *given* or *created on the player's
+ * behalf*, not a re-derivation of everything the platform computes.
+ */
+export interface DataExportAccount {
+  handle: string;
+  displayName: string;
+  /** The password credential's lookup key, never the hash. `null` for an OAuth-only account. */
+  email: string | null;
+  authMethods: { type: string; provider: string | null; createdAt: string }[];
+  birthDate: string | null;
+  countryCode: string | null;
+  language: string | null;
+  createdAt: string;
+  consents: LegalConsentRecordResponse[];
+}
+
+export interface DataExportGamingActivity {
+  libraryEntries: {
+    gameId: string;
+    status: string;
+    source: string;
+    note: string | null;
+    createdAt: string;
+  }[];
+  gameLogs: { gameId: string; kind: string; occurredAt: string }[];
+  reviews: {
+    id: string;
+    gameId: string;
+    rating: number;
+    body: string | null;
+    visibility: string;
+    createdAt: string;
+  }[];
+  posts: { id: string; body: string; visibility: string; createdAt: string }[];
+  comments: { id: string; hostType: string; hostId: string; body: string; createdAt: string }[];
+  reactions: {
+    id: string;
+    targetType: string;
+    targetId: string;
+    kind: string;
+    createdAt: string;
+  }[];
+  collections: {
+    id: string;
+    title: string;
+    visibility: string;
+    gameIds: string[];
+    createdAt: string;
+  }[];
+  tierLists: { id: string; title: string; visibility: string; createdAt: string }[];
+  quotes: {
+    id: string;
+    targetType: string;
+    targetId: string;
+    body: string;
+    visibility: string;
+    createdAt: string;
+  }[];
+  communityMemberships: { communityId: string; role: string; joinedAt: string }[];
+  eventParticipations: { eventId: string; state: string; createdAt: string }[];
+  achievementProgress: {
+    achievementId: string;
+    current: number;
+    target: number;
+    state: string;
+    awardedAt: string | null;
+  }[];
+}
+
+export interface DataExportSocial {
+  following: { userId: string; createdAt: string }[];
+  followers: { userId: string; createdAt: string }[];
+  friendRequestsSent: { userId: string; status: string; createdAt: string }[];
+  friendRequestsReceived: { userId: string; status: string; createdAt: string }[];
+  friendships: { userId: string; since: string }[];
+  blocks: { userId: string; createdAt: string }[];
+  mutes: { userId: string; createdAt: string }[];
+  /** Only messages this player sent — a conversation partner's own messages are their data, not this export's. */
+  messagesSent: { conversationId: string; body: string; createdAt: string }[];
+}
+
+export interface DataExportTechnical {
+  /** No IP or device type — the Privacy Policy §2.5 promise that GMRLog does not store either. */
+  sessions: { createdAt: string; expiresAt: string; revokedAt: string | null }[];
+  auditLogEntries: { action: string; entityType: string; entityId: string; at: string }[];
+  reportsFiled: {
+    targetType: string;
+    targetId: string;
+    reason: string;
+    status: string;
+    createdAt: string;
+  }[];
+}
+
+export interface DataExportOptional {
+  bio: string | null;
+  avatarKey: string | null;
+  bannerKey: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  connectedAccounts: {
+    provider: string;
+    status: string;
+    scopes: string[];
+    linkedAt: string | null;
+  }[];
+  integrations: {
+    provider: string;
+    externalRef: string;
+    displayName: string | null;
+    verified: boolean;
+    connectedAt: string;
+    disconnectedAt: string | null;
+  }[];
+}
+
+/** 12.5 — `POST /me/export`. One player's data, portable and machine-readable. */
+export interface DataExportResponse {
+  format: 'gmrlog.data-export.v1';
+  exportedAt: string;
+  categories: {
+    account: DataExportAccount;
+    gamingActivity: DataExportGamingActivity;
+    social: DataExportSocial;
+    technical: DataExportTechnical;
+    optional: DataExportOptional;
+  };
+}
+
+/**
+ * 12.6 — `/me/account/deletion`. Where a player's account stands relative to
+ * the 30-day grace period `privacy-policy.en.ts` §6/§7 promises.
+ *
+ * `pending: false` covers two states a caller does not need to tell apart —
+ * no request was ever made, and a past request was cancelled — both mean
+ * "nothing scheduled, the delete-account screen shows the initial prompt".
+ */
+export interface AccountDeletionStatusResponse {
+  pending: boolean;
+  requestedAt: string | null;
+  deletesAt: string | null;
 }

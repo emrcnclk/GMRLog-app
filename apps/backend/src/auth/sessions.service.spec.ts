@@ -1,3 +1,9 @@
+import { LEGAL_DOCUMENT_IDS } from '@gmrlog/types';
+
+import type { AccountDeletionService } from '../legal/account-deletion.service';
+import { resolveLegalDocument } from '../legal/documents';
+import { LegalConsentService } from '../legal/legal-consent.service';
+import { createFakeUserConsentRepository } from '../legal/testing/fake-repositories';
 import type {
   AuthCredential,
   AuthCredentialRepository,
@@ -14,6 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { NoopEmailService } from '../infrastructure/email/noop-email.service';
+import type { RegistrationTransaction } from './registration-transaction';
 import { parseBackendEnv } from '../infrastructure/config/env.schema';
 import { MemoryPasswordResetStore } from './password-reset.store';
 import { TokenService } from './jwt/token.service';
@@ -34,6 +41,10 @@ function makeUser(overrides: Partial<User> = {}): User {
     bannerBlurhash: null,
     bannerVariants: null,
     privacyId: null,
+    firstName: null,
+    lastName: null,
+    birthDate: null,
+    countryCode: null,
     creatorFeatured: false,
     accountKind: 'individual',
     cardNumber: 1,
@@ -109,6 +120,18 @@ function createFakeSessionRepository(seed: Session[] = []): FakeSessionRepositor
       const updated = { ...existing, revokedAt: new Date(), updatedAt: new Date() };
       rows.set(id, updated);
       return updated;
+    },
+    // Mirrors the conditional UPDATE: the check and the write happen with no
+    // await between them, so concurrent callers serialise the way the row lock
+    // makes them serialise in Postgres.
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async revokeIfActive(id) {
+      const existing = rows.get(id);
+      if (!existing || existing.revokedAt != null) {
+        return false;
+      }
+      rows.set(id, { ...existing, revokedAt: new Date(), updatedAt: new Date() });
+      return true;
     },
     async delete(id) {
       const existing = rows.get(id);
@@ -278,6 +301,24 @@ function createFakeUserSettingsRepository(): FakeUserSettingsRepository {
   };
 }
 
+/**
+ * 12.4 — the register flow now records consent, so the spec has to supply it.
+ * Built from the live registry rather than hardcoded so a version bump does not
+ * silently turn these into stale-submission tests.
+ *
+ * 12.4a — every document, not only the ones requiring acceptance: a notice that
+ * was not shown has not been given.
+ */
+function currentShownDocuments() {
+  return LEGAL_DOCUMENT_IDS.map((documentId) => {
+    const document = resolveLegalDocument(documentId, 'en');
+    if (document === null) {
+      throw new Error(`missing legal document: ${documentId}`);
+    }
+    return { documentId, version: document.version, locale: 'en' as const };
+  });
+}
+
 describe('SessionsService', () => {
   let sessions: FakeSessionRepository;
   let credentials: FakeAuthCredentialRepository;
@@ -286,6 +327,8 @@ describe('SessionsService', () => {
   let tokens: TokenService;
   let passwordResetStore: MemoryPasswordResetStore;
   let email: NoopEmailService;
+  let consents: ReturnType<typeof createFakeUserConsentRepository>;
+  let registrationTransaction: RegistrationTransaction;
   let service: SessionsService;
   const env = parseBackendEnv({});
 
@@ -302,6 +345,12 @@ describe('SessionsService', () => {
       verifyOptions: { issuer: env.JWT_ISSUER },
     });
     tokens = new TokenService(jwt, env);
+    consents = createFakeUserConsentRepository();
+    // 12.4 — the real provider opens a Prisma transaction and rebuilds the four
+    // repositories against it. There is no transaction to open here, so the
+    // fake runs the callback against the same fakes the service reads from —
+    // which is the seam the token exists to give.
+    registrationTransaction = (fn) => fn({ users, credentials, settings, consents });
     service = new SessionsService(
       sessions,
       credentials,
@@ -311,6 +360,12 @@ describe('SessionsService', () => {
       env,
       passwordResetStore as never,
       email,
+      new LegalConsentService(consents),
+      // 12.6 — this suite exercises login/register/refresh, not the deletion
+      // grace period (`account-deletion.service.spec.ts` does that); a no-op
+      // stub keeps `issueCredentialPair` callable without a real database.
+      { enforceGracePeriod: async () => undefined } as unknown as AccountDeletionService,
+      registrationTransaction,
     );
   });
 
@@ -368,6 +423,13 @@ describe('SessionsService', () => {
       password: 'secure-password-12',
       displayName: 'New Player',
       handle: 'new_player',
+      // 12.4c — a birth date comfortably past the 13-year floor, and a real
+      // country code. Both are required now.
+      birthDate: '1995-06-15',
+      countryCode: 'TR',
+      locale: 'en' as const,
+      shownLegalDocuments: currentShownDocuments(),
+      termsAccepted: true,
     });
 
     expect(result).toEqual({
@@ -405,6 +467,13 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'taken_handle',
+        // 12.4c — a birth date comfortably past the 13-year floor, and a real
+        // country code. Both are required now.
+        birthDate: '1995-06-15',
+        countryCode: 'TR',
+        locale: 'en' as const,
+        shownLegalDocuments: currentShownDocuments(),
+        termsAccepted: true,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
@@ -454,6 +523,56 @@ describe('SessionsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  // Bug 7. The token used to be read at the top of `resetPassword` and deleted
+  // at the bottom, with a deliberately slow password hash in between — so the
+  // window in which two requests could both hold the same live token was as
+  // wide as a hash. Both would set a password and the last writer would own the
+  // account. The token is now claimed by a single GETDEL before any of that.
+  it('lets only one of two concurrent resets with the same token succeed', async () => {
+    const oldHash = await hashPassword('old-password-12xx');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({
+        id: 'cred-1',
+        secretHash: oldHash,
+        providerRef: 'player@example.com',
+        userId: 'user-1',
+      }),
+    );
+    await passwordResetStore.put('reset-token', 'user-1');
+
+    const results = await Promise.allSettled([
+      service.resetPassword({ token: 'reset-token', password: 'attacker-password-1' }),
+      service.resetPassword({ token: 'reset-token', password: 'victim-password-12' }),
+    ]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(BadRequestException);
+
+    // Exactly one of the two passwords is live — never both, never a mix.
+    const stored = credentials.rows[0]?.secretHash;
+    const matches = await Promise.all([
+      verifyPassword('attacker-password-1', stored!),
+      verifyPassword('victim-password-12', stored!),
+    ]);
+    expect(matches.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('spends the reset token even when the reset then fails', async () => {
+    // No password credential for this user, so the reset fails after the token
+    // is claimed. Burning it is the deliberate trade: putting it back would
+    // reopen the window above, and the user can request another.
+    users.rows.set('user-nopass', makeUser({ id: 'user-nopass' }));
+    await passwordResetStore.put('lonely-token', 'user-nopass');
+
+    await expect(
+      service.resetPassword({ token: 'lonely-token', password: 'new-password-12ab' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(await passwordResetStore.getUserId('lonely-token')).toBeNull();
+  });
+
   it('issues credentials on successful login and refresh', async () => {
     const secretHash = await hashPassword('correct-password-12');
     users.rows.set('user-1', makeUser());
@@ -470,6 +589,59 @@ describe('SessionsService', () => {
     const refresh = await service.refresh({ refreshToken: login.refreshToken });
     expect(refresh.accessToken).toEqual(expect.any(String));
     expect([...sessions.rows.values()].some((row) => row.revokedAt != null)).toBe(true);
+  });
+
+  // Bug 6. A refresh token is single-use: presenting it rotates the session.
+  // The check ("is this session still active?") and the write ("revoke it")
+  // used to be two statements, so two requests carrying the same token could
+  // both pass the check and both mint a credential pair — one refresh token
+  // becoming two live sessions, which is exactly what an attacker replaying a
+  // stolen token wants. The consume is now a single conditional UPDATE.
+  it('lets only one of two concurrent refreshes with the same token succeed', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    const login = await service.login({
+      email: 'player@example.com',
+      password: 'correct-password-12',
+    });
+
+    const results = await Promise.allSettled([
+      service.refresh({ refreshToken: login.refreshToken }),
+      service.refresh({ refreshToken: login.refreshToken }),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
+
+    // One rotation, so exactly one new session joins the consumed original.
+    expect(sessions.rows.size).toBe(2);
+    const active = [...sessions.rows.values()].filter((row) => row.revokedAt == null);
+    expect(active).toHaveLength(1);
+  });
+
+  it('rejects a refresh token that has already been consumed', async () => {
+    const secretHash = await hashPassword('correct-password-12');
+    users.rows.set('user-1', makeUser());
+    credentials.rows.push(
+      makeCredential({ secretHash, providerRef: 'player@example.com', userId: 'user-1' }),
+    );
+
+    const login = await service.login({
+      email: 'player@example.com',
+      password: 'correct-password-12',
+    });
+
+    await service.refresh({ refreshToken: login.refreshToken });
+    await expect(service.refresh({ refreshToken: login.refreshToken })).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('logs out the current session or all active sessions', async () => {
@@ -492,6 +664,13 @@ describe('SessionsService', () => {
         password: 'secure-password-12',
         displayName: 'Other',
         handle: 'other_handle',
+        // 12.4c — a birth date comfortably past the 13-year floor, and a real
+        // country code. Both are required now.
+        birthDate: '1995-06-15',
+        countryCode: 'TR',
+        locale: 'en' as const,
+        shownLegalDocuments: currentShownDocuments(),
+        termsAccepted: true,
       }),
     ).rejects.toBeInstanceOf(ConflictException);
   });

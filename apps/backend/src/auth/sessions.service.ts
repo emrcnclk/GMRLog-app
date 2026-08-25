@@ -30,6 +30,8 @@ import {
 import { ENV } from '../infrastructure/config/config.module';
 import type { BackendEnv } from '../infrastructure/config/env.schema';
 import { EMAIL_PORT, type EmailPort } from '../infrastructure/email/email.port';
+import { AccountDeletionService } from '../legal/account-deletion.service';
+import { LegalConsentService } from '../legal/legal-consent.service';
 
 import {
   AUTH_CREDENTIAL_REPOSITORY,
@@ -40,6 +42,7 @@ import {
 import { TokenService } from './jwt/token.service';
 import { hashPassword, verifyPassword } from './password';
 import { PasswordResetStore } from './password-reset.store';
+import { REGISTRATION_TRANSACTION, type RegistrationTransaction } from './registration-transaction';
 import { countUsableSignInMethods } from './sign-in-methods';
 
 /**
@@ -67,6 +70,10 @@ export class SessionsService {
     @Inject(ENV) private readonly env: BackendEnv,
     private readonly passwordResetStore: PasswordResetStore,
     @Inject(EMAIL_PORT) private readonly email: EmailPort,
+    private readonly legalConsent: LegalConsentService,
+    private readonly accountDeletion: AccountDeletionService,
+    @Inject(REGISTRATION_TRANSACTION)
+    private readonly registrationTransaction: RegistrationTransaction,
   ) {}
 
   async login(input: SessionCreateInput): Promise<SessionCredentialResponse> {
@@ -102,6 +109,16 @@ export class SessionsService {
     const email = normalizeEmail(input.email);
     const handle = input.handle;
 
+    // 12.4 — before anything is created. A registration whose submission is
+    // stale or incomplete fails here, so there is never an account whose
+    // consent record is missing or says something untrue about what the player
+    // was shown. Cheapest check first, and it needs no database round-trip.
+    //
+    // 12.4a — `termsAccepted` needs no check of its own: the schema types it
+    // `literal(true)`, so a registration where the box was not ticked never
+    // reaches this method.
+    this.legalConsent.assertShownDocumentsAreCurrent(input.shownLegalDocuments);
+
     const existingHandle = await this.users.findByHandle(handle);
     if (existingHandle != null) {
       throw new ConflictException('Handle is already in use');
@@ -113,20 +130,61 @@ export class SessionsService {
     }
 
     const secretHash = await hashPassword(input.password);
-    const user = await this.users.create({
-      handle,
-      displayName: input.displayName,
+
+    // 12.4 — one transaction for all four writes. They were four independent
+    // calls under a comment that claimed a failure part-way through "fails
+    // loudly rather than leaving an account with no evidence of consent behind
+    // it": it did fail loudly, and it also left the account. A transient error
+    // after the credential landed produced a real, password-holding account
+    // with no `UserConsent` row, and every retry then hit the
+    // `ConflictException` above ("Handle is already in use"), so it could never
+    // finish registering and never gain one. Now the whole thing commits or
+    // none of it does, and a retry meets a world where the handle is free.
+    const user = await this.registrationTransaction(async (repositories) => {
+      const created = await repositories.users.create({
+        handle,
+        displayName: input.displayName,
+        // 12.4c — `birthDate` and `countryCode` are nullable in the database
+        // because accounts predating those columns have no true value; the schema
+        // above makes it impossible for a *new* account to be in that state, so
+        // they are always written here.
+        birthDate: new Date(`${input.birthDate}T00:00:00Z`),
+        countryCode: input.countryCode,
+        // `undefined` rather than an empty string when the player left them
+        // blank — the validator normalises "" away, so a stored empty string
+        // never gets to read as "a name we have".
+        firstName: input.firstName,
+        lastName: input.lastName,
+      });
+
+      await repositories.credentials.create({
+        user: { connect: { id: created.id } },
+        type: 'password',
+        providerRef: email,
+        secretHash,
+      });
+
+      // 12.4c — the chosen language, so the first screen after registration is
+      // already in it. `UserSettings.locale` already existed; it was simply only
+      // reachable from Settings after the fact.
+      await repositories.settings.upsertByUser(created.id, { locale: input.locale });
+
+      // Recorded after the account exists inside the same transaction, because
+      // the row is keyed to the user. Already validated above, so the only way
+      // this fails is the database being unavailable — and now that rolls the
+      // account back with it.
+      await this.legalConsent.recordRegistrationConsent(
+        created.id,
+        input.shownLegalDocuments,
+        repositories.consents,
+      );
+
+      return created;
     });
 
-    await this.credentials.create({
-      user: { connect: { id: user.id } },
-      type: 'password',
-      providerRef: email,
-      secretHash,
-    });
-
-    await this.settings.upsertByUser(user.id, {});
-
+    // Outside the transaction on purpose: issuing a session is not part of the
+    // account's existence, and holding a transaction open across token signing
+    // and a session insert would widen the lock window for no benefit.
     return this.issueCredentialPair(user.id);
   }
 
@@ -148,7 +206,19 @@ export class SessionsService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.sessions.revoke(session.id);
+    // Bug 6 — the checks above are advisory, not a claim on the session. Two
+    // requests carrying the same refresh token could both pass them, both
+    // revoke, and both walk away with a valid credential pair, turning a
+    // single-use token into two live sessions — and handing an attacker who
+    // replayed a stolen refresh token a session of their own alongside the
+    // victim's. Consuming the session is therefore a conditional UPDATE that
+    // reports whether *this* call is the one that consumed it; whoever loses
+    // the race is told the token is invalid, which it now is.
+    const consumed = await this.sessions.revokeIfActive(session.id);
+    if (!consumed) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     return this.issueCredentialPair(payload.sub);
   }
 
@@ -192,8 +262,22 @@ export class SessionsService {
     });
   }
 
+  /**
+   * Bug 7 — the token is claimed first, before anything slow or observable
+   * happens. It used to be read at the top and deleted at the very bottom, with
+   * a deliberately expensive password hash in between, so the window where two
+   * requests could both hold the same live token was as wide as a hash: both
+   * would read it, both would hash, and both would write a password, the last
+   * writer taking the account. `consume` is a single Redis GETDEL, so exactly
+   * one caller gets the user id and the rest are told the token is invalid.
+   *
+   * Consuming up front also means a failed reset burns the token. That is the
+   * right trade for a credential-reset primitive — the alternative is putting
+   * the token back, which reopens the same window — and the user can always
+   * request another.
+   */
   async resetPassword(input: PasswordResetInput): Promise<void> {
-    const userId = await this.passwordResetStore.getUserId(input.token);
+    const userId = await this.passwordResetStore.consume(input.token);
     if (userId == null) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -205,7 +289,6 @@ export class SessionsService {
 
     const secretHash = await hashPassword(input.password);
     await this.credentials.updateSecretHash(credential.id, secretHash);
-    await this.passwordResetStore.delete(input.token);
     await this.logoutCurrent(userId);
   }
 
@@ -294,8 +377,20 @@ export class SessionsService {
     }
   }
 
-  /** Shared token-issuance step — also used by `OAuthController` once a user resolves. */
+  /**
+   * Shared token-issuance step — also used by `OAuthController` once a user
+   * resolves, and by `refresh` for an already-established session.
+   *
+   * 12.6's grace-period check lives here rather than duplicated at every
+   * caller: login, register, refresh and every OAuth sign-in path all end up
+   * here, and register's account can never have a pending request, so the
+   * check costs it one no-op read. Whichever path first calls this after an
+   * account's 30 days have elapsed is the one that erases it and gets
+   * refused; every other path shares that same guarantee for free.
+   */
   async issueCredentialPair(userId: string): Promise<SessionCredentialResponse> {
+    await this.accountDeletion.enforceGracePeriod(userId);
+
     const expiresAt = new Date(Date.now() + this.env.JWT_REFRESH_TTL_SECONDS * 1000);
     const session = await this.sessions.create({
       user: { connect: { id: userId } },

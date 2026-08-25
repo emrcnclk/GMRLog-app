@@ -1,0 +1,52 @@
+import { Button, ErrorBanner, Text, useTheme } from '@gmrlog/ui';
+import { memo } from 'react';
+import { View } from 'react-native';
+
+import { useDataExportAction } from '../hooks/use-data-export';
+
+function DataExportRowComponent() {
+  const theme = useTheme();
+  const dataExport = useDataExportAction();
+
+  return (
+    <View
+      style={{
+        paddingHorizontal: theme.space('space.4'),
+        paddingVertical: theme.space('space.3'),
+        gap: theme.space('space.2'),
+      }}
+    >
+      <Text role="title" color="color.text.primary">
+        Download your data
+      </Text>
+      {/* A sentence, so `body` — CLAUDE.md's design law reserves `meta` for
+          counts, timestamps, ranks, platforms and section kickers, and
+          "sentences stay in body". */}
+      <Text role="body" color="color.text.tertiary">
+        A machine-readable copy of your account, gaming activity, social connections, technical
+        records and anything optional you added. Available once every 24 hours.
+      </Text>
+      {dataExport.error ? (
+        <ErrorBanner title={dataExport.error.title} description={dataExport.error.description} />
+      ) : null}
+      {dataExport.done && !dataExport.error ? (
+        <Text role="meta" color="color.text.secondary">
+          Your export downloaded.
+        </Text>
+      ) : null}
+      <Button
+        variant="secondary"
+        accessibilityLabel="Download your data"
+        loading={dataExport.busy}
+        disabled={dataExport.busy}
+        onPress={() => {
+          void dataExport.run();
+        }}
+      >
+        Download my data
+      </Button>
+    </View>
+  );
+}
+
+export const DataExportRow = memo(DataExportRowComponent);

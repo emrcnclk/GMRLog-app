@@ -168,10 +168,25 @@ GOOGLE_CLIENT_SECRET=
 ### Steam
 
 ```env
-STEAM_API_KEY=
+STEAM_WEB_API_KEY=
 
 STEAM_CLIENT_ID=
 ```
+
+`STEAM_WEB_API_KEY` is **required in production** and is listed in
+`PRODUCTION_REQUIRED_ENV_KEYS`. Without it the backend used to fall back to
+`MockSteamWebApiClient`, which serves fixture libraries, playtimes and
+achievements — a production box missing the variable would present invented
+data as the player's real Steam profile, and nothing downstream could tell the
+difference. Boot now fails instead, from two places: env validation rejects the
+environment, and `createSteamWebApiClient()` refuses to hand out a mock when
+`NODE_ENV` or `APP_ENV` is `production`.
+
+Outside production the variable stays optional and an unset key still selects
+the mock client, which is what local development and the test suite run against.
+
+(The variable was previously documented here as `STEAM_API_KEY`; that name is
+not read anywhere in the backend.)
 
 ### Discord
 

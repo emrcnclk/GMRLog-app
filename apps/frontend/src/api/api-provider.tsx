@@ -29,8 +29,8 @@ export function ApiProvider({ children }: ApiProviderProps) {
         await manager.applyRefreshedTokens(tokens);
         useAuthStore.setState({ accessToken: tokens.accessToken });
       },
-      onSessionCleared: async () => {
-        await clearAuthAfterInterceptorFailure(manager);
+      onSessionCleared: async (error) => {
+        await clearAuthAfterInterceptorFailure(manager, error);
       },
       isOnline: () => useConnectivityStore.getState().isOnline,
     });

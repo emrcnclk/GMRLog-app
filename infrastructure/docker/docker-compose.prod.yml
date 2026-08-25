@@ -1,8 +1,62 @@
 # Local production-parity overlay (D3.19).
 # Usage:
-#   docker compose -f infrastructure/docker/docker-compose.yml -f infrastructure/docker/docker-compose.prod.yml up -d --build
-
+#   pnpm docker:prod:up
+# which preflights `infrastructure/docker/.env.production.local` (gitignored,
+# yours to fill in) before handing it to compose. Never point this stack at
+# `.env.production.example` — those values are placeholders, not secrets.
+#
+# Bug 4 — the base compose publishes every backing service on 0.0.0.0, which is
+# fine for a dev laptop and wrong for anything production-shaped: Postgres,
+# Redis, MinIO, Meilisearch, Mailpit and a *passwordless* pgAdmin were all
+# reachable from any host that could route to the box. The overrides below take
+# the datastores off the host entirely — the API reaches them over
+# `gmrlog-network`, so nothing is lost — and bind the two that a human genuinely
+# needs to 127.0.0.1.
 services:
+  postgres:
+    # No host port: nothing outside the compose network has any business
+    # speaking to the database directly.
+    ports: !reset null
+
+  redis:
+    ports: !reset null
+
+  meilisearch:
+    ports: !reset null
+    environment:
+      # The base sets `development`, which lets Meilisearch run without a real
+      # master key. Production mode requires one of at least 16 bytes.
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+      MEILI_MASTER_KEY: ${MEILI_API_KEY:?set MEILI_API_KEY}
+
+  minio:
+    # Loopback only, and the admin console is not published at all. The API port
+    # stays reachable from the host because `MEDIA_PUBLIC_BASE_URL` hands media
+    # URLs to the browser; a real deployment fronts this with nginx instead.
+    ports: !override
+      - '127.0.0.1:${MINIO_API_PORT:-9000}:9000'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+
+  mailpit:
+    # SMTP is reached over the compose network by name, so only the web UI is
+    # published, and only to loopback.
+    ports: !override
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+
+  pgadmin:
+    # Not part of this stack. The base runs it with
+    # `PGADMIN_CONFIG_SERVER_MODE: 'False'`, i.e. an unauthenticated database
+    # console — putting it behind a profile keeps `pnpm docker:prod:up` from
+    # starting it while leaving `pnpm docker:up` unchanged for development.
+    # Note this cannot stop a pgAdmin already started by a dev `docker:up`;
+    # run `pnpm docker:down` first if that stack is up.
+    profiles:
+      - tools
+    ports: !reset null
+
   minio-init:
     image: minio/mc:latest
     container_name: gmrlog-minio-init
@@ -45,6 +99,7 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY:?set STEAM_WEB_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

@@ -9,7 +9,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -23,6 +22,12 @@ import {
 } from '../infrastructure/jobs/testing/fake-search-index.publisher';
 import { SearchIndexPublisher } from '../infrastructure/jobs/search-index.publisher';
 import { JOBS_CONNECTION } from '../infrastructure/jobs/jobs.constants';
+import { JobsService } from '../infrastructure/jobs/jobs.service';
+import { QUEUE_MEDIA } from '../infrastructure/jobs/queue-names';
+import {
+  asJobsService,
+  createFakeJobsService,
+} from '../infrastructure/jobs/testing/fake-jobs.service';
 
 import { UploadsModule } from './uploads.module';
 import { UPLOAD_REPOSITORY, UPLOAD_USER_REPOSITORY } from './uploads.tokens';
@@ -31,10 +36,13 @@ import {
   createFakeUserRepository,
   makeUser,
 } from './testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const uploads = createFakeUploadRepository();
 const users = createFakeUserRepository([makeUser({ id: 'user-1' })]);
 const memoryStorage = new MemoryObjectStorage();
+const jobs = createFakeJobsService();
 
 let app: NestFastifyApplication;
 let accessToken: string;
@@ -57,14 +65,20 @@ beforeAll(async () => {
     .useValue(asSearchIndexPublisher(createFakeSearchIndexPublisher()))
     .overrideProvider(JOBS_CONNECTION)
     .useValue({ disconnect: () => undefined })
+    // Confirm enqueues a media job; without this the JOBS_CONNECTION stub above
+    // is read by BullMQ as connection *options* and it dials a real localhost
+    // Redis. See fake-jobs.service.ts.
+    .overrideProvider(JobsService)
+    .useValue(asJobsService(jobs))
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
 });
 
 afterAll(async () => {
@@ -74,6 +88,7 @@ afterAll(async () => {
 beforeEach(() => {
   uploads.rows.clear();
   memoryStorage.objects.clear();
+  jobs.jobs.length = 0;
 });
 
 function authHeaders(): Record<string, string> {
@@ -157,6 +172,21 @@ describe('POST /uploads/confirmations', () => {
       status: 'confirmed',
       storageKey: grant.storageKey,
     });
+    // The enqueue this confirm performs was previously landing in the real
+    // local Redis and asserted nowhere; it is a fake and an assertion now.
+    expect(jobs.jobs).toEqual([
+      expect.objectContaining({
+        queue: QUEUE_MEDIA,
+        name: 'media.image.process',
+        data: expect.objectContaining({
+          data: expect.objectContaining({
+            uploadId: grant.grantId,
+            storageKey: grant.storageKey,
+            purpose: 'post_media',
+          }),
+        }),
+      }),
+    ]);
   });
 
   it('rejects confirmation without auth', async () => {

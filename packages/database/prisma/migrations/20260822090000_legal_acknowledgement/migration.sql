@@ -1,0 +1,23 @@
+-- 12.4a — separate being informed from agreeing.
+--
+-- 12.4 recorded every legal document as `accepted`, including the Privacy
+-- Policy. That conflates two different things. Under the GDPR (Art. 13/14) and
+-- KVKK (Art. 10) a privacy notice is *given*: the reader is informed, they do
+-- not consent to it. Only the Terms of Service are a contract, and only a
+-- contract is accepted.
+--
+-- This is the same distinction 12.1 already drew for the Aydınlatma Metni, with
+-- `requiresAcceptance: false` and the reasoning written into the file. The
+-- Privacy Policy simply did not get the same treatment, and this corrects that
+-- rather than leaving one document on the wrong side of a line the codebase
+-- already knew how to draw.
+--
+-- `acknowledged` means: this exact version, in this exact locale, was displayed
+-- to this player at this time. It is evidence of disclosure, not of consent,
+-- and nothing in the app treats it as permission for anything.
+--
+-- Additive only. Existing `accepted` rows for the Privacy Policy stay as they
+-- are: rewriting history would falsify the record this table exists to hold,
+-- and an acceptance is strictly more than an acknowledgement anyway.
+
+ALTER TYPE "ConsentDecision" ADD VALUE IF NOT EXISTS 'acknowledged';

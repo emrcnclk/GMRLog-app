@@ -121,11 +121,21 @@ export class LibrarySyncService {
       const games = await this.loadImportables(job, options.csvRows);
       const resolutionOverride = options.conflictResolution;
 
+      // `ExternalGame` is keyed per integration (see the model's `@@unique`), so a
+      // job with no integration has nowhere to write its rows. Every producer
+      // (`csv-import.service.ts`, `integrations.service.ts`) sets one, so this is
+      // a broken-invariant check, not a reachable user path — fail the whole job
+      // loudly rather than let the loop mark every game individually failed.
+      const jobIntegrationId = job.integrationId;
+      if (jobIntegrationId === null) {
+        throw new Error(`sync job ${syncJobId} has no integration to attribute games to`);
+      }
+
       for (const game of games) {
         try {
           await this.mergeOneGame(
             job.userId,
-            job.integrationId,
+            jobIntegrationId,
             job.provider,
             job.id,
             game,
@@ -280,7 +290,7 @@ export class LibrarySyncService {
 
   private async mergeOneGame(
     userId: string,
-    integrationId: string | null,
+    integrationId: string,
     provider: 'steam' | 'xbox' | 'playstation' | 'epic' | 'nintendo' | 'csv',
     syncJobId: string,
     game: ImportableGame,
@@ -288,13 +298,17 @@ export class LibrarySyncService {
     counters: SyncCounters,
   ): Promise<void> {
     const now = new Date();
-    const previousExternal = await this.prisma.externalGame.findUnique({
-      where: { provider_externalId: { provider, externalId: game.externalId } },
-    });
+    // Keyed on the integration, never on `(provider, externalId)` alone: the
+    // external id is the same string for every player who owns the game, so a
+    // global lookup would return — and then overwrite — another player's row.
+    const externalKey = {
+      integrationId_provider_externalId: { integrationId, provider, externalId: game.externalId },
+    };
+    const previousExternal = await this.prisma.externalGame.findUnique({ where: externalKey });
     const previousPlaytime = previousExternal?.playtimeForeverMin ?? null;
 
     const external = await this.prisma.externalGame.upsert({
-      where: { provider_externalId: { provider, externalId: game.externalId } },
+      where: externalKey,
       create: {
         integrationId,
         provider,

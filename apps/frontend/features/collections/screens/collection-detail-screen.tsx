@@ -91,7 +91,6 @@ export function CollectionDetailScreen() {
                     key={option}
                     selected={entrySort === option}
                     accessibilityLabel={`Sort games by ${COLLECTION_ENTRY_SORT_LABELS[option]}`}
-                    accessibilityState={{ selected: entrySort === option }}
                     onPress={() => {
                       setEntrySort(option);
                     }}

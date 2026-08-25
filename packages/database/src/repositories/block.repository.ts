@@ -21,6 +21,13 @@ export interface BlockRepository {
   findByPair(blockerId: string, blockedId: string): Promise<Block | null>;
   exists(blockerId: string, blockedId: string): Promise<boolean>;
   /**
+   * True when either user has blocked the other. Blocks are directed edges, but
+   * almost every rule built on them is symmetric: the person you blocked must
+   * not be able to reach you either, so checking only your own outgoing edge
+   * would let them follow and message you regardless.
+   */
+  existsEitherDirection(userId: string, otherUserId: string): Promise<boolean>;
+  /**
    * D3.24 feed AuthZ — userIds blocked by `userId` OR who blocked `userId`
    * (hard exclude either direction).
    */
@@ -46,6 +53,19 @@ export class PrismaBlockRepository implements BlockRepository {
 
   async exists(blockerId: string, blockedId: string): Promise<boolean> {
     const row = await this.findByPair(blockerId, blockedId);
+    return row !== null;
+  }
+
+  async existsEitherDirection(userId: string, otherUserId: string): Promise<boolean> {
+    const row = await this.db.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: otherUserId },
+          { blockerId: otherUserId, blockedId: userId },
+        ],
+      },
+      select: { id: true },
+    });
     return row !== null;
   }
 

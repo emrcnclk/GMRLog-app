@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { AuthModule } from '../auth/auth.module';
-import { TokenService } from '../auth/jwt/token.service';
 import { BLOCK_REPOSITORY } from '../blocks/blocks.tokens';
 import { createFakeBlockRepository } from '../blocks/testing/fake-repositories';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
@@ -26,6 +25,8 @@ import {
   makeActivityItem,
   makeActor,
 } from './testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const activityRepo = createFakeActivityRepository();
 const postsRepo = createFakePostRepository();
@@ -55,14 +56,15 @@ beforeAll(async () => {
     .useValue(blockRepo)
     .overrideProvider(FRIENDSHIP_REPOSITORY)
     .useValue(friendshipRepo)
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
 });
 
 afterAll(async () => {

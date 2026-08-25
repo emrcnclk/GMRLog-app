@@ -5,6 +5,7 @@ import { ArchetypesModule } from '../archetypes/archetypes.module';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
+import { ProfileVisibilityModule } from '../profile-visibility/profile-visibility.module';
 
 import { StatisticsController } from './statistics.controller';
 import { StatisticsService } from './statistics.service';
@@ -14,7 +15,7 @@ import { STATISTICS_METRICS_REPOSITORY, STATISTICS_USER_REPOSITORY } from './sta
  * Statistics domain (D3.21). Controllers → StatisticsService → metrics repository.
  */
 @Module({
-  imports: [AuthModule, PrismaModule, ArchetypesModule],
+  imports: [AuthModule, PrismaModule, ArchetypesModule, ProfileVisibilityModule],
   controllers: [StatisticsController],
   providers: [
     {

@@ -24,6 +24,7 @@ import { LoggerModule } from './infrastructure/logging/logger.module';
 import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { RealtimeModule } from './infrastructure/realtime/realtime.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { LegalModule } from './legal/legal.module';
 import { LibraryModule } from './library/library.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { ModerationModule } from './moderation/moderation.module';
@@ -57,6 +58,7 @@ import { UsersModule } from './users/users.module';
     RealtimeModule,
     AuthModule,
     HealthModule,
+    LegalModule,
     UsersModule,
     LibraryModule,
     ReviewsModule,

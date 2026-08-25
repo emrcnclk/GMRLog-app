@@ -20,21 +20,20 @@ interface IntegrationRow {
   syncType: IntegrationSyncTypeValue;
   lastSyncAt: Date | null;
   connectedAt: Date;
+  verified?: boolean;
   metadata?: unknown;
 }
 
 /**
  * Task 4.5a — the durable verified/unverified distinction for a Steam
- * connection lives in `UserIntegration.metadata`, not in whether an
- * `AccountLink` audit row exists. Only `SteamConnectService.connectVerified`
- * (OpenID-proven) ever writes `{ verified: true }`.
+ * connection, now a real `UserIntegration.verified` column rather than a key
+ * inside the free-form `metadata` JSON (Bug 2). Only
+ * `SteamConnectService.connectVerified` (OpenID-proven) ever sets it true.
+ * Rows written before the column existed were backfilled from the old metadata
+ * key by the `user_integration_verified` migration.
  */
-export function isVerifiedMetadata(metadata: unknown): boolean {
-  return (
-    typeof metadata === 'object' &&
-    metadata !== null &&
-    (metadata as { verified?: unknown }).verified === true
-  );
+export function isVerifiedIntegration(row: { verified?: boolean }): boolean {
+  return row.verified === true;
 }
 
 interface SyncHistoryRow {
@@ -88,7 +87,7 @@ export function toUserIntegrationResponse(
     connectedAt: row.connectedAt.toISOString(),
     gamesImported: counts.gamesImported,
     achievementsSynced: counts.achievementsSynced,
-    verified: isVerifiedMetadata(row.metadata),
+    verified: isVerifiedIntegration(row),
   };
 }
 

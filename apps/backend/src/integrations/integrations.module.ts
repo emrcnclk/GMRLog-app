@@ -5,6 +5,8 @@ import { AuthModule } from '../auth/auth.module';
 import { SteamConnectController } from '../auth/oauth/steam-connect.controller';
 import { DiscoverModule } from '../discover/discover.module';
 import { MetadataModule } from '../games/metadata/metadata.module';
+import { ENV } from '../infrastructure/config/config.module';
+import type { BackendEnv } from '../infrastructure/config/env.schema';
 import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { JobsModule } from '../infrastructure/jobs/jobs.module';
 
@@ -35,7 +37,10 @@ import { SteamConnectService } from './steam-connect.service';
   providers: [
     {
       provide: STEAM_WEB_API_CLIENT,
-      useFactory: () => createSteamWebApiClient(),
+      // Built from the validated env, not `process.env`, so a production boot
+      // with no Steam key fails here rather than quietly serving mock fixtures.
+      useFactory: (env: BackendEnv) => createSteamWebApiClient(env),
+      inject: [ENV],
     },
     IntegrationJobsPublisher,
     IntegrationJobProcessor,

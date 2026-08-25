@@ -1,6 +1,6 @@
 import type { CollectionEntry, Prisma } from '@prisma/client';
 
-import type { DatabaseClient } from './types';
+import { withTransaction, type DatabaseClient } from './types';
 
 export interface CollectionEntryWrite {
   gameId: string;
@@ -61,7 +61,7 @@ export class PrismaCollectionEntryRepository implements CollectionEntryRepositor
     collectionId: string,
     entries: CollectionEntryWrite[],
   ): Promise<CollectionEntry[]> {
-    await this.db.$transaction(async (tx) => {
+    await withTransaction(this.db, async (tx) => {
       await tx.collectionEntry.deleteMany({ where: { collectionId } });
       if (entries.length === 0) {
         return;

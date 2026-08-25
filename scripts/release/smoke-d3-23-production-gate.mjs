@@ -56,6 +56,19 @@ async function http(method, path, { token, body, headers, baseUrl } = {}) {
 
 async function register(baseUrl) {
   const handle = `gate_${randomUUID().replace(/-/g, '').slice(0, 10)}`;
+  // 12.4 — read the current versions off the running server. Pinning them here
+  // would turn every future legal revision into a spurious gate failure.
+  const legal = await http('GET', '/legal', {
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+  });
+  if (legal.status >= 400) {
+    throw new Error(`legal listing ${legal.status}: ${JSON.stringify(legal.json)}`);
+  }
+  const shownLegalDocuments = (legal.json?.data ?? []).map((document) => ({
+    documentId: document.id,
+    version: document.version,
+    locale: document.locale,
+  }));
   const { status, json } = await http('POST', '/sessions/register', {
     ...(baseUrl === undefined ? {} : { baseUrl }),
     headers: { 'idempotency-key': `reg-${handle}` },
@@ -64,6 +77,12 @@ async function register(baseUrl) {
       password: 'SmokeTestPass12',
       displayName: 'D323 Gate',
       handle,
+      // 12.4c — required now; clears the 13-year floor.
+      birthDate: '1995-06-15',
+      countryCode: 'TR',
+      locale: 'en',
+      shownLegalDocuments,
+      termsAccepted: true,
     },
   });
   if (status >= 400) {

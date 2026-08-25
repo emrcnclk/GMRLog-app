@@ -181,4 +181,13 @@ export {
   type MotionProviderProps,
 } from './motion';
 
+export { Markdown, type MarkdownProps } from './markdown/markdown';
+export {
+  parseInline,
+  parseMarkdown,
+  spansToText,
+  type MarkdownBlock,
+  type MarkdownSpan,
+} from './markdown/parse-markdown';
+
 export { uiPackageName } from './package-name';

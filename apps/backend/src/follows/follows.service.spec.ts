@@ -12,8 +12,13 @@ import {
   createFakeUserRepository,
   type FakeUserRepository,
 } from '../users/testing/fake-repositories';
+import {
+  createFakeBlockRepository,
+  type FakeBlockRepository,
+} from '../blocks/testing/fake-repositories';
 
 let follows: FakeFollowRepository;
+let blocks: FakeBlockRepository;
 let users: FakeUserRepository;
 let service: FollowsService;
 
@@ -24,7 +29,8 @@ beforeEach(() => {
     makeUser({ id: 'user-3', handle: 'third', displayName: 'Third' }),
   ]);
   follows = createFakeFollowRepository();
-  service = new FollowsService(follows, users);
+  blocks = createFakeBlockRepository();
+  service = new FollowsService(follows, users, blocks);
 });
 
 describe('FollowsService.followUser', () => {
@@ -55,6 +61,43 @@ describe('FollowsService.followUser', () => {
     await expect(service.followUser('user-1', { userId: 'missing' })).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  // Bug 9. Blocking someone did nothing to stop them following you back.
+  describe('Bug 9 — blocks stop a follow in both directions', () => {
+    it('stops the blocked user from following the person who blocked them', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-2' } },
+      });
+
+      await expect(service.followUser('user-2', { userId: 'user-1' })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(follows.rows.size).toBe(0);
+    });
+
+    it('stops the blocker from following the user they blocked', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-2' } },
+      });
+
+      await expect(service.followUser('user-1', { userId: 'user-2' })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(follows.rows.size).toBe(0);
+    });
+
+    it('leaves unrelated pairs alone', async () => {
+      await blocks.create({
+        blocker: { connect: { id: 'user-1' } },
+        blocked: { connect: { id: 'user-2' } },
+      });
+
+      await expect(service.followUser('user-3', { userId: 'user-1' })).resolves.toBeDefined();
+      expect(follows.rows.size).toBe(1);
+    });
   });
 });
 

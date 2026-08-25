@@ -11,6 +11,7 @@ function createContext(headers: Record<string, string | string[] | undefined> = 
     id: 'req-default',
     method: 'GET',
     url: '/health',
+    routeOptions: { url: '/health' },
     headers,
   };
   const reply = { statusCode: 200 };

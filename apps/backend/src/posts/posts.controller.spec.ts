@@ -15,6 +15,11 @@ import {
 } from '../infrastructure/jobs/testing/fake-search-index.publisher';
 import { SearchIndexPublisher } from '../infrastructure/jobs/search-index.publisher';
 import { JOBS_CONNECTION } from '../infrastructure/jobs/jobs.constants';
+import { JobsService } from '../infrastructure/jobs/jobs.service';
+import {
+  asJobsService,
+  createFakeJobsService,
+} from '../infrastructure/jobs/testing/fake-jobs.service';
 import {
   createFakeCommunityMemberRepository,
   createFakeCommunityRepository,
@@ -23,7 +28,6 @@ import {
 } from '../communities/testing/fake-repositories';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { createFakeFollowRepository } from '../follows/testing/fake-repositories';
-import { TokenService } from '../auth/jwt/token.service';
 import { AppConfigModule } from '../infrastructure/config/config.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { HttpInfrastructureModule } from '../infrastructure/http/http.module';
@@ -54,6 +58,8 @@ import {
   makeGame,
   makeUser,
 } from './testing/fake-repositories';
+import { SESSION_REPOSITORY } from '../auth/auth.tokens';
+import { issueTestAccessToken, MemorySessionRepository } from '../auth/testing/session-fixture';
 
 const posts = createFakePostRepository();
 const games = createFakeGameRepository([
@@ -120,15 +126,21 @@ beforeAll(async () => {
     .useValue(asSearchIndexPublisher(createFakeSearchIndexPublisher()))
     .overrideProvider(JOBS_CONNECTION)
     .useValue({ disconnect: () => undefined })
+    // A bare JOBS_CONNECTION stub is read by BullMQ as connection *options*,
+    // not as a client, so any getQueue() reached from here would dial a real
+    // localhost Redis. See fake-jobs.service.ts.
+    .overrideProvider(JobsService)
+    .useValue(asJobsService(createFakeJobsService()))
+    .overrideProvider(SESSION_REPOSITORY)
+    .useValue(new MemorySessionRepository())
     .compile();
 
   app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 
-  const tokens = moduleRef.get(TokenService);
-  accessToken = await tokens.signAccessToken('user-1');
-  otherToken = await tokens.signAccessToken('user-2');
+  accessToken = await issueTestAccessToken(moduleRef, 'user-1');
+  otherToken = await issueTestAccessToken(moduleRef, 'user-2');
 });
 
 afterAll(async () => {
