@@ -7,6 +7,7 @@ import {
   legalVersionLine,
   parseLegalDocumentId,
   resolveLegalView,
+  stripLegalFrontMatter,
 } from '../model/legal-model';
 
 describe('legal routes', () => {
@@ -148,5 +149,90 @@ describe('legalVersionLine', () => {
 
   it('is empty when there is no version yet', () => {
     expect(legalVersionLine('', '2026-08-21')).toBe('');
+  });
+});
+
+describe('stripLegalFrontMatter', () => {
+  // The duplication the live render pass reported and left as a composition
+  // call: every document opens with its own title and provenance, and the
+  // reader's `ScreenTitle` shows the same three values above it.
+  const body = [
+    '# Terms of Service',
+    '',
+    '**Effective date:** 21 August 2026',
+    '',
+    '**Version:** 1.0.0',
+    '',
+    '## 1. What this is',
+    '',
+    'These terms are the agreement between you and GMRLog.',
+  ].join('\n');
+
+  it('drops the title and both provenance lines', () => {
+    const stripped = stripLegalFrontMatter(body);
+
+    expect(stripped.startsWith('## 1. What this is')).toBe(true);
+    expect(stripped).not.toContain('# Terms of Service');
+    expect(stripped).not.toContain('**Version:**');
+    expect(stripped).not.toContain('**Effective date:**');
+  });
+
+  it('keeps every word of the document itself', () => {
+    expect(stripLegalFrontMatter(body)).toContain(
+      'These terms are the agreement between you and GMRLog.',
+    );
+  });
+
+  // The Turkish documents carry the same shape with different labels, so the
+  // rule has to be structural rather than a list of English words.
+  it('works on the Turkish documents, whose labels differ', () => {
+    const tr = [
+      '# Kullanım Koşulları',
+      '',
+      '**Yürürlük tarihi:** 21 Ağustos 2026',
+      '',
+      '**Sürüm:** 1.0.0',
+      '',
+      '## 1. Bu metin nedir',
+    ].join('\n');
+
+    expect(stripLegalFrontMatter(tr)).toBe('## 1. Bu metin nedir');
+  });
+
+  it('leaves a body that does not open with a title alone', () => {
+    const plain = 'This notice is given under Article 10.';
+
+    expect(stripLegalFrontMatter(plain)).toBe(plain);
+  });
+
+  // Stops at the first line that is neither blank nor metadata, so a bold run
+  // inside the text is never mistaken for provenance.
+  it('never eats into the text past the first real line', () => {
+    const withBold = [
+      '# Privacy Policy',
+      '',
+      '**Version:** 1.3.0',
+      '',
+      'GMRLog is the controller.',
+      '',
+      '**Note:** this line is prose.',
+    ].join('\n');
+
+    expect(stripLegalFrontMatter(withBold)).toContain('**Note:** this line is prose.');
+  });
+
+  it('is what the reader renders, not the raw body', () => {
+    const view = resolveLegalView({
+      isPending: false,
+      isError: false,
+      isOnline: true,
+      document: { title: 'Terms of Service', version: '1.0.0', effectiveDate: '2026-08-21', body },
+    });
+
+    expect(view.status).toBe('ready');
+    expect(view.body.startsWith('## 1. What this is')).toBe(true);
+    // The chrome still shows all three, from the structured fields.
+    expect(view.title).toBe('Terms of Service');
+    expect(view.version).toBe('1.0.0');
   });
 });

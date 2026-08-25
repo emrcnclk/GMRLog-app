@@ -48,6 +48,60 @@ export function parseLegalDocumentId(raw: string | string[] | undefined): LegalD
   return KNOWN_DOCUMENT_IDS.find((id) => id === value) ?? null;
 }
 
+/**
+ * Drops the document's own title-and-provenance block from the body.
+ *
+ * Every legal document opens with `# <Title>`, `**Effective date:** …` and
+ * `**Version:** …` — sensible for a document read on its own, duplicated the
+ * moment it is read inside the app, because `ScreenTitle` above it already
+ * shows the same three values from the structured fields 12.2 serves beside
+ * the body. Rendering both put the title on screen twice and the version
+ * twice, and it became more visible, not less, once the Markdown heading fix
+ * gave the H1 its real size.
+ *
+ * The reader chrome wins rather than the body: the served body is left
+ * untouched, so anything rendering a document standalone still gets its own
+ * title, and — the reason this is not done by editing the document sources —
+ * nothing here changes a single byte of the legal text. Editing the bodies
+ * would take a version bump with it, and a version bump raises re-consent
+ * (12.4), which would put every existing player through a consent gate for a
+ * change that is purely presentational.
+ *
+ * Conservative by construction: it stops at the first line that is neither
+ * blank nor a `**Label:** value` metadata line, so a document that opens
+ * straight into prose loses nothing, and a bold run inside the actual text is
+ * never reached.
+ */
+const METADATA_LINE = /^\*\*[^*]+:\*\*/;
+
+export function stripLegalFrontMatter(body: string): string {
+  const lines = body.split('\n');
+  let index = 0;
+
+  while (index < lines.length && lines[index]?.trim().length === 0) {
+    index += 1;
+  }
+
+  if (!lines[index]?.startsWith('# ')) {
+    return body;
+  }
+
+  index += 1;
+
+  while (index < lines.length) {
+    const line = lines[index]?.trim() ?? '';
+
+    if (line.length === 0 || METADATA_LINE.test(line)) {
+      index += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  return lines.slice(index).join('\n');
+}
+
 export type LegalViewStatus = 'loading' | 'offline' | 'error' | 'empty' | 'ready';
 
 export interface LegalViewModel {
@@ -81,7 +135,9 @@ export function resolveLegalView(input: {
   document: { title: string; version: string; effectiveDate: string; body: string } | null;
 }): LegalViewModel {
   const base = {
-    body: input.document?.body ?? '',
+    // Stripped once, here, so both readers — the document screen and the
+    // consent gate — get the same body without either remembering to ask.
+    body: stripLegalFrontMatter(input.document?.body ?? ''),
     title: input.document?.title ?? '',
     version: input.document?.version ?? '',
     effectiveDate: input.document?.effectiveDate ?? '',
