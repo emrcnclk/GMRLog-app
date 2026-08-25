@@ -1,6 +1,7 @@
 import type {
   ApiEnvelope,
   ApiErrorEnvelope,
+  AccountDeletionStatusResponse,
   AchievementResponse,
   ActivityItemResponse,
   FeedItemResponse,
@@ -16,6 +17,7 @@ import type {
   ContentVisibilityValue,
   ConversationResponse,
   CsvImportPreviewResponse,
+  DataExportResponse,
   DiscoverHubResponse,
   DnaMatchResponse,
   BlockResponse,
@@ -38,6 +40,12 @@ import type {
   ProfilePinResponse,
   ProfileThemeResponse,
   IntegrationProviderInfo,
+  LegalConsentDecisionValue,
+  LegalConsentStateResponse,
+  LegalDocumentId,
+  LegalDocumentResponse,
+  LegalDocumentSummaryResponse,
+  LegalLocale,
   LibraryEntryResponse,
   LibraryHubResponse,
   LibraryStatusValue,
@@ -83,7 +91,17 @@ export interface AxiosApiClientConfig {
   getAccessToken: () => string | null | Promise<string | null>;
   getRefreshToken: () => string | null | Promise<string | null>;
   onSessionRefreshed: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
-  onSessionCleared: () => Promise<void>;
+  /**
+   * The session could not be recovered and has been dropped.
+   *
+   * `error` carries *why* when the server said so — 12.6's `ACCOUNT_DELETED`
+   * is the case that matters: `enforceGracePeriod` runs on refresh too, so an
+   * account whose 30 days lapsed fails here rather than at sign-in. Without it
+   * the caller cannot tell "the account no longer exists" from an ordinary
+   * expiry, and the copy written for that case is never shown. `undefined`
+   * when there was no server response to read a reason from.
+   */
+  onSessionCleared: (error?: FrontendApiError) => Promise<void>;
   createRequestId?: () => string;
   /** Max network retries for idempotent GETs (default 1). */
   maxRetries?: number;
@@ -119,6 +137,15 @@ function defaultRequestId(): string {
   return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Why a refresh attempt ended. `reason` is the server's own refusal when there
+ * was a response to read one from — see `AxiosApiClientConfig.onSessionCleared`.
+ */
+interface RefreshOutcome {
+  recovered: boolean;
+  reason: FrontendApiError | null;
+}
+
 type RetriableConfig = InternalAxiosRequestConfig & {
   _retryCount?: number;
   _skipUnauthorizedRecovery?: boolean;
@@ -130,7 +157,7 @@ type RetriableConfig = InternalAxiosRequestConfig & {
  */
 export class AxiosApiClient {
   private readonly http: AxiosInstance;
-  private refreshPromise: Promise<boolean> | null = null;
+  private refreshPromise: Promise<RefreshOutcome> | null = null;
   private readonly maxRetries: number;
 
   constructor(private readonly config: AxiosApiClientConfig) {
@@ -164,12 +191,12 @@ export class AxiosApiClient {
         const status = error.response?.status;
 
         if (status === 401 && !original._skipUnauthorizedRecovery) {
-          const recovered = await this.refreshSessionInterceptor();
-          if (recovered) {
+          const outcome = await this.refreshSessionInterceptor();
+          if (outcome.recovered) {
             original._skipUnauthorizedRecovery = true;
             return this.http.request(original);
           }
-          await this.config.onSessionCleared();
+          await this.config.onSessionCleared(outcome.reason ?? undefined);
         }
 
         if (
@@ -1374,12 +1401,39 @@ export class AxiosApiClient {
     });
   }
 
-  /** `POST /sessions/register` — register (S1 §14.2). */
+  /**
+   * `POST /sessions/register` — register (S1 §14.2).
+   *
+   * 12.4 — the legal fields are required, not optional. The caller sends the
+   * versions it actually displayed so the server can refuse a stale submission:
+   * a player who left the sign-up screen open across a deploy read a document
+   * that is no longer current, and recording that as agreement to the new one
+   * would be a false statement in the evidence.
+   *
+   * 12.4a — `shownLegalDocuments` lists everything displayed and `termsAccepted`
+   * carries the tick. Only the Terms are accepted; the notices are acknowledged,
+   * and the server derives which is which from the document itself, so a client
+   * cannot mislabel a privacy notice as consent.
+   */
   register(body: {
     email: string;
     password: string;
     displayName: string;
     handle: string;
+    /** 12.4c — `YYYY-MM-DD`. A date, not an age. */
+    birthDate: string;
+    /** 12.4c — ISO 3166-1 alpha-2, chosen by the player, never from an IP. */
+    countryCode: string;
+    /** 12.4c — also the language of the Terms presented for acceptance. */
+    locale: LegalLocale;
+    firstName?: string;
+    lastName?: string;
+    shownLegalDocuments: {
+      documentId: LegalDocumentId;
+      version: string;
+      locale: LegalLocale;
+    }[];
+    termsAccepted: true;
   }): Promise<ApiEnvelope<{ accessToken: string; refreshToken: string }>> {
     return this.request<{ accessToken: string; refreshToken: string }>({
       method: 'POST',
@@ -1406,7 +1460,97 @@ export class AxiosApiClient {
     return this.delete<null>('/sessions/current');
   }
 
-  private async refreshSessionInterceptor(): Promise<boolean> {
+  /**
+   * `GET /legal` — every legal document's current version, no bodies (12.2).
+   *
+   * Public: the route takes no token, and the reader has to work for a visitor
+   * standing on the sign-in screen who does not have one yet. The request
+   * interceptor only attaches `Authorization` when a token exists, so this
+   * needs no special casing — but it does mean a 401 can never be the reason
+   * this call fails, which the error mapping downstream relies on.
+   */
+  listLegalDocuments(query?: {
+    locale?: LegalLocale;
+  }): Promise<ApiEnvelope<LegalDocumentSummaryResponse[]>> {
+    return this.get<LegalDocumentSummaryResponse[]>('/legal', query);
+  }
+
+  /** `GET /legal/{document}` — one document, Markdown body included (12.2). */
+  getLegalDocument(
+    document: LegalDocumentId,
+    query?: { locale?: LegalLocale },
+  ): Promise<ApiEnvelope<LegalDocumentResponse>> {
+    return this.get<LegalDocumentResponse>(`/legal/${document}`, query);
+  }
+
+  /** `GET /me/legal-consents` — this player's consent record (12.4). */
+  getLegalConsents(query?: {
+    locale?: LegalLocale;
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.get<LegalConsentStateResponse>('/me/legal-consents', query);
+  }
+
+  /** `POST /me/legal-consents` — accept, decline or withdraw (12.4). */
+  recordLegalConsents(body: {
+    decisions: {
+      documentId: LegalDocumentId;
+      version: string;
+      locale: LegalLocale;
+      decision: LegalConsentDecisionValue;
+    }[];
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.post<LegalConsentStateResponse>('/me/legal-consents', body);
+  }
+
+  /**
+   * `POST /me/legal-consents/acknowledgements` — record that a notice was
+   * displayed, not agreed to (12.4b).
+   *
+   * The gap 12.4a left open: `register` records a notice shown at sign-up, but
+   * nothing recorded one shown afterwards — an OAuth account seeing the
+   * Privacy Policy for the first time, or any account whose notices moved to a
+   * new version. No `decision` field: there is nothing to decide, and the
+   * server refuses a document that requires acceptance rather than accept one
+   * through the wrong door.
+   */
+  acknowledgeLegalDocuments(body: {
+    documents: { documentId: LegalDocumentId; version: string; locale: LegalLocale }[];
+  }): Promise<ApiEnvelope<LegalConsentStateResponse>> {
+    return this.post<LegalConsentStateResponse>('/me/legal-consents/acknowledgements', body);
+  }
+
+  /**
+   * `POST /me/export` — this player's data, in a portable machine-readable
+   * format (12.5). GDPR Art. 15/20, KVKK Art. 11. Rate-limited to once per 24
+   * hours server-side.
+   */
+  requestDataExport(): Promise<ApiEnvelope<DataExportResponse>> {
+    return this.post<DataExportResponse>('/me/export');
+  }
+
+  /**
+   * `GET /me/account/deletion` — whether a deletion request is pending, and
+   * when it takes effect (12.6).
+   */
+  getAccountDeletionStatus(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.get<AccountDeletionStatusResponse>('/me/account/deletion');
+  }
+
+  /**
+   * `POST /me/account/deletion` — start the 30-day deletion grace period
+   * (12.6). Cancellable any time before it takes effect. Rate-limited to once
+   * per 24 hours server-side.
+   */
+  requestAccountDeletion(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.post<AccountDeletionStatusResponse>('/me/account/deletion');
+  }
+
+  /** `DELETE /me/account/deletion` — cancel a pending deletion request (12.6). */
+  cancelAccountDeletion(): Promise<ApiEnvelope<AccountDeletionStatusResponse>> {
+    return this.delete<AccountDeletionStatusResponse>('/me/account/deletion');
+  }
+
+  private async refreshSessionInterceptor(): Promise<RefreshOutcome> {
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
@@ -1414,20 +1558,51 @@ export class AxiosApiClient {
     this.refreshPromise = (async () => {
       const refreshToken = await this.config.getRefreshToken();
       if (!refreshToken) {
-        return false;
+        return { recovered: false, reason: null };
       }
       try {
         const response = await this.http.post<
           ApiEnvelope<{ accessToken: string; refreshToken: string }>
-        >('/sessions/refresh', { refreshToken }, { headers: { Authorization: undefined } });
+        >(
+          '/sessions/refresh',
+          { refreshToken },
+          {
+            headers: { Authorization: undefined },
+            // A 401 from the refresh route *is* the answer — there is nothing
+            // left to recover with. Without this flag the response
+            // interceptor treats it like any other 401 and calls back into
+            // this method, which returns the very promise it is running
+            // inside: the refresh never settles and the sign-out never
+            // happens. Every 401 refusal on this route hit that, including
+            // 12.6's `ACCOUNT_DELETED`.
+            ...({ _skipUnauthorizedRecovery: true } as object),
+          },
+        );
         const tokens = response.data.data;
         if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) {
-          return false;
+          return { recovered: false, reason: null };
         }
         await this.config.onSessionRefreshed(tokens);
-        return true;
-      } catch {
-        return false;
+        return { recovered: true, reason: null };
+      } catch (error) {
+        // The refresh still fails and the session still goes — but *why* it
+        // failed is carried out rather than swallowed. A blanket catch here
+        // is what made 12.6's `ACCOUNT_DELETED` copy unreachable from its
+        // most likely trigger: a background 401 -> refresh on an account
+        // whose grace period lapsed signed the player out as if by ordinary
+        // expiry.
+        // The response interceptor converts before it rethrows, so this is
+        // normally already a `FrontendApiError` carrying the server's envelope;
+        // a throw from outside that path is converted rather than dropped.
+        return {
+          recovered: false,
+          reason:
+            error instanceof FrontendApiError
+              ? error
+              : axios.isAxiosError(error)
+                ? this.toApiError(error)
+                : null,
+        };
       } finally {
         this.refreshPromise = null;
       }

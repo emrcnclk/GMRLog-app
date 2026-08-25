@@ -667,6 +667,33 @@ model User {
   handle          String    @unique
   displayName     String    @map("display_name")
   bio             String?
+  /// 12.4c — optional, and optional is the design. GMRLog is a pseudonymous
+  /// identity product: `handle` and `displayName` are who you are here. A real
+  /// name is offered for players who want to show one, never required, and it
+  /// is not identity verification — an unverified name verifies nothing, it
+  /// only collects.
+  firstName       String?   @map("first_name")
+  lastName        String?   @map("last_name")
+  /// 12.4c — date of birth, not an age. An age integer is wrong the next day
+  /// and cannot be re-checked; a birth date can. Its stated purpose is the age
+  /// floor the Terms of Service already claim ("You must be at least 13") and
+  /// which nothing enforced before this column existed.
+  ///
+  /// **Nullable in the database, required at registration.** Accounts created
+  /// before this column exists have no true value, and defaulting them to a
+  /// date would fabricate personal data — the same reason 12.4's consent table
+  /// refused to backfill an `accepted` row. `null` means "we never asked",
+  /// which is the truth; `sessionRegisterSchema` makes it impossible for a new
+  /// account to be in that state.
+  birthDate       DateTime? @map("birth_date") @db.Date
+  /// 12.4c — ISO 3166-1 alpha-2, chosen by the player, never derived from an IP
+  /// address. The privacy policy says GMRLog does not store IP addresses and
+  /// that stays true. Purpose: which consumer law applies, which age of consent
+  /// applies, and where data may be held.
+  ///
+  /// Nullable for the same reason as `birthDate`: guessing a country for an
+  /// existing account would be inventing a legal jurisdiction for someone.
+  countryCode     String?   @map("country_code") @db.Char(2)
   avatarKey       String?   @map("avatar_key")
   bannerKey       String?   @map("banner_key")
   /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
@@ -730,6 +757,8 @@ model User {
   moderationAssignments   ModerationCase[]
   adminActions            AdminActionRecord[]
   auditLogs               AuditLog[]
+  legalConsents           UserConsent[]
+  accountDeletionRequest  AccountDeletionRequest?
   collectionFollows       CollectionFollower[]
   userSimilaritiesLow     UserSimilarity[]          @relation("UserSimilarityLow")
   userSimilaritiesHigh    UserSimilarity[]          @relation("UserSimilarityHigh")
@@ -2418,4 +2447,110 @@ model SyncConflict {
   @@index([userId, resolvedAt])
   @@index([syncJobId])
   @@map("sync_conflicts")
+}
+
+/// 12.4 — proof of what a player was shown and what they decided about it.
+///
+/// Under both KVKK and GDPR the burden of proving consent sits with the
+/// controller, not the player. Before this table the app rendered "By
+/// continuing you agree to the Terms and Privacy Policy" and kept no evidence
+/// whatsoever that anyone had.
+///
+/// One row per (user, document, version). The version is part of the key on
+/// purpose: accepting 1.0.0 says nothing about 1.1.0, and a table keyed only by
+/// document would silently carry an old acceptance forward across a change to
+/// the very rights it granted.
+model UserConsent {
+  id String @id @default(cuid())
+  /// Exact insertion order, and the only thing that resolves "the newest
+  /// decision" without ambiguity. `decidedAt` is millisecond-precision, so two
+  /// decisions recorded in the same millisecond — a batch, or a client
+  /// retrying — cannot be ordered by it, and in an append-only table
+  /// "which one is current" is the whole question. Not exposed on the wire;
+  /// `decidedAt` remains the fact a reader cares about.
+  sequence Int    @default(autoincrement())
+  userId   String @map("user_id")
+  /// The legal document id — `terms-of-service`, `privacy-policy`,
+  /// `disclosure-notice`. Stored as text rather than an enum so adding a
+  /// document is a code change and not a migration; the registry in
+  /// `apps/backend/src/legal/documents` is the authority.
+  documentId String @map("document_id")
+  version    String
+  /// Which translation was actually in front of the reader. A player who
+  /// accepted the Turkish text agreed to the Turkish wording.
+  locale     String
+  /// `privacy-policy@1.0.0` — the composite the app compares on, denormalised
+  /// so a query does not have to rebuild it.
+  consentKey String @map("consent_key")
+  /// **Not a boolean, and that is the point.** A `declined` row is what makes
+  /// F2.27 §7's "no dark patterns that re-enable after refusal" enforceable:
+  /// without it, a refusal is indistinguishable from never having been asked,
+  /// and the only possible behaviour is to ask again on every launch until the
+  /// player gives in. `withdrawn` records a consent taken back after the fact.
+  decision  ConsentDecision
+  decidedAt DateTime @default(now()) @map("decided_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// **Append-only: one row per decision, not one row per version.**
+  /// `(user, document, version)` was unique, which made a re-decision an
+  /// UPDATE in place — a player who accepted 1.0.0, withdrew, then accepted
+  /// again left one row saying `accepted`, and the withdrawal in between was
+  /// unrecoverable. That is the evidentiary gap the repository's own docstring
+  /// says this design avoids: under KVKK and the GDPR the controller has to be
+  /// able to show what a player was asked and what they answered, including a
+  /// window during which consent was not held. The current answer for a
+  /// version is the newest row for it (`decidedAt` desc), never the only one.
+  @@index([userId, documentId])
+  @@index([userId, documentId, version, sequence])
+  @@map("user_consents")
+}
+
+/// 12.6 — the right `privacy-policy.en.ts` §6/§7 promises: a 30-day grace
+/// period between a deletion request and irreversible erasure, cancellable by
+/// the player at any point before `deletesAt`.
+///
+/// One row per user (`@@unique`), reused across a request/cancel/request
+/// cycle rather than kept as history — the account's *current* deletion state
+/// is a single fact, and `AccountDeletionService` upserts this row rather than
+/// appending to it. `erasedAt` is set once erasure actually runs (login-time
+/// lazy sweep — see the service) and makes the row idempotent: a second login
+/// after erasure sees `erasedAt !== null` and refuses rather than erasing
+/// twice or re-deriving `deletesAt` from a `User` row that has already been
+/// scrubbed.
+///
+/// No cascade delete of the `User` row backs this: erasure anonymises the
+/// `User` row in place (nulls its PII columns) rather than deleting it, so
+/// every other table's `authorId`/`senderId`/etc. foreign key stays intact —
+/// see the service's own note on why "erase" is not "DELETE FROM users".
+model AccountDeletionRequest {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  deletesAt   DateTime  @map("deletes_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  erasedAt    DateTime? @map("erased_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_deletion_requests")
+}
+
+/// 12.4 — silence is not consent (F2.27 §7), so absence of a row is not a
+/// decision and every decision a player makes is recorded as one.
+///
+/// 12.4a added `acknowledged`, which is not a decision at all and that is the
+/// point: under GDPR Art. 13/14 and KVKK Art. 10 a privacy notice is *given*,
+/// not agreed to. Only the Terms of Service are a contract. `acknowledged`
+/// records that a specific version, in a specific locale, was displayed — it is
+/// evidence of disclosure, never permission for anything.
+enum ConsentDecision {
+  accepted
+  declined
+  withdrawn
+  acknowledged
 }

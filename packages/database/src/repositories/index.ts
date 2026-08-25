@@ -1,3 +1,4 @@
+export { withTransaction } from './types';
 export type { DatabaseClient } from './types';
 
 export { PrismaUserRepository, type UserRepository } from './user.repository';
@@ -212,3 +213,4 @@ export {
   type ModerationCaseRepository,
 } from './moderation-case.repository';
 export { PrismaAdminActionRepository, type AdminActionRepository } from './admin-action.repository';
+export { PrismaUserConsentRepository, type UserConsentRepository } from './user-consent.repository';

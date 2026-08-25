@@ -15,7 +15,7 @@ import type {
   TagKind,
 } from '@prisma/client';
 
-import type { DatabaseClient } from './types';
+import { withTransaction, type DatabaseClient } from './types';
 
 /**
  * Catalog metadata persistence (D3.25 — docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md).
@@ -197,7 +197,7 @@ export class PrismaGameMetadataRepository implements GameMetadataRepository {
   }
 
   async applyMetadata(input: ApplyGameMetadataInput): Promise<void> {
-    await this.db.$transaction(async (tx) => {
+    await withTransaction(this.db, async (tx) => {
       const franchiseId =
         input.franchise === null ? undefined : await upsertFranchise(tx, input.franchise);
       const seriesId = input.series === null ? undefined : await upsertSeries(tx, input.series);

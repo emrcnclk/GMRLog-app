@@ -24,8 +24,10 @@ describe('settings component surface contracts', () => {
     expect(LOCAL_FEATURE_FLAGS.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('about link rows cover four entries', () => {
-    expect(ABOUT_LINKS).toHaveLength(4);
+  it('about link rows cover five entries', () => {
+    // Five since 12.3: the KVKK Aydinlatma Metni is a document distinct from
+    // the privacy policy, so it gets its own row.
+    expect(ABOUT_LINKS).toHaveLength(5);
   });
 
   it('delete account and privacy remain placeholders', () => {

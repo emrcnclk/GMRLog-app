@@ -21,6 +21,8 @@
     "features/**/*.tsx",
     "shared/**/*.ts",
     "shared/**/*.tsx",
+    "test-support/**/*.ts",
+    "test-support/**/*.tsx",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
   ],

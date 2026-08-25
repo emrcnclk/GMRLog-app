@@ -18,6 +18,7 @@ vi.mock('bullmq', () => ({
 
 import { createJobPayload } from './job-payload';
 import { JOB_FEED_FANOUT, JOB_MEDIA_IMAGE_PROCESS, JOB_SEARCH_INDEX_UPSERT } from './job-names';
+import { AccountDeletionSweepProcessor } from './processors/account-deletion-sweep.processor';
 import { EventReminderProcessor } from './processors/event-reminder.processor';
 import { FeedFanoutProcessor } from './processors/feed-fanout.processor';
 import { ImageProcessingProcessor } from './processors/image-processing.processor';
@@ -35,6 +36,7 @@ describe('WorkerRunnerService', () => {
   let notificationCleanup: NotificationCleanupProcessor;
   let sessionCleanup: SessionCleanupProcessor;
   let feedFanout: FeedFanoutProcessor;
+  let accountDeletionSweep: AccountDeletionSweepProcessor;
   let eventReminder: EventReminderProcessor;
   let imageProcessing: ImageProcessingProcessor;
   let searchIndex: SearchIndexProcessor;
@@ -71,11 +73,17 @@ describe('WorkerRunnerService', () => {
       process: vi.fn().mockResolvedValue(undefined),
     } as unknown as SearchIndexProcessor;
 
+    accountDeletionSweep = {
+      supports: vi.fn().mockReturnValue(false),
+      process: vi.fn(),
+    } as unknown as AccountDeletionSweepProcessor;
+
     service = new WorkerRunnerService(
       {} as never,
       new AppLogger(parseBackendEnv({})),
       uploadCleanup,
       notificationCleanup,
+      accountDeletionSweep,
       sessionCleanup,
       feedFanout,
       eventReminder,

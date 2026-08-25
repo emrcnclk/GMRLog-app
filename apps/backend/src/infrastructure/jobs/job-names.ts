@@ -2,6 +2,8 @@
 export const JOB_MAINTENANCE_UPLOAD_CLEANUP = 'maintenance.upload.cleanup';
 export const JOB_MAINTENANCE_NOTIFICATION_CLEANUP = 'maintenance.notification.cleanup';
 export const JOB_MAINTENANCE_SESSION_CLEANUP = 'maintenance.session.cleanup';
+/** 12.6 follow-up — erases accounts whose 30-day grace period expired while they never returned. */
+export const JOB_MAINTENANCE_ACCOUNT_DELETION_SWEEP = 'maintenance.account-deletion.sweep';
 export const JOB_FEED_FANOUT = 'feed.fanout';
 export const JOB_MEDIA_IMAGE_PROCESS = 'media.image.process';
 export const JOB_MEDIA_PURGE = 'media.purge';

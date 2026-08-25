@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FrontendApiError, type AxiosApiClient } from '../api/axios-client';
 import { SessionManager } from '../auth/session-manager';
 import { createInMemorySecureStorage } from '../../lib/storage/secure-storage';
-import { useAuthStore } from './auth-store';
+import { clearAuthAfterInterceptorFailure, useAuthStore } from './auth-store';
 
 const meUser: UserSelfResponse = {
   id: 'user-1',
@@ -49,6 +49,7 @@ describe('useAuthStore', () => {
       accessToken: null,
       authenticated: false,
       bootstrapping: true,
+      sessionEndedNotice: null,
     });
   });
 
@@ -277,6 +278,62 @@ describe('useAuthStore', () => {
 
     expect(stop()).not.toContain(true);
     expect(useAuthStore.getState().authenticated).toBe(true);
+  });
+
+  // 12.6 — `enforceGracePeriod` runs on refresh, not only on sign-in, so an
+  // account whose 30-day grace period lapsed fails in the background. The
+  // interceptor used to swallow that refusal and drop the session silently,
+  // which left `mapAuthError`'s `ACCOUNT_DELETED` copy unreachable from the
+  // path most likely to produce it.
+  it('surfaces an ACCOUNT_DELETED refresh failure for the sign-in screen to read', async () => {
+    await manager.establishSession({ accessToken: makeJwt(600), refreshToken: 'r' });
+    useAuthStore.setState({ authenticated: true, bootstrapping: false });
+    useAuthStore.getState().bindRuntime({ api: createMockApi(), manager, queryClient });
+
+    await clearAuthAfterInterceptorFailure(
+      manager,
+      new FrontendApiError(
+        'This account has been permanently deleted.',
+        401,
+        {
+          error: {
+            category: 'authn',
+            code: 'ACCOUNT_DELETED',
+            message: 'This account has been permanently deleted.',
+            requestId: 'r1',
+            retryable: false,
+          },
+        },
+        'r1',
+      ),
+    );
+
+    expect(useAuthStore.getState().authenticated).toBe(false);
+    expect(useAuthStore.getState().sessionEndedNotice).toEqual({
+      kind: 'unauthorized',
+      title: 'Account deleted',
+      description: 'This account has been permanently deleted.',
+    });
+
+    useAuthStore.getState().clearSessionEndedNotice();
+    expect(useAuthStore.getState().sessionEndedNotice).toBeNull();
+  });
+
+  // The other half of the same rule: an ordinary expiry says nothing worth a
+  // banner, and showing one every time a session times out would train players
+  // to dismiss the one case above.
+  it('stays silent when the refresh simply expired', async () => {
+    await manager.establishSession({ accessToken: makeJwt(600), refreshToken: 'r' });
+    useAuthStore.setState({ authenticated: true, bootstrapping: false });
+    useAuthStore.getState().bindRuntime({ api: createMockApi(), manager, queryClient });
+
+    await clearAuthAfterInterceptorFailure(
+      manager,
+      new FrontendApiError('Invalid refresh token', 401, null, 'r2'),
+    );
+
+    expect(useAuthStore.getState().authenticated).toBe(false);
+    expect(useAuthStore.getState().sessionEndedNotice).toBeNull();
   });
 
   it('logout keeps the gate — no screen owns its outcome', async () => {

@@ -15,6 +15,11 @@ import {
 } from '../infrastructure/jobs/testing/fake-search-index.publisher';
 import { SearchIndexPublisher } from '../infrastructure/jobs/search-index.publisher';
 import { JOBS_CONNECTION } from '../infrastructure/jobs/jobs.constants';
+import { JobsService } from '../infrastructure/jobs/jobs.service';
+import {
+  asJobsService,
+  createFakeJobsService,
+} from '../infrastructure/jobs/testing/fake-jobs.service';
 import { FOLLOW_REPOSITORY } from '../follows/follows.tokens';
 import { createFakeFollowRepository } from '../follows/testing/fake-repositories';
 import { AppConfigModule } from '../infrastructure/config/config.module';
@@ -73,6 +78,11 @@ beforeAll(async () => {
     .useValue(asSearchIndexPublisher(createFakeSearchIndexPublisher()))
     .overrideProvider(JOBS_CONNECTION)
     .useValue({ disconnect: () => undefined })
+    // A bare JOBS_CONNECTION stub is read by BullMQ as connection *options*,
+    // not as a client, so any getQueue() reached from here would dial a real
+    // localhost Redis. See fake-jobs.service.ts.
+    .overrideProvider(JobsService)
+    .useValue(asJobsService(createFakeJobsService()))
     .overrideProvider(SESSION_REPOSITORY)
     .useValue(new MemorySessionRepository())
     .compile();

@@ -1,4 +1,11 @@
-import type { WorkspacePackageName } from '@gmrlog/types';
+import {
+  COUNTRY_CODES,
+  LEGAL_DOCUMENT_IDS,
+  LEGAL_LOCALES,
+  type LegalDocumentId,
+  type LegalLocale,
+  type WorkspacePackageName,
+} from '@gmrlog/types';
 import { z } from 'zod';
 
 export const workspacePackageNameSchema = z.enum([
@@ -60,14 +67,289 @@ export const handleSchema = z
   .regex(/^[a-z0-9_]{3,24}$/, 'Handle must be 3–24 characters: a-z, 0-9, underscore');
 
 /** S1 §14.2 SessionRegisterRequest. */
-export const sessionRegisterSchema = z
+/**
+ * 12.4 — one document a player was shown, and which translation of it.
+ *
+ * The locale is recorded because a player who accepted the Turkish text agreed
+ * to the Turkish wording; "they accepted the privacy policy" is not a complete
+ * record of what was in front of them.
+ *
+ * 12.4a renamed this from `legalAcceptanceSchema`. It carries no verdict — it
+ * says "this version of this document, in this locale, was displayed". What
+ * that *means* is the server's call, and it depends on the document: the Terms
+ * are accepted, a privacy notice is acknowledged. A client cannot get that
+ * mapping wrong because it never sends it.
+ */
+export const legalDocumentRefSchema = z
+  .object({
+    documentId: z.enum(LEGAL_DOCUMENT_IDS as unknown as [LegalDocumentId, ...LegalDocumentId[]]),
+    version: z.string().regex(/^\d+\.\d+\.\d+$/, 'version must be major.minor.patch'),
+    locale: z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]),
+  })
+  .strict();
+
+export type LegalDocumentRefInput = z.infer<typeof legalDocumentRefSchema>;
+
+/**
+ * 12.4 — a decision, not a boolean. `declined` is what makes "no dark patterns
+ * that re-enable after refusal" (F2.27 §7) enforceable: without a way to record
+ * a refusal, a refusal is indistinguishable from never having been asked, and
+ * the only possible behaviour is to ask again until the player gives in.
+ */
+export const legalConsentDecisionSchema = legalDocumentRefSchema
+  .extend({
+    // `acknowledged` is not offered here: a player never decides to be
+    // informed. The server writes acknowledgements when it displays a notice.
+    decision: z.enum(['accepted', 'declined', 'withdrawn']),
+  })
+  .strict();
+
+export type LegalConsentDecisionInput = z.infer<typeof legalConsentDecisionSchema>;
+
+/** `POST /me/legal-consents` body. */
+export const legalConsentRecordSchema = z
+  .object({
+    decisions: z.array(legalConsentDecisionSchema).min(1).max(10),
+  })
+  .strict();
+
+export type LegalConsentRecordInput = z.infer<typeof legalConsentRecordSchema>;
+
+/**
+ * 12.4b — `POST /me/legal-consents/acknowledgements` body.
+ *
+ * A gap 12.4a left open: `recordRegistrationConsent` writes an `acknowledged`
+ * row for every notice a *registration* displays, but nothing recorded one for
+ * a notice shown *after* an account already exists — an OAuth sign-up seeing
+ * the Privacy Policy for the first time, or any account whose notices moved to
+ * a new version. No `decision` field, because there is nothing to decide: the
+ * server always writes `acknowledged` for whatever this lists, the same
+ * derivation `recordRegistrationConsent` already applies.
+ */
+export const legalAcknowledgementRecordSchema = z
+  .object({
+    documents: z.array(legalDocumentRefSchema).min(1).max(10),
+  })
+  .strict();
+
+export type LegalAcknowledgementRecordInput = z.infer<typeof legalAcknowledgementRecordSchema>;
+
+// ---------------------------------------------------------------------------
+// 12.4c — registration profile fields.
+// ---------------------------------------------------------------------------
+
+/**
+ * The age floor the Terms of Service have claimed since 12.1 — "You must be at
+ * least 13" — and which nothing enforced until this schema existed.
+ *
+ * **A global 13 is the floor, not the whole rule.** The GDPR lets each member
+ * state set its own age of consent for online services between 13 and 16, and
+ * several do (16 in Germany and the Netherlands, 15 in France, 14 in Italy and
+ * Spain, among others). Now that registration records a country, applying the
+ * right threshold per country is possible — and is deliberately *not* done
+ * here, because a partial table would be worse than a stated floor plus a
+ * documented gap. Tracked as a follow-up rather than half-implemented.
+ */
+/**
+ * 12.4c — the language the product is offered in at sign-up.
+ *
+ * Deliberately the same closed set as the legal documents rather than the loose
+ * `min(2).max(35)` string `settingsAppearancePatchSchema` accepts. A picker that
+ * offers a language the app has no content in is a promise it cannot keep, and
+ * the legal texts are the content that matters most here: choosing Turkish has
+ * to mean reading the Turkish terms, not an English document with a Turkish
+ * label on the button.
+ */
+export const localeSchema = z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]);
+
+export const MINIMUM_AGE_YEARS = 13;
+
+/** Whole years between a birth date and a reference day. */
+export function ageInYears(birthDate: Date, on: Date = new Date()): number {
+  let age = on.getUTCFullYear() - birthDate.getUTCFullYear();
+  const monthDelta = on.getUTCMonth() - birthDate.getUTCMonth();
+
+  if (monthDelta < 0 || (monthDelta === 0 && on.getUTCDate() < birthDate.getUTCDate())) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+/**
+ * 12.4c — `YYYY-MM-DD`, in the past, and at least {@link MINIMUM_AGE_YEARS} ago.
+ *
+ * A date rather than an age integer: an age is wrong the next day and cannot be
+ * re-checked. The upper bound (150 years) is not paranoia about centenarians —
+ * it catches a mistyped year, which is the common failure, before it becomes a
+ * stored date of birth nobody notices is wrong.
+ */
+export const birthDateSchema = z.string().superRefine((value, ctx) => {
+  // One `superRefine` rather than a chain of `.refine` calls, and that is not a
+  // style choice. Zod runs every refinement in a chain even after an earlier
+  // one fails, so a malformed value reached the later checks and
+  // `new Date('nonsense').toISOString()` threw a `RangeError` — a 500 where a
+  // 400 belongs. Found by the spec beside this file, not in production.
+  const fail = (message: string) => {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  };
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    fail('birth date must be YYYY-MM-DD');
+    return;
+  }
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    fail('birth date is not a real date');
+    return;
+  }
+
+  // Rejects 2005-02-30, which `Date` happily rolls over into March.
+  if (parsed.toISOString().slice(0, 10) !== value) {
+    fail('birth date is not a real date');
+    return;
+  }
+
+  if (parsed.getTime() > Date.now()) {
+    fail('birth date is in the future');
+    return;
+  }
+
+  const age = ageInYears(parsed);
+
+  // Not paranoia about centenarians: this catches a mistyped year, which is the
+  // common failure, before it becomes a stored date of birth nobody notices.
+  if (age >= 150) {
+    fail('birth date is implausibly long ago');
+    return;
+  }
+
+  if (age < MINIMUM_AGE_YEARS) {
+    fail(`you must be at least ${String(MINIMUM_AGE_YEARS)} years old`);
+  }
+});
+
+/**
+ * 12.4c — ISO 3166-1 alpha-2, checked against the shared list rather than a
+ * bare two-letter pattern. `XX` is a valid-looking code and not a country, and
+ * this value decides which consumer law and which age of consent apply.
+ */
+export const countryCodeSchema = z
+  .string()
+  .length(2)
+  .toUpperCase()
+  .refine((value) => COUNTRY_CODES.includes(value), 'unknown country code');
+
+/**
+ * 12.4c — an optional real name. Optional is the design: GMRLog is a
+ * pseudonymous identity product, `handle` and `displayName` are who you are
+ * here, and an unverified name verifies nothing.
+ *
+ * Empty string normalises to `undefined` so a form that submits blank inputs
+ * stores nothing rather than an empty string that reads as "a name we have".
+ */
+export const optionalPersonNameSchema = z
+  .string()
+  .trim()
+  .max(80)
+  .transform((value) => (value.length === 0 ? undefined : value))
+  .optional();
+
+/**
+ * 12.4c — the object half, exported so callers can `.pick()` and `.omit()`.
+ *
+ * `sessionRegisterSchema` below adds a cross-field rule, which turns it into a
+ * `ZodEffects` and takes those methods away. The stepped register form needs
+ * both: per-step slices to gate each Continue button, and the whole rule to
+ * validate a submission. Splitting them is cheaper than reimplementing either.
+ */
+export const sessionRegisterObjectSchema = z
   .object({
     email: emailSchema,
     password: passwordPolicySchema,
     displayName: displayNameSchema,
     handle: handleSchema,
+    /**
+     * 12.4c — the age floor the Terms already claimed and nothing enforced.
+     * A date, not an age: an age integer is wrong the next day.
+     */
+    birthDate: birthDateSchema,
+    /**
+     * 12.4c — chosen by the player, never derived from an IP address. The
+     * privacy policy states GMRLog does not store IP addresses, and that stays
+     * true. It decides which consumer law and which age of consent apply.
+     */
+    countryCode: countryCodeSchema,
+    /**
+     * 12.4c — the language the player wants the product in. Stored on
+     * `UserSettings.locale`, which already existed and was only reachable from
+     * Settings after the fact; asking at sign-up means the first screen after
+     * registration is already in the right language.
+     */
+    locale: localeSchema,
+    /**
+     * 12.4c — optional, and optional is the design. GMRLog is a pseudonymous
+     * identity product: `handle` and `displayName` are who you are here. A real
+     * name is offered for players who want to show one, never required, and it
+     * is not identity verification — an unverified name verifies nothing.
+     */
+    firstName: optionalPersonNameSchema,
+    lastName: optionalPersonNameSchema,
+    /**
+     * 12.4 — the legal documents the player was shown, at the versions they
+     * were shown at.
+     *
+     * **Required, not optional, and that is a deliberate departure from the
+     * usual additive rule.** CLAUDE.md's "additive DTO changes" rule is about
+     * *response* fields, so existing consumers keep working; this is a request
+     * field on the app's own registration endpoint, and the reason Phase 12
+     * exists is that the app was creating accounts with no evidence of consent
+     * at all.
+     *
+     * The client sends versions rather than a bare "I agree" so the server can
+     * refuse a stale submission — a player who left the sign-up screen open
+     * across a deploy read a document that is no longer current, and recording
+     * that as agreement to the new one would be a lie in the evidence.
+     *
+     * 12.4a renamed this from `acceptedLegalDocuments`. It lists everything
+     * *displayed*, not everything agreed to, because only the Terms are agreed
+     * to; the Privacy Policy and the Aydınlatma Metni are notices.
+     *
+     * The OAuth sign-up path does not come through here: it cannot, because the
+     * account is created inside the provider callback with no opportunity to
+     * ask first. Those accounts have no record, and the consent gate catches
+     * them on first launch.
+     */
+    shownLegalDocuments: z.array(legalDocumentRefSchema).min(1).max(10),
+    /**
+     * 12.4a — the checkbox. `literal(true)` rather than `boolean`, so the
+     * schema itself refuses a registration where the box was not ticked; there
+     * is no code path that can forget to check it.
+     *
+     * Only the Terms carry this. A privacy notice has no tick because there is
+     * nothing to tick — the reader is informed, not asked.
+     */
+    termsAccepted: z.literal(true),
   })
   .strict();
+
+export const sessionRegisterSchema = sessionRegisterObjectSchema.superRefine((value, ctx) => {
+  // 12.4c — the language the player chose must be the language they read the
+  // documents in. Without this a registration could store "Turkish" while its
+  // consent record says the English terms were displayed, and the record
+  // would be describing a screen nobody saw.
+  for (const document of value.shownLegalDocuments) {
+    if (document.locale !== value.locale) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['shownLegalDocuments'],
+        message: `${document.documentId} was shown in ${document.locale} but the chosen language is ${value.locale}`,
+      });
+    }
+  }
+});
 
 export type SessionRegisterInput = z.infer<typeof sessionRegisterSchema>;
 
@@ -1818,3 +2100,35 @@ export type BecauseYouPlayedQueryInput = z.infer<typeof becauseYouPlayedQuerySch
 export const gameHubFeedQuerySchema = activityQuerySchema;
 
 export type GameHubFeedQueryInput = z.infer<typeof gameHubFeedQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// 12.2 — Legal documents (public, unauthenticated).
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /legal/:document` — path param. Enumerated rather than a free string so
+ * an unknown id is a 400 at the edge instead of reaching the registry, and so
+ * the route can never be used to probe for documents that do not exist.
+ */
+export const legalDocumentParamSchema = z
+  .object({
+    document: z.enum(LEGAL_DOCUMENT_IDS as unknown as [LegalDocumentId, ...LegalDocumentId[]]),
+  })
+  .strict();
+
+export type LegalDocumentParam = z.infer<typeof legalDocumentParamSchema>;
+
+/**
+ * `?locale=` on both legal routes. Optional: the service falls back to the
+ * default locale rather than 404ing a document that exists, so omitting it is
+ * always valid. An unpublished locale is rejected here rather than silently
+ * treated as the default, because a reader who asked for Turkish and was
+ * quietly handed English should be told.
+ */
+export const legalLocaleQuerySchema = z
+  .object({
+    locale: z.enum(LEGAL_LOCALES as unknown as [LegalLocale, ...LegalLocale[]]).optional(),
+  })
+  .strict();
+
+export type LegalLocaleQueryInput = z.infer<typeof legalLocaleQuerySchema>;

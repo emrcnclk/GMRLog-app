@@ -1,6 +1,7 @@
 import {
   PrismaAuthCredentialRepository,
   PrismaSessionRepository,
+  PrismaUserConsentRepository,
   PrismaUserRepository,
   PrismaUserSettingsRepository,
 } from '@gmrlog/database';
@@ -13,6 +14,8 @@ import { PrismaModule } from '../infrastructure/database/prisma.module';
 import { PrismaService } from '../infrastructure/database/prisma.service';
 import { EmailModule } from '../infrastructure/email/email.module';
 import { RedisModule } from '../infrastructure/redis/redis.module';
+import { AccountDeletionModule } from '../legal/account-deletion.module';
+import { LegalConsentModule } from '../legal/legal-consent.module';
 
 import { AccountSecurityController } from './account-security.controller';
 import { AuthController } from './auth.controller';
@@ -34,6 +37,7 @@ import { GoogleOAuthProvider } from './oauth/providers/google.provider';
 import { SteamOpenIdProvider } from './oauth/providers/steam-openid.provider';
 import { SteamConnectStateStore } from './oauth/steam-connect-state.store';
 import { PasswordResetStore } from './password-reset.store';
+import { REGISTRATION_TRANSACTION, type RegistrationTransaction } from './registration-transaction';
 import { SessionsService } from './sessions.service';
 
 /**
@@ -42,6 +46,8 @@ import { SessionsService } from './sessions.service';
  */
 @Module({
   imports: [
+    LegalConsentModule,
+    AccountDeletionModule,
     PrismaModule,
     RedisModule,
     EmailModule,
@@ -110,6 +116,25 @@ import { SessionsService } from './sessions.service';
       provide: AUTH_USER_SETTINGS_REPOSITORY,
       inject: [PrismaService],
       useFactory: (prisma: PrismaService) => new PrismaUserSettingsRepository(prisma),
+    },
+    {
+      // 12.4 — the four writes a registration makes, in one transaction. The
+      // repositories are rebuilt against `tx` rather than reusing the
+      // singletons above: those are bound to the pooled client and would
+      // commit outside the transaction they were meant to be part of.
+      provide: REGISTRATION_TRANSACTION,
+      inject: [PrismaService],
+      useFactory:
+        (prisma: PrismaService): RegistrationTransaction =>
+        (fn) =>
+          prisma.$transaction((tx) =>
+            fn({
+              users: new PrismaUserRepository(tx),
+              credentials: new PrismaAuthCredentialRepository(tx),
+              settings: new PrismaUserSettingsRepository(tx),
+              consents: new PrismaUserConsentRepository(tx),
+            }),
+          ),
     },
   ],
   exports: [

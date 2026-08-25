@@ -133,6 +133,14 @@ export class SearchIndexService {
             bannerBlurhash: null,
             bannerVariants: null,
             privacyId: null,
+            // 12.4c — a search hit carries none of these and must not: a real
+            // name, a birth date and a country are not search-index material.
+            // `null` here is the same placeholder as `bio`/`avatarKey` above,
+            // not a claim that the account lacks them.
+            firstName: null,
+            lastName: null,
+            birthDate: null,
+            countryCode: null,
             creatorFeatured: false,
             accountKind: 'individual',
             // Reconstructed from a Meili hit, which never carries this

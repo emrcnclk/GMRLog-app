@@ -17,3 +17,5 @@ export {
   type LoginInput,
   type SessionTokens,
 } from './auth-client.js';
+
+export { LegalClient, createLegalClient } from './legal-client.js';
