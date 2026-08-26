@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 import { SearchIndexService } from '../../infrastructure/search/search-index.service';
 
-import { GameCatalogSyncService, IGDB_CATALOG_CURSOR_NAME } from './game-catalog-sync.service';
+import {
+  GameCatalogSyncService,
+  releaseFloorUnix,
+  IGDB_CATALOG_CURSOR_NAME,
+} from './game-catalog-sync.service';
 import { GameMetadataPublisher } from './game-metadata.publisher';
 import { DEFAULT_METADATA_CONFIG } from './metadata.config';
 import type { IgdbCatalogRow } from './providers/igdb.provider';
@@ -134,6 +138,19 @@ describe('GameCatalogSyncService.syncPages', () => {
     expect(stats.enqueuedForEnrich).toBe(0);
   });
 
+  // D11.3 — the wiring, not the arithmetic. `releaseFloorUnix` is tested
+  // below on its own; what this pins is that the walk actually carries the
+  // configured floor to IGDB, which is the half that can silently stop
+  // happening without any test noticing.
+  it('asks IGDB only for releases at or after the configured floor', async () => {
+    const { service, listCatalogPage } = createHarness([[metadataRow()]]);
+
+    await service.syncPages(1);
+
+    expect(listCatalogPage).toHaveBeenCalledWith(
+      expect.objectContaining({ releasedFromUnix: releaseFloorUnix(1990) }),
+    );
+  });
   it('never writes an existing igdbId directly — routes it through the existing enqueueEnrich job', async () => {
     const { service, gameFindUnique, enqueueEnrich, repository } = createHarness([[metadataRow()]]);
     gameFindUnique.mockResolvedValue({ id: 'game-existing-1' });
@@ -261,5 +278,24 @@ describe('GameCatalogSyncService.syncPages', () => {
       expect(repository.recordRun).not.toHaveBeenCalled();
       expect(stats.runsRecorded).toBe(0);
     });
+  });
+});
+
+describe('releaseFloorUnix (D11.3)', () => {
+  it('is midnight UTC on 1 January of the year', () => {
+    expect(releaseFloorUnix(1990)).toBe(Math.floor(Date.UTC(1990, 0, 1) / 1000));
+    expect(releaseFloorUnix(1990)).toBe(631_152_000);
+  });
+
+  // Not a local-time constructor: a machine in UTC+3 would otherwise walk
+  // three hours less of 1989 than a machine in UTC, which nobody would notice
+  // and nobody could reproduce.
+  it('does not move with the machine timezone', () => {
+    expect(releaseFloorUnix(2000)).toBe(946_684_800);
+  });
+
+  it('treats zero and below as no floor at all', () => {
+    expect(releaseFloorUnix(0)).toBe(0);
+    expect(releaseFloorUnix(-1)).toBe(0);
   });
 });
