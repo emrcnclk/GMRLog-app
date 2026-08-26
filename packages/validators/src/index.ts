@@ -514,6 +514,17 @@ export const libraryStatusSchema = z.enum([
 /** S2 §14 / S1 §14.9 — closed LibrarySource vocabulary. */
 export const librarySourceSchema = z.enum(['manual', 'steam_import']);
 
+/**
+ * 13.1 — the completion figure a player may claim for one entry.
+ *
+ * Integer, 0-100, nullable. Nullable is the clearing gesture: a player who
+ * entered a figure by mistake needs a way back to "not said", and that is a
+ * different state from 0. The same range is a CHECK constraint on the column,
+ * because this schema only guards the one route a player can reach while the
+ * achievement import will write the column without passing through it.
+ */
+export const completionPercentSchema = z.number().int().min(0).max(100);
+
 /** S1 §14.9 LibraryEntryUpsertRequest — allowlisted fields only. */
 export const libraryEntryUpsertSchema = z
   .object({
@@ -521,6 +532,7 @@ export const libraryEntryUpsertSchema = z
     platformId: z.string().min(1).optional(),
     note: z.string().max(2000).nullable().optional(),
     source: librarySourceSchema.optional(),
+    completionPercent: completionPercentSchema.nullable().optional(),
   })
   .strict();
 
@@ -1720,6 +1732,7 @@ export type SyncConflictResolveInput = z.infer<typeof syncConflictResolveSchema>
 export const feedFilterSchema = z.enum([
   'for_you',
   'following',
+  'friends',
   'games',
   'reviews',
   'media',

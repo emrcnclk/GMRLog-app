@@ -76,6 +76,7 @@ beforeEach(() => {
           gameId: 'g1',
           status: 'completed',
           platformId: null,
+          completionPercent: null,
           createdAt: new Date('2026-07-01T00:00:00.000Z'),
         },
         {
@@ -83,6 +84,7 @@ beforeEach(() => {
           gameId: 'g2',
           status: 'dropped',
           platformId: null,
+          completionPercent: null,
           createdAt: new Date('2026-07-20T00:00:00.000Z'),
         },
         {
@@ -90,6 +92,7 @@ beforeEach(() => {
           gameId: 'g3',
           status: 'backlog',
           platformId: null,
+          completionPercent: null,
           createdAt: new Date('2026-07-25T00:00:00.000Z'),
         },
         {
@@ -97,6 +100,7 @@ beforeEach(() => {
           gameId: 'g4',
           status: 'wishlist',
           platformId: null,
+          completionPercent: null,
           createdAt: new Date('2026-07-28T00:00:00.000Z'),
         },
       ],
@@ -218,6 +222,62 @@ describe('StatisticsService.build', () => {
     expect(stats.favoriteGenreCounts).toEqual([]);
   });
 
+  // 13.1 — the metric §6 asks for by name. It is not `gamesCompleted`: a game
+  // can sit on the completed shelf without the player claiming they finished
+  // it completely, and a null figure is 'not said' rather than zero.
+  it('counts only entries claiming a full 100 as platinum', async () => {
+    metrics.snapshot = emptySnapshot({
+      libraryEntries: [
+        {
+          id: 'p1',
+          gameId: 'pg1',
+          status: 'completed',
+          platformId: null,
+          completionPercent: 100,
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        },
+        {
+          id: 'p2',
+          gameId: 'pg2',
+          status: 'completed',
+          platformId: null,
+          completionPercent: null,
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        },
+        {
+          id: 'p3',
+          gameId: 'pg3',
+          status: 'playing',
+          platformId: null,
+          completionPercent: 100,
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        },
+        {
+          id: 'p4',
+          gameId: 'pg4',
+          status: 'completed',
+          platformId: null,
+          completionPercent: 99,
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    const stats = await service.build('user-1');
+
+    expect(stats.platinumCount).toBe(2);
+    // The completed shelf still counts three, which is the point of keeping
+    // both numbers: they answer different questions.
+    expect(stats.gamesCompleted).toBe(3);
+  });
+
+  it('reports zero platinum rather than omitting the field', async () => {
+    metrics.snapshot = emptySnapshot({ libraryEntries: [] });
+
+    const stats = await service.build('user-1');
+
+    expect(stats.platinumCount).toBe(0);
+  });
   it('returns 404 when snapshot or user is missing', async () => {
     metrics.snapshot = null;
     await expect(service.build('user-1')).rejects.toBeInstanceOf(NotFoundException);

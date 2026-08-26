@@ -18,6 +18,7 @@ import { AUTH_BUTTON_HEIGHT } from './auth-layout';
 import { AuthLegalLine } from './auth-legal-line';
 import { AuthShell } from './auth-shell';
 import { AuthStepIndicator } from './auth-step-indicator';
+import { BIRTH_DATE_MAX_LENGTH, formatBirthDateInput } from './birth-date-input';
 import { CountryPicker } from './country-picker';
 import {
   isRegisterStepComplete,
@@ -292,12 +293,25 @@ export function RegisterScreen() {
                   // a web-only fork, which CLAUDE.md forbids. The format is
                   // stated, the validator is strict, and the error says what is
                   // wrong.
-                  keyboardType="numbers-and-punctuation"
+                  //
+                  // Digits only, separators inserted for the player — see
+                  // `formatBirthDateInput`. The field used to ask for
+                  // `keyboardType="numbers-and-punctuation"`, which is iOS-only
+                  // and which RNW has no case for, so mobile web offered a full
+                  // alphabetic keyboard for a date. `inputMode` is the spelling
+                  // RNW reads first (`TextInput/index.js:135`); `keyboardType`
+                  // stays alongside it for any native runtime that predates it,
+                  // the same both-spellings rule CLAUDE.md sets for `aria-*`.
+                  inputMode="numeric"
+                  keyboardType="number-pad"
+                  maxLength={BIRTH_DATE_MAX_LENGTH}
                   autoCapitalize="none"
                   autoCorrect={false}
                   value={value}
                   onBlur={onBlur}
-                  onChangeText={onChange}
+                  onChangeText={(next) => {
+                    onChange(formatBirthDateInput(next));
+                  }}
                   error={visibleFieldError(errors.birthDate, touchedFields.birthDate, isSubmitted)}
                   editable={!submitting}
                 />

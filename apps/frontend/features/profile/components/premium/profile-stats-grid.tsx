@@ -21,12 +21,13 @@ export interface ProfileStatsGridProps {
  * Reviews — are picked up by the record card's own three-stat row above, so
  * nothing is lost off the screen.
  *
- * **Platinum has no field behind it.** No per-entry completion percent exists
- * anywhere in the schema and the closed `LibraryStatusValue` vocabulary carries
- * a single completion signal. The cell shows `gamesCompleted` under its real
- * name instead — the same "use the field you have, under the name it has" call
- * 3.5 made for the collection footer's follower count. Backend follow-up in
- * TASKS.md.
+ * **The Platinum cell has a field behind it since 13.1.** `platinumCount`
+ * counts entries claiming a full 100, which is a different question from
+ * `gamesCompleted` (the completed shelf): a game can be finished without being
+ * finished completely. The field is additive and optional per the DTO rule, so
+ * a client talking to an older server — or a cached response written before
+ * it existed — falls back to `gamesCompleted` under its own honest name rather
+ * than showing a confident zero.
  */
 function ProfileStatsGridComponent({
   statistics,
@@ -69,12 +70,19 @@ function ProfileStatsGridComponent({
       label: 'Games',
       onPress: onPressLibrary,
     },
-    {
-      key: 'completed',
-      value: String(statistics.gamesCompleted),
-      label: 'Completed',
-      onPress: onPressLibrary,
-    },
+    statistics.platinumCount === undefined
+      ? {
+          key: 'completed',
+          value: String(statistics.gamesCompleted),
+          label: 'Completed',
+          onPress: onPressLibrary,
+        }
+      : {
+          key: 'platinum',
+          value: String(statistics.platinumCount),
+          label: 'Platinum',
+          onPress: onPressLibrary,
+        },
     {
       key: 'followers',
       value: String(statistics.followerCount),

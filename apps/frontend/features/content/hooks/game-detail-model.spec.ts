@@ -15,6 +15,7 @@ import {
   formatAttribution,
   formatCommunityRating,
   formatCompanies,
+  formatCompletionPercent,
   formatCriticScore,
   formatReleaseYear,
   gameHubEmptyCopy,
@@ -269,5 +270,23 @@ describe('bucketReviewDistribution', () => {
     const rows = bucketReviewDistribution([]);
     expect(rows.every((row) => row.count === 0)).toBe(true);
     expect(rows).toHaveLength(5);
+  });
+});
+
+describe('formatCompletionPercent (13.1)', () => {
+  // Null is 'not said' and zero is an answer. Collapsing the two would make an
+  // unanswered question look like a claim of no progress.
+  it('draws nothing when the player has not said', () => {
+    expect(formatCompletionPercent(null)).toBeNull();
+    expect(formatCompletionPercent(undefined)).toBeNull();
+  });
+
+  it('draws zero, because zero is a real answer', () => {
+    expect(formatCompletionPercent(0)).toBe('0% complete');
+  });
+
+  it('names a full hundred rather than measuring it', () => {
+    expect(formatCompletionPercent(100)).toBe('Platinum');
+    expect(formatCompletionPercent(99)).toBe('99% complete');
   });
 });

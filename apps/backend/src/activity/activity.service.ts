@@ -619,6 +619,17 @@ export class ActivityService {
             : false;
         return isFollow || isFriend;
       }
+      // 13.2 — §4's third tab, and narrower than `following` above on
+      // purpose: that case is satisfied by a one-way follow, this one is not.
+      // A viewer with no friends sees an empty feed rather than their
+      // following feed under a different name, which is the honest answer.
+      case 'friends': {
+        const actorId = row.activityItem.actorId;
+        if (actorId === null || actorId === viewerId || this.friendships === null) {
+          return false;
+        }
+        return (await this.friendships.findFriendship(viewerId, actorId)) !== null;
+      }
       case 'games':
         return (
           kind === 'game_log' ||

@@ -166,6 +166,9 @@ export function createFakeLibraryEntryRepository(
         source: data.source,
         platformId: connectId(data.platform) ?? null,
         note: typeof data.note === 'string' ? data.note : null,
+        completionPercent:
+          typeof data.completionPercent === 'number' ? data.completionPercent : null,
+        completionSource: data.completionSource ?? null,
         version: 0,
         createdAt: new Date(),
         updatedAt: new Date(),

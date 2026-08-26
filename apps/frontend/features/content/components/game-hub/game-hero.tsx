@@ -28,6 +28,7 @@ import {
   formatCompanies,
   formatCriticScore,
   formatReleaseYear,
+  formatCompletionPercent,
   LIBRARY_STATUS_LABELS,
   resolveHeroArtwork,
 } from '../../hooks/game-detail-model';
@@ -39,6 +40,8 @@ export interface GameHeroProps {
   isPending: boolean;
   onWriteReview: () => void;
   onWritePost: () => void;
+  /** 13.1 — opens the completion editor. Only reachable on a logged game. */
+  onSetCompletion: () => void;
 }
 
 const COVER_WIDTH = 108;
@@ -64,6 +67,7 @@ function GameHeroComponent({
   isPending,
   onWriteReview,
   onWritePost,
+  onSetCompletion,
 }: GameHeroProps) {
   const theme = useTheme();
   const heroUrl = resolveHeroArtwork(game, media);
@@ -73,6 +77,11 @@ function GameHeroComponent({
   const developers = formatCompanies(game?.developers ?? []);
   const publishers = formatCompanies(game?.publishers ?? []);
   const shelf = game?.library?.status;
+  // 13.1 — `null` is "not said" and renders nothing; only a real figure gets a
+  // line. Zero is a figure and does render, which is the whole reason the
+  // column is nullable rather than defaulted.
+  const completionPercent = game?.library?.completionPercent ?? null;
+  const completionLabel = formatCompletionPercent(completionPercent);
   const studioLine = [releaseYear, developers].filter((part) => part !== null).join(' · ');
 
   return (
@@ -143,7 +152,25 @@ function GameHeroComponent({
         <View
           style={{ flex: 1, gap: theme.space('space.2'), paddingBottom: theme.space('space.2') }}
         >
-          {shelf !== undefined ? <Badge tone="info">{LIBRARY_STATUS_LABELS[shelf]}</Badge> : null}
+          {shelf !== undefined || completionPercent !== null ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: theme.space('space.2'),
+                flexWrap: 'wrap',
+              }}
+            >
+              {shelf !== undefined ? (
+                <Badge tone="info">{LIBRARY_STATUS_LABELS[shelf]}</Badge>
+              ) : null}
+              {completionPercent !== null ? (
+                <Text role="meta" color="color.text.secondary">
+                  {completionLabel}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           {isPending && game === null ? (
             <Skeleton shape="line" width="80%" height={theme.space('space.6')} />
           ) : (
@@ -206,6 +233,25 @@ function GameHeroComponent({
           >
             <Icon name="message-square" decorative size={20} color="color.text.primary" />
           </IconButton>
+          {/* 13.1 — §5's action row asks for "two 44px square icon buttons
+              beside it" and had one. This is the second, and it is only
+              offered on a game the viewer already has on a shelf: a completion
+              figure for a game nobody has logged would have no entry to
+              attach to. */}
+          {shelf !== undefined ? (
+            <IconButton
+              accessibilityLabel={
+                completionPercent === null
+                  ? 'Set how far you got'
+                  : `Change how far you got, currently ${completionLabel ?? ''}`
+              }
+              variant="secondary"
+              size="lg"
+              onPress={onSetCompletion}
+            >
+              <Icon name="trophy" decorative size={20} color="color.text.primary" />
+            </IconButton>
+          ) : null}
         </View>
       </View>
     </View>

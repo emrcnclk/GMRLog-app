@@ -4,6 +4,7 @@ import type {
   AccountDeletionStatusResponse,
   AchievementResponse,
   ActivityItemResponse,
+  FeedFilterValue,
   FeedItemResponse,
   CollectionResponse,
   CommentResponse,
@@ -312,6 +313,27 @@ export class AxiosApiClient {
       '/library/entries',
       query?.status !== undefined ? { 'filter[status]': query.status } : undefined,
     );
+  }
+
+  /**
+   * `PUT /library/entries/{gameId}` — the viewer's own entry for one game.
+   *
+   * The write half of the library, which had no client method at all until
+   * 13.1 needed one: every library call in this file was a read. `status` is
+   * required by the route because an entry cannot exist without a shelf, so a
+   * caller changing only the completion figure passes the shelf the entry is
+   * already on.
+   */
+  upsertLibraryEntry(
+    gameId: string,
+    body: {
+      status: LibraryStatusValue;
+      completionPercent?: number | null;
+      note?: string | null;
+      platformId?: string;
+    },
+  ): Promise<ApiEnvelope<LibraryEntryResponse>> {
+    return this.put<LibraryEntryResponse>(`/library/entries/${gameId}`, body);
   }
 
   /** `GET /collections` — own collections index (S1 §13.8). */
@@ -812,7 +834,7 @@ export class AxiosApiClient {
   listHomeFeed(query?: {
     cursor?: string;
     limit?: number;
-    filter?: 'for_you' | 'following' | 'games' | 'reviews' | 'media' | 'communities' | 'events';
+    filter?: FeedFilterValue;
     from?: string;
     to?: string;
   }): Promise<ApiEnvelope<FeedItemResponse[]>> {
