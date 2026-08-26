@@ -1,4 +1,5 @@
 import type {
+  CompletionSource,
   FriendshipRepository,
   Game,
   GameLogRepository,
@@ -42,6 +43,35 @@ const NOTIFICATION_KIND_FRIEND_WISHLIST_PLAY = 'friend_wishlist_play';
  * shelves, GameLog foundation lifecycle, and D3.22 Wishlist++ metadata.
  * Import/Steam sync is out of scope.
  */
+/**
+ * 13.1 — the completion half of a player write.
+ *
+ * Three inputs, three outcomes, and the middle one is the reason this is a
+ * function rather than a spread: `undefined` means the request said nothing
+ * and must leave an existing figure alone, `null` means the player cleared it
+ * and must erase both columns together, and a number is a claim.
+ *
+ * The source is always `self_reported` here. A player PUT cannot mint
+ * evidence, the same rule the surrounding method already applies to
+ * `LibrarySource` — `steam_import` is not writable from this route either.
+ * When the achievement import lands it writes `imported`, and that value wins
+ * because it is written after, not because this route defers to it.
+ */
+function completionData(percent: number | null | undefined): {
+  completionPercent?: number | null;
+  completionSource?: CompletionSource | null;
+} {
+  if (percent === undefined) {
+    return {};
+  }
+
+  if (percent === null) {
+    return { completionPercent: null, completionSource: null };
+  }
+
+  return { completionPercent: percent, completionSource: 'self_reported' };
+}
+
 @Injectable()
 export class LibraryService {
   private readonly logger = new Logger(LibraryService.name);
@@ -118,6 +148,7 @@ export class LibraryService {
           ? { platform: { connect: { id: input.platformId } } }
           : {}),
         ...(input.note !== undefined ? { note: input.note } : {}),
+        ...completionData(input.completionPercent),
       });
       await this.appendLog(created.id, 'status_change', now);
       if (input.note !== undefined && input.note !== null && input.note !== '') {
@@ -146,6 +177,7 @@ export class LibraryService {
     if (input.platformId !== undefined) {
       data.platform = { connect: { id: input.platformId } };
     }
+    Object.assign(data, completionData(input.completionPercent));
     // Preserve existing source — Steam never replaces GMRLOG authorship (S1 §15.3).
     // Player PUT never writes `steam_import`.
 

@@ -56,6 +56,8 @@ export function makeLibraryEntry(overrides: Partial<LibraryEntry> = {}): Library
     source: 'manual',
     platformId: null,
     note: null,
+    completionPercent: null,
+    completionSource: null,
     version: 0,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -110,6 +112,9 @@ export function createFakeLibraryEntryRepository(
         source: data.source,
         platformId: connectId(data.platform) ?? null,
         note: typeof data.note === 'string' || data.note === null ? data.note : null,
+        completionPercent:
+          typeof data.completionPercent === 'number' ? data.completionPercent : null,
+        completionSource: data.completionSource ?? null,
         version: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -164,6 +169,20 @@ export function createFakeLibraryEntryRepository(
           data.platform === undefined
             ? current.platformId
             : (connectId(data.platform) ?? current.platformId),
+        // 13.1 — `undefined` leaves the figure alone, `null` clears it, a
+        // number replaces it. The fake has to model all three or a spec
+        // asserting "an unrelated status change does not wipe the percent"
+        // would pass for the wrong reason.
+        completionPercent:
+          data.completionPercent === undefined
+            ? current.completionPercent
+            : typeof data.completionPercent === 'number' || data.completionPercent === null
+              ? data.completionPercent
+              : current.completionPercent,
+        completionSource:
+          data.completionSource === undefined
+            ? current.completionSource
+            : ((data.completionSource as LibraryEntry['completionSource'] | null) ?? null),
         version: resolveVersion(current.version, data),
         updatedAt: new Date(),
       };

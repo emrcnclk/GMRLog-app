@@ -13,7 +13,7 @@ import { memo, useMemo } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { CachedImage } from '../../../../src/assets/cached-image';
-import { selectCompletedCase } from '../../hooks/player-record-model';
+import { selectPlayerCase } from '../../hooks/player-record-model';
 
 export interface CompletedCaseProps {
   entries: readonly LibraryEntryResponse[];
@@ -26,13 +26,14 @@ const CASE_COVER_WIDTH = 98;
 /**
  * §6's trophy shelf — "the only artwork in the app allowed a glow".
  *
- * The doc calls this the **Platinum case**. GMRLOG has no platinum: no per-entry
- * completion percent exists anywhere in the schema, and the closed
- * `LibraryStatusValue` vocabulary carries one completion signal, `completed`.
- * That flag is this app's "finished it", so the case is built from it and named
- * for what it is; the per-cover `100%` label §6 asks for is dropped rather than
- * faked, and the trophy chip stays because it marks the section, not a number.
- * Backend follow-up recorded in TASKS.md.
+ * The doc calls this the **Platinum case**, and since 13.1 it can be one: an
+ * entry carrying a completion figure of 100 is a real claim of a full finish,
+ * and those entries get the per-cover `100%` label §6 asks for. Until a player
+ * has entered a figure the section falls back to the completed shelf under its
+ * own honest name — `completed` is "finished it", not "finished it
+ * completely", and deleting a player's finished games to show an empty
+ * Platinum shelf would trade content for a label. `selectPlayerCase` decides
+ * which is on screen; the trophy chip marks the section in both.
  *
  * Bleeds to both screen edges, per the shared "bleeding rail" pattern — the
  * overflow past the right edge is the point, so this never centres or pads
@@ -40,7 +41,7 @@ const CASE_COVER_WIDTH = 98;
  */
 function CompletedCaseComponent({ entries, onPressGame }: CompletedCaseProps) {
   const theme = useTheme();
-  const items = useMemo(() => selectCompletedCase(entries), [entries]);
+  const { mode, items } = useMemo(() => selectPlayerCase(entries), [entries]);
 
   if (items.length === 0) {
     return null;
@@ -57,7 +58,11 @@ function CompletedCaseComponent({ entries, onPressGame }: CompletedCaseProps) {
         }}
       >
         <Trophy size={13} color={theme.color('color.accent.default')} strokeWidth={1.75} />
-        <SectionKicker title="Completed" counter={String(items.length)} style={{ flex: 1 }} />
+        <SectionKicker
+          title={mode === 'platinum' ? 'Platinum' : 'Completed'}
+          counter={String(items.length)}
+          style={{ flex: 1 }}
+        />
       </View>
 
       <ScrollView
@@ -72,6 +77,7 @@ function CompletedCaseComponent({ entries, onPressGame }: CompletedCaseProps) {
           <CaseCover
             key={entry.gameId}
             entry={entry}
+            platinum={mode === 'platinum'}
             onPress={() => {
               onPressGame(entry.gameId);
             }}
@@ -82,14 +88,22 @@ function CompletedCaseComponent({ entries, onPressGame }: CompletedCaseProps) {
   );
 }
 
-function CaseCover({ entry, onPress }: { entry: LibraryEntryResponse; onPress: () => void }) {
+function CaseCover({
+  entry,
+  platinum,
+  onPress,
+}: {
+  entry: LibraryEntryResponse;
+  platinum: boolean;
+  onPress: () => void;
+}) {
   const theme = useTheme();
   const finishedAt = formatCaseDate(entry.updatedAt);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${entry.game.title}, completed${
+      accessibilityLabel={`Open ${entry.game.title}, ${platinum ? '100% complete' : 'completed'}${
         finishedAt === null ? '' : ` ${finishedAt}`
       }`}
       onPress={onPress}
@@ -155,9 +169,12 @@ function CaseCover({ entry, onPress }: { entry: LibraryEntryResponse; onPress: (
       <Text role="label" numberOfLines={1}>
         {entry.game.title}
       </Text>
-      {finishedAt !== null ? (
+      {/* §6's `100%` label, drawn only where it is true. The date keeps its
+          place beside it rather than being replaced: "when" and "how far" are
+          different facts and the case has room for both. */}
+      {platinum || finishedAt !== null ? (
         <Text role="meta" color="color.text.tertiary" numberOfLines={1}>
-          {finishedAt}
+          {[platinum ? '100%' : null, finishedAt].filter((part) => part !== null).join(' · ')}
         </Text>
       ) : null}
     </Pressable>

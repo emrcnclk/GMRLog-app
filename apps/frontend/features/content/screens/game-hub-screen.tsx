@@ -24,6 +24,7 @@ import { useSimilarGames } from '../../discover/hooks/use-discover';
 import { useOnlineFriends } from '../../friends/hooks/use-friends';
 import { ContentErrorState } from '../components/content-error-state';
 import { ContentListSkeleton } from '../components/content-list-skeleton';
+import { CompletionDialog } from '../components/game-hub/completion-dialog';
 import { GameAboutTab } from '../components/game-hub/game-about-tab';
 import { GameCommunityTab } from '../components/game-hub/game-community-tab';
 import { GameHero } from '../components/game-hub/game-hero';
@@ -49,6 +50,7 @@ import {
   useGameHubPlayers,
   useGameTimeline,
 } from '../hooks/use-game-hub-tabs';
+import { useSetCompletionPercent } from '../hooks/use-library-completion';
 import { useGameReviews } from '../hooks/use-reviews';
 
 export interface GameHubScreenProps {
@@ -175,6 +177,33 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
     router.push({ pathname: '/(app)/post/create', params: { gameId } });
   }, [gameId, router]);
 
+  // 13.1 — the completion editor. Dialog state lives on the screen rather than
+  // inside the hero so the hero stays a renderer, the same split every other
+  // action on it already follows.
+  const [completionOpen, setCompletionOpen] = useState(false);
+  const setCompletion = useSetCompletionPercent(gameId);
+  const openCompletion = useCallback(() => {
+    setCompletion.reset();
+    setCompletionOpen(true);
+  }, [setCompletion]);
+  const saveCompletion = useCallback(
+    (percent: number | null) => {
+      const shelf = game?.library?.status;
+      if (shelf === undefined) {
+        return;
+      }
+      setCompletion.mutate(
+        { status: shelf, completionPercent: percent },
+        {
+          onSuccess: () => {
+            setCompletionOpen(false);
+          },
+        },
+      );
+    },
+    [game, setCompletion],
+  );
+
   const openUrl = useCallback((url: string) => {
     void Linking.openURL(url);
   }, []);
@@ -299,6 +328,7 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         isPending={detail.isPending}
         onWriteReview={writeReview}
         onWritePost={writePost}
+        onSetCompletion={openCompletion}
       />
       <SegmentedTabs
         items={tabs}
@@ -491,6 +521,20 @@ export function GameHubScreen({ gameId }: GameHubScreenProps) {
         maxToRenderPerBatch={10}
         windowSize={9}
       />
+
+      {game?.library !== null && game?.library !== undefined ? (
+        <CompletionDialog
+          visible={completionOpen}
+          status={game.library.status}
+          current={game.library.completionPercent ?? null}
+          saving={setCompletion.isPending}
+          error={setCompletion.isError ? 'Could not save that. Try again.' : null}
+          onClose={() => {
+            setCompletionOpen(false);
+          }}
+          onSave={saveCompletion}
+        />
+      ) : null}
     </Screen>
   );
 }

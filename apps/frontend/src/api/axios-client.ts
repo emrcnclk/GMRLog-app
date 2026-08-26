@@ -314,6 +314,27 @@ export class AxiosApiClient {
     );
   }
 
+  /**
+   * `PUT /library/entries/{gameId}` — the viewer's own entry for one game.
+   *
+   * The write half of the library, which had no client method at all until
+   * 13.1 needed one: every library call in this file was a read. `status` is
+   * required by the route because an entry cannot exist without a shelf, so a
+   * caller changing only the completion figure passes the shelf the entry is
+   * already on.
+   */
+  upsertLibraryEntry(
+    gameId: string,
+    body: {
+      status: LibraryStatusValue;
+      completionPercent?: number | null;
+      note?: string | null;
+      platformId?: string;
+    },
+  ): Promise<ApiEnvelope<LibraryEntryResponse>> {
+    return this.put<LibraryEntryResponse>(`/library/entries/${gameId}`, body);
+  }
+
   /** `GET /collections` — own collections index (S1 §13.8). */
   listCollections(query?: { ownerId?: string }): Promise<ApiEnvelope<CollectionResponse[]>> {
     return this.get<CollectionResponse[]>('/collections', query);

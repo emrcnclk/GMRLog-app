@@ -227,18 +227,54 @@ export function selectRarestUnlocks(
 }
 
 /**
- * §6's "Platinum case". GMRLOG has no platinum: no per-entry completion percent
- * exists anywhere in the schema, and `LibraryStatusValue` is a closed vocabulary
- * whose completion signal is the single flag `completed`. That flag *is* this
- * app's "finished it", so the case is built from it and named for what it is —
- * the trophy chip and the literal `100%` label the doc asks for are dropped
- * rather than faked.
+ * §6's "Platinum case", in the two shapes the data actually comes in.
  *
- * **Backend follow-up (TASKS.md):** a per-entry completion percent (or an
- * explicit platinum flag) would let the case say 100% and mean it.
+ * It had one: `LibraryStatusValue`'s single `completed` flag, which is
+ * "finished it", not "finished it completely" — so the case was built from
+ * that flag, named for what it was, and the literal `100%` label the doc asks
+ * for was dropped rather than faked. 13.1 gives the entry a real completion
+ * figure, and an entry claiming a full hundred is the platinum the doc means.
+ *
+ * Both modes stay, because both are true of a real library: a player who has
+ * never entered a figure still has finished games, and dropping their case to
+ * show an empty Platinum shelf would delete content to make room for a label.
+ * `mode` says which is on screen so the section can name itself honestly, and
+ * `platinum` wins whenever any entry claims 100.
  *
  * Most recently updated first — `updatedAt` is the only date the entry carries,
  * so it is also the "when" line each cover gets.
+ */
+export interface PlayerCaseView {
+  mode: 'platinum' | 'completed';
+  items: LibraryEntryResponse[];
+}
+
+function byMostRecent(a: LibraryEntryResponse, b: LibraryEntryResponse): number {
+  return Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || a.gameId.localeCompare(b.gameId);
+}
+
+export function selectPlayerCase(
+  entries: readonly LibraryEntryResponse[],
+  limit = 12,
+): PlayerCaseView {
+  const platinum = entries.filter((entry) => entry.completionPercent === 100).sort(byMostRecent);
+
+  if (platinum.length > 0) {
+    return { mode: 'platinum', items: platinum.slice(0, limit) };
+  }
+
+  return {
+    mode: 'completed',
+    items: entries
+      .filter((entry) => entry.status === 'completed')
+      .sort(byMostRecent)
+      .slice(0, limit),
+  };
+}
+
+/**
+ * The completed-shelf half of {@link selectPlayerCase}, kept as its own export
+ * because it is what the case falls back to and what its spec pins.
  */
 export function selectCompletedCase(
   entries: readonly LibraryEntryResponse[],
@@ -246,10 +282,7 @@ export function selectCompletedCase(
 ): LibraryEntryResponse[] {
   return entries
     .filter((entry) => entry.status === 'completed')
-    .sort(
-      (a, b) =>
-        Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || a.gameId.localeCompare(b.gameId),
-    )
+    .sort(byMostRecent)
     .slice(0, limit);
 }
 

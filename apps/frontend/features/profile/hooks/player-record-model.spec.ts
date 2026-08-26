@@ -16,6 +16,7 @@ import {
   formatRecordSince,
   rarityRank,
   selectCompletedCase,
+  selectPlayerCase,
   selectRarestUnlocks,
   selectRecordBadges,
 } from './player-record-model';
@@ -51,6 +52,7 @@ function entry(
   gameId: string,
   status: LibraryStatusValue,
   updatedAt: string,
+  completionPercent: number | null = null,
 ): LibraryEntryResponse {
   return {
     gameId,
@@ -58,6 +60,8 @@ function entry(
     status,
     source: 'manual',
     updatedAt,
+    completionPercent,
+    completionSource: completionPercent === null ? null : 'self_reported',
   };
 }
 
@@ -287,6 +291,50 @@ describe('selectCompletedCase', () => {
   });
 });
 
+describe('selectPlayerCase (13.1)', () => {
+  it('is the Platinum case as soon as one entry claims a full hundred', () => {
+    const view = selectPlayerCase([
+      entry('a', 'completed', '2025-01-01T00:00:00.000Z'),
+      entry('b', 'playing', '2026-01-01T00:00:00.000Z', 100),
+      entry('c', 'completed', '2026-06-01T00:00:00.000Z', 100),
+    ]);
+
+    expect(view.mode).toBe('platinum');
+    expect(view.items.map((item) => item.gameId)).toEqual(['c', 'b']);
+  });
+
+  // A shelf placement is not a claim of a full finish, so a completed entry
+  // with no figure never sneaks into the Platinum case.
+  it('does not treat the completed shelf as a hundred', () => {
+    const view = selectPlayerCase([
+      entry('a', 'completed', '2026-01-01T00:00:00.000Z'),
+      entry('b', 'completed', '2026-02-01T00:00:00.000Z', 99),
+    ]);
+
+    expect(view.mode).toBe('completed');
+    expect(view.items.map((item) => item.gameId)).toEqual(['b', 'a']);
+  });
+
+  // Deleting a player's finished games to show an empty Platinum shelf would
+  // trade content for a label; the fallback is the point.
+  it('falls back to the completed shelf when nobody has entered a figure', () => {
+    const view = selectPlayerCase([
+      entry('a', 'completed', '2026-01-01T00:00:00.000Z'),
+      entry('b', 'playing', '2026-02-01T00:00:00.000Z'),
+    ]);
+
+    expect(view.mode).toBe('completed');
+    expect(view.items).toHaveLength(1);
+  });
+
+  it('caps the platinum case the same way', () => {
+    const items = Array.from({ length: 20 }, (_, index) =>
+      entry(`g${String(index)}`, 'completed', '2026-01-01T00:00:00.000Z', 100),
+    );
+
+    expect(selectPlayerCase(items).items).toHaveLength(12);
+  });
+});
 describe('formatRecordSince', () => {
   it('returns null for a missing or unparsable date', () => {
     expect(formatRecordSince(null)).toBeNull();

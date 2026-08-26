@@ -68,6 +68,10 @@ export class StatisticsService {
     const gamesLogged = libraryEntries.length;
     const gamesCompleted = statusCount('completed');
     const gamesDropped = statusCount('dropped');
+    // 13.1 — §6's Platinum metric. Only an entry that actually claims 100
+    // counts: a null figure is 'not said', never 0, and a `completed` shelf
+    // placement is 'finished', not 'finished completely'.
+    const platinumCount = libraryEntries.filter((entry) => entry.completionPercent === 100).length;
     const backlogSize = statusCount('backlog');
     const wishlistSize = statusCount('wishlist');
     const gamesPlayed = statusCount('playing') + gamesCompleted + gamesDropped;
@@ -94,6 +98,7 @@ export class StatisticsService {
       gamesLogged,
       gamesPlayed,
       gamesCompleted,
+      platinumCount,
       gamesDropped,
       backlogSize,
       wishlistSize,

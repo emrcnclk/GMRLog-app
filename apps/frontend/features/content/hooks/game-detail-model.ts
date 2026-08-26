@@ -212,6 +212,26 @@ export function bucketGameMedia(
   };
 }
 
+/**
+ * 13.1 — the viewer's completion figure as a line of text, or `null`.
+ *
+ * `null` means the player has not said and nothing is drawn; `0` is a real
+ * answer and draws `0% complete`. Collapsing the two would make an unanswered
+ * question look like a claim of no progress, which is the distinction the
+ * nullable column exists to keep.
+ *
+ * 100 gets its own word. §6's Platinum case is built on entries that claim a
+ * full hundred, and "100% complete" reads as a measurement where "Platinum"
+ * reads as the thing the product is actually about.
+ */
+export function formatCompletionPercent(percent: number | null | undefined): string | null {
+  if (percent === null || percent === undefined) {
+    return null;
+  }
+
+  return percent === 100 ? 'Platinum' : `${String(percent)}% complete`;
+}
+
 /** Human label for the viewer's shelf state, used on the hero's primary action. */
 export const LIBRARY_STATUS_LABELS: Record<LibraryStatusValue, string> = {
   owned: 'In library',

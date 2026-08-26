@@ -47,6 +47,12 @@ export function toLibraryEntryResponse(
     status: entry.status,
     source: entry.source,
     updatedAt: entry.updatedAt.toISOString(),
+    // 13.1 — always projected, including as `null`. Omitting the key when the
+    // player has not said would make "no figure" and "field not served yet"
+    // the same thing on the wire, and a client cannot tell a missing feature
+    // from an unanswered question.
+    completionPercent: entry.completionPercent,
+    completionSource: entry.completionSource,
     ...(wishlist !== undefined ? { wishlist } : {}),
   };
 }
