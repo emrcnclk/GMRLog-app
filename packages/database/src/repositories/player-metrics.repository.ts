@@ -23,6 +23,8 @@ export interface PlayerMetricSnapshot {
     status: LibraryStatus;
     platformId: string | null;
     createdAt: Date;
+    /** 13.1 — null when the player has not said how far they got. */
+    completionPercent: number | null;
   }[];
   sessionLogCount: number;
   /** GameLog kind=session occurredAt values (hoursPlayed proxy source). */
@@ -89,6 +91,7 @@ export class PrismaPlayerMetricsRepository implements PlayerMetricsRepository {
           status: true,
           platformId: true,
           createdAt: true,
+          completionPercent: true,
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),

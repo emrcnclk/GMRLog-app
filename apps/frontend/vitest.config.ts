@@ -30,14 +30,17 @@ export default defineConfig({
     // graph under a different name.
     alias: [
       { find: /^react-native$/, replacement: 'react-native-web' },
-      // `react-native-svg` declares `"react-native": "src/index.ts"`, and
-      // resolving that TypeScript source pulls Flow-typed React Native files
-      // back into the graph. Its published ESM build imports only the two
-      // helpers stubbed below.
+      // `react-native-svg` is stubbed outright rather than pointed at its
+      // published ESM build. That build loads fine, but its `Svg` renders the
+      // native view name returned by `codegen-native-component.stub.ts`, so
+      // react-dom gets a DOM tag carrying a React Native style *array* and
+      // happy-dom throws `Cannot set property 0 of #<CSSStyleDeclaration>`.
+      // Every lucide icon goes through this path, which made most of the app
+      // unmountable — see the stub for the full chain.
       {
         find: /^react-native-svg$/,
         replacement: fileURLToPath(
-          new URL('../../node_modules/react-native-svg/lib/module/index.js', import.meta.url),
+          new URL('./test-support/react-native-svg.stub.tsx', import.meta.url),
         ),
       },
       // `react-native-svg` reaches into React Native's Flow-typed source for
@@ -52,6 +55,19 @@ export default defineConfig({
         find: /^react-native\/Libraries\/Utilities\/codegenNativeComponent$/,
         replacement: fileURLToPath(
           new URL('./test-support/codegen-native-component.stub.ts', import.meta.url),
+        ),
+      },
+      // `react-native-safe-area-context` declares the same
+      // `"react-native": "src/index.tsx"` entry as react-native-svg, so
+      // resolving it drags Flow-typed React Native sources back in and the
+      // spec dies on `SyntaxError: Unexpected token 'typeof'` before it runs.
+      // Its published ESM build clears that and then throws the SVG stub's
+      // crash instead, because its provider is a native host component — so it
+      // is stubbed outright. See the stub for both halves.
+      {
+        find: /^react-native-safe-area-context$/,
+        replacement: fileURLToPath(
+          new URL('./test-support/react-native-safe-area-context.stub.tsx', import.meta.url),
         ),
       },
       // `expo-image` calls `requireNativeViewManager` at module scope and

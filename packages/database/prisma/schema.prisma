@@ -73,6 +73,20 @@ enum LibraryStatus {
   @@map("library_status")
 }
 
+/// 9.5c/13.1 — where a library entry's completion figure came from.
+///
+/// The distinction is the whole reason this is a column and not a boolean:
+/// a player-entered figure is a claim, an imported one is evidence, and the
+/// import must be able to win without silently discarding what the player
+/// said. Only `self_reported` is writable today; `imported` is written by
+/// the achievement import when it lands (TASKS.md Phase 13).
+enum CompletionSource {
+  self_reported
+  imported
+
+  @@map("completion_source")
+}
+
 enum LibrarySource {
   manual
   steam_import
@@ -663,17 +677,17 @@ enum AccountKind {
 // =============================================================================
 
 model User {
-  id              String    @id @default(cuid())
-  handle          String    @unique
-  displayName     String    @map("display_name")
+  id              String      @id @default(cuid())
+  handle          String      @unique
+  displayName     String      @map("display_name")
   bio             String?
   /// 12.4c — optional, and optional is the design. GMRLog is a pseudonymous
   /// identity product: `handle` and `displayName` are who you are here. A real
   /// name is offered for players who want to show one, never required, and it
   /// is not identity verification — an unverified name verifies nothing, it
   /// only collects.
-  firstName       String?   @map("first_name")
-  lastName        String?   @map("last_name")
+  firstName       String?     @map("first_name")
+  lastName        String?     @map("last_name")
   /// 12.4c — date of birth, not an age. An age integer is wrong the next day
   /// and cannot be re-checked; a birth date can. Its stated purpose is the age
   /// floor the Terms of Service already claim ("You must be at least 13") and
@@ -685,7 +699,7 @@ model User {
   /// refused to backfill an `accepted` row. `null` means "we never asked",
   /// which is the truth; `sessionRegisterSchema` makes it impossible for a new
   /// account to be in that state.
-  birthDate       DateTime? @map("birth_date") @db.Date
+  birthDate       DateTime?   @map("birth_date") @db.Date
   /// 12.4c — ISO 3166-1 alpha-2, chosen by the player, never derived from an IP
   /// address. The privacy policy says GMRLog does not store IP addresses and
   /// that stays true. Purpose: which consumer law applies, which age of consent
@@ -693,17 +707,17 @@ model User {
   ///
   /// Nullable for the same reason as `birthDate`: guessing a country for an
   /// existing account would be inventing a legal jurisdiction for someone.
-  countryCode     String?   @map("country_code") @db.Char(2)
-  avatarKey       String?   @map("avatar_key")
-  bannerKey       String?   @map("banner_key")
+  countryCode     String?     @map("country_code") @db.Char(2)
+  avatarKey       String?     @map("avatar_key")
+  bannerKey       String?     @map("banner_key")
   /// D3.26 — responsive media pipeline (docs/18_CATALOG/MEDIA_INGESTION.md).
-  avatarBlurhash  String?   @map("avatar_blurhash")
-  avatarVariants  Json?     @map("avatar_variants")
-  bannerBlurhash  String?   @map("banner_blurhash")
-  bannerVariants  Json?     @map("banner_variants")
-  privacyId       String?   @map("privacy_id")
+  avatarBlurhash  String?     @map("avatar_blurhash")
+  avatarVariants  Json?       @map("avatar_variants")
+  bannerBlurhash  String?     @map("banner_blurhash")
+  bannerVariants  Json?       @map("banner_variants")
+  privacyId       String?     @map("privacy_id")
   /// D3.24 — Creator Profile surface flag (eligibility still deterministic).
-  creatorFeatured Boolean   @default(false) @map("creator_featured")
+  creatorFeatured Boolean     @default(false) @map("creator_featured")
   /// 5.4 — BACKEND_CHANGES.md §4. Gates the DNA match panel: `applicable: false`
   /// for any non-individual account. Every row backfills to `individual`.
   accountKind     AccountKind @default(individual) @map("account_kind")
@@ -712,10 +726,10 @@ model User {
   /// so it cannot renumber when another account is deleted. Every account —
   /// individual and organisation alike — consumes one; there is no gating by
   /// `accountKind` here, only account-creation order.
-  cardNumber      Int       @unique @default(autoincrement()) @map("card_number")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deletedAt       DateTime? @map("deleted_at")
+  cardNumber      Int         @unique @default(autoincrement()) @map("card_number")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  deletedAt       DateTime?   @map("deleted_at")
 
   sessions                Session[]
   authCredentials         AuthCredential[]
@@ -1195,9 +1209,17 @@ model LibraryEntry {
   source     LibrarySource
   platformId String?       @map("platform_id")
   note       String?
-  version    Int           @default(0)
-  createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  /// 13.1 — how far this player got, 0-100. Nullable because "not said" is a
+  /// real answer and must not read as 0%: an entry with no figure shows no
+  /// figure, and the Platinum case counts only entries that actually claim
+  /// 100. `completionSource` records whether the number is the player's own
+  /// claim or an imported one.
+  completionPercent Int?              @map("completion_percent")
+  completionSource  CompletionSource? @map("completion_source")
+  version           Int               @default(0)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
 
   user             User              @relation(fields: [userId], references: [id])
   game             Game              @relation(fields: [gameId], references: [id])
@@ -2461,36 +2483,36 @@ model SyncConflict {
 /// document would silently carry an old acceptance forward across a change to
 /// the very rights it granted.
 model UserConsent {
-  id String @id @default(cuid())
+  id         String          @id @default(cuid())
   /// Exact insertion order, and the only thing that resolves "the newest
   /// decision" without ambiguity. `decidedAt` is millisecond-precision, so two
   /// decisions recorded in the same millisecond — a batch, or a client
   /// retrying — cannot be ordered by it, and in an append-only table
   /// "which one is current" is the whole question. Not exposed on the wire;
   /// `decidedAt` remains the fact a reader cares about.
-  sequence Int    @default(autoincrement())
-  userId   String @map("user_id")
+  sequence   Int             @default(autoincrement())
+  userId     String          @map("user_id")
   /// The legal document id — `terms-of-service`, `privacy-policy`,
   /// `disclosure-notice`. Stored as text rather than an enum so adding a
   /// document is a code change and not a migration; the registry in
   /// `apps/backend/src/legal/documents` is the authority.
-  documentId String @map("document_id")
+  documentId String          @map("document_id")
   version    String
   /// Which translation was actually in front of the reader. A player who
   /// accepted the Turkish text agreed to the Turkish wording.
   locale     String
   /// `privacy-policy@1.0.0` — the composite the app compares on, denormalised
   /// so a query does not have to rebuild it.
-  consentKey String @map("consent_key")
+  consentKey String          @map("consent_key")
   /// **Not a boolean, and that is the point.** A `declined` row is what makes
   /// F2.27 §7's "no dark patterns that re-enable after refusal" enforceable:
   /// without it, a refusal is indistinguishable from never having been asked,
   /// and the only possible behaviour is to ask again on every launch until the
   /// player gives in. `withdrawn` records a consent taken back after the fact.
-  decision  ConsentDecision
-  decidedAt DateTime @default(now()) @map("decided_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  decision   ConsentDecision
+  decidedAt  DateTime        @default(now()) @map("decided_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

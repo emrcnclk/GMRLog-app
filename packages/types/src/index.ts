@@ -219,6 +219,16 @@ export interface LibraryGameSummary {
   coverUrl: string | null;
 }
 
+/**
+ * 13.1 — where an entry's completion figure came from.
+ *
+ * A player-entered figure is a claim and an imported one is evidence, so the
+ * two are never flattened into one number: the Platinum case can say which it
+ * is trusting, and the achievement import can win without silently discarding
+ * what the player said.
+ */
+export type CompletionSourceValue = 'self_reported' | 'imported';
+
 /** S1 §15.7 LibraryEntryResponse. */
 export interface LibraryEntryResponse {
   gameId: string;
@@ -228,6 +238,16 @@ export interface LibraryEntryResponse {
   updatedAt: string;
   /** D3.22 Wishlist++ — present when metadata row exists. */
   wishlist?: WishlistMetadataResponse | null;
+  /**
+   * 13.1 — how far this player got, 0-100, or `null` when they have not said.
+   *
+   * Null is not zero. An entry with no figure shows no figure; only an entry
+   * that actually claims 100 counts towards the Platinum case, which is what
+   * lets §6's `100%` label mean something.
+   */
+  completionPercent?: number | null;
+  /** 13.1 — `null` alongside a null `completionPercent`. */
+  completionSource?: CompletionSourceValue | null;
 }
 
 /**
@@ -274,7 +294,19 @@ export type CommunityBadgeKindValue =
 export type CommunityJoinTypeValue = 'public' | 'private' | 'invite_only';
 
 export type FeedFilterValue =
-  'for_you' | 'following' | 'games' | 'reviews' | 'media' | 'communities' | 'events';
+  | 'for_you'
+  | 'following'
+  /**
+   * 13.2 — §4's third tab. Distinct from `following`, which unions follows and
+   * friendships: a friendship is mutual and a follow is not, so "Friends" is a
+   * narrower audience rather than a rename of the same one.
+   */
+  | 'friends'
+  | 'games'
+  | 'reviews'
+  | 'media'
+  | 'communities'
+  | 'events';
 
 /**
  * S1 §15.2 UserPublicResponse — fields safe for nested author projections.
@@ -641,6 +673,14 @@ export interface GameLibraryProjection {
   status: LibraryStatusValue;
   source: 'manual' | 'steam_import';
   ownershipIndicator: OwnershipIndicatorValue;
+  /**
+   * 13.1 — the viewer's own completion figure for this game, or `null` when
+   * they have not said. Projected here so the game hub can seed its editor
+   * with what the player last claimed instead of asking them again from blank.
+   */
+  completionPercent?: number | null;
+  /** 13.1 — `null` alongside a null `completionPercent`. */
+  completionSource?: CompletionSourceValue | null;
 }
 
 export interface GameStatsProjection {
@@ -1266,6 +1306,13 @@ export interface UserStatisticsResponse {
   gamesLogged: number;
   gamesPlayed: number;
   gamesCompleted: number;
+  /**
+   * 13.1 — library entries claiming 100% completion. Distinct from
+   * `gamesCompleted`, which counts the `completed` shelf: a game can be
+   * finished without being finished *completely*, and §6's metric strip asks
+   * for the second number, not the first.
+   */
+  platinumCount?: number;
   gamesDropped: number;
   backlogSize: number;
   wishlistSize: number;

@@ -356,3 +356,53 @@ describe('LibraryService D3.22 Wishlist++ swallow failures', () => {
     ).resolves.toMatchObject({ wishlist: { priority: 'high' } });
   });
 });
+
+describe('LibraryService completion percent (13.1)', () => {
+  it('records a claimed figure as a claim, never as evidence', async () => {
+    const entry = await service.upsertEntry('user-1', 'game-1', {
+      status: 'completed',
+      completionPercent: 100,
+    });
+
+    expect(entry.completionPercent).toBe(100);
+    expect(entry.completionSource).toBe('self_reported');
+  });
+
+  it('leaves an existing figure alone when the request does not mention it', async () => {
+    await service.upsertEntry('user-1', 'game-1', { status: 'playing', completionPercent: 62 });
+    const updated = await service.upsertEntry('user-1', 'game-1', { status: 'completed' });
+
+    expect(updated.completionPercent).toBe(62);
+    expect(updated.completionSource).toBe('self_reported');
+  });
+
+  // Clearing is a real gesture, and it has to erase the source with the
+  // number — a row claiming `self_reported` with no figure is a lie about
+  // provenance, and the import would read it as a value it must not overwrite.
+  it('clears both columns together when the figure is set to null', async () => {
+    await service.upsertEntry('user-1', 'game-1', { status: 'playing', completionPercent: 62 });
+    const cleared = await service.upsertEntry('user-1', 'game-1', {
+      status: 'playing',
+      completionPercent: null,
+    });
+
+    expect(cleared.completionPercent).toBeNull();
+    expect(cleared.completionSource).toBeNull();
+  });
+
+  it('projects null on an entry nobody has given a figure for', async () => {
+    const entry = await service.upsertEntry('user-1', 'game-1', { status: 'owned' });
+
+    expect(entry.completionPercent).toBeNull();
+    expect(entry.completionSource).toBeNull();
+  });
+
+  // A shelf placement and a completion figure are independent: `completed`
+  // means finished, not finished completely, which is the whole distinction
+  // §6's Platinum metric rests on.
+  it('does not infer a figure from the completed shelf', async () => {
+    const entry = await service.upsertEntry('user-1', 'game-1', { status: 'completed' });
+
+    expect(entry.completionPercent).toBeNull();
+  });
+});

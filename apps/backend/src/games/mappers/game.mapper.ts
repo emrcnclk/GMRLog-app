@@ -52,6 +52,8 @@ function toGameLibraryProjection(entry: LibraryEntry): GameLibraryProjection {
     status: entry.status,
     source: entry.source,
     ownershipIndicator: toOwnershipIndicator(entry.source),
+    completionPercent: entry.completionPercent,
+    completionSource: entry.completionSource,
   };
 }
 
