@@ -19,9 +19,11 @@ export interface HomeHeaderProps {
   onPressNotifications: () => void;
 }
 
+// §4's order, left to right: "Following / For you / Friends".
 const FILTER_TABS = [
   { id: 'following', label: 'Following' },
   { id: 'for_you', label: 'For you' },
+  { id: 'friends', label: 'Friends' },
 ] as const;
 
 /**

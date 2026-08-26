@@ -294,7 +294,19 @@ export type CommunityBadgeKindValue =
 export type CommunityJoinTypeValue = 'public' | 'private' | 'invite_only';
 
 export type FeedFilterValue =
-  'for_you' | 'following' | 'games' | 'reviews' | 'media' | 'communities' | 'events';
+  | 'for_you'
+  | 'following'
+  /**
+   * 13.2 — §4's third tab. Distinct from `following`, which unions follows and
+   * friendships: a friendship is mutual and a follow is not, so "Friends" is a
+   * narrower audience rather than a rename of the same one.
+   */
+  | 'friends'
+  | 'games'
+  | 'reviews'
+  | 'media'
+  | 'communities'
+  | 'events';
 
 /**
  * S1 §15.2 UserPublicResponse — fields safe for nested author projections.

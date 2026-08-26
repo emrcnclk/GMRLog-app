@@ -4,6 +4,7 @@ import type {
   AccountDeletionStatusResponse,
   AchievementResponse,
   ActivityItemResponse,
+  FeedFilterValue,
   FeedItemResponse,
   CollectionResponse,
   CommentResponse,
@@ -833,7 +834,7 @@ export class AxiosApiClient {
   listHomeFeed(query?: {
     cursor?: string;
     limit?: number;
-    filter?: 'for_you' | 'following' | 'games' | 'reviews' | 'media' | 'communities' | 'events';
+    filter?: FeedFilterValue;
     from?: string;
     to?: string;
   }): Promise<ApiEnvelope<FeedItemResponse[]>> {

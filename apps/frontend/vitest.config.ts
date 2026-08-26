@@ -57,6 +57,19 @@ export default defineConfig({
           new URL('./test-support/codegen-native-component.stub.ts', import.meta.url),
         ),
       },
+      // `react-native-safe-area-context` declares the same
+      // `"react-native": "src/index.tsx"` entry as react-native-svg, so
+      // resolving it drags Flow-typed React Native sources back in and the
+      // spec dies on `SyntaxError: Unexpected token 'typeof'` before it runs.
+      // Its published ESM build clears that and then throws the SVG stub's
+      // crash instead, because its provider is a native host component — so it
+      // is stubbed outright. See the stub for both halves.
+      {
+        find: /^react-native-safe-area-context$/,
+        replacement: fileURLToPath(
+          new URL('./test-support/react-native-safe-area-context.stub.tsx', import.meta.url),
+        ),
+      },
       // `expo-image` calls `requireNativeViewManager` at module scope and
       // throws outside a native runtime, which took down the whole
       // `@gmrlog/ui` barrel (its `Avatar` imports it).

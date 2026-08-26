@@ -1232,6 +1232,44 @@ describe('ActivityService home feed filters', () => {
         expect.objectContaining({ object: { type: 'event', id: 'e-1' } }),
       ]),
     });
+
+    // 13.2 — the friendship fake above answers with one, so §4's third tab
+    // has something to show.
+    await expect(svc.listHomeFeed(viewerId, { filter: 'friends' })).resolves.toMatchObject({
+      items: expect.arrayContaining([expect.objectContaining({ id: expect.any(String) })]),
+    });
+
+    // And it is genuinely narrower than `following`: with the follow still in
+    // place but no friendship, the same rows serve the following tab and none
+    // of them reaches the friends tab. A friends feed that quietly falls back
+    // to follows would be the following feed under a second name.
+    const strangers = new ActivityService(
+      activityRepo,
+      postsRepo,
+      reviewsRepo,
+      { findById: () => Promise.resolve(null) } as never,
+      { findById: () => Promise.resolve(null) } as never,
+      { findById: () => Promise.resolve(null) } as never,
+      usersRepo,
+      communitiesRepo,
+      membersRepo,
+      followsRepo,
+      { listMutedIds: () => Promise.resolve([]) } as never,
+      {
+        listFriendIds: () => Promise.resolve([]),
+        findFriendship: () => Promise.resolve(null),
+      } as never,
+      { listBlockedPairIds: () => Promise.resolve([]) } as never,
+      null,
+      null,
+    );
+
+    await expect(strangers.listHomeFeed(viewerId, { filter: 'friends' })).resolves.toMatchObject({
+      items: [],
+    });
+    await expect(strangers.listHomeFeed(viewerId, { filter: 'following' })).resolves.toMatchObject({
+      items: expect.arrayContaining([expect.objectContaining({ id: expect.any(String) })]),
+    });
   });
 
   it('serves and stores home feed pages via FeedCacheService', async () => {

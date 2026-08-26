@@ -1732,6 +1732,7 @@ export type SyncConflictResolveInput = z.infer<typeof syncConflictResolveSchema>
 export const feedFilterSchema = z.enum([
   'for_you',
   'following',
+  'friends',
   'games',
   'reviews',
   'media',

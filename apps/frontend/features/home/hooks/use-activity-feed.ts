@@ -19,13 +19,20 @@ export {
 } from './activity-feed-model';
 
 /**
- * Home's tab row (`SCREEN_REDESIGNS.md` §4) only has a real backend audience
- * behind two of its labels — the app has one Follow/Friend relationship, not a
- * separate "friends" audience, so there is no `FeedFilterValue` a third tab
- * could target. `FeedFilterValue` itself also carries content-type filters
- * (games/reviews/media/…) that aren't part of this tab row at all.
+ * Home's tab row — §4's "Following / For you / Friends".
+ *
+ * It shipped with two of the three, on the stated grounds that "the app has one
+ * Follow/Friend relationship, not a separate friends audience". That was wrong:
+ * `Friendship` is its own table, mutual by construction (a low/high user pair),
+ * and the feed's own `following` case already unioned it with `Follow` rather
+ * than treating them as the same thing. 13.2 gives the third tab the narrower
+ * audience it always meant — friendships only, no one-way follows.
+ *
+ * `FeedFilterValue` also carries content-type filters (games/reviews/media/…)
+ * that are not part of this tab row at all, which is why this type is a subset
+ * rather than an alias.
  */
-export type HomeFeedFilter = 'for_you' | 'following';
+export type HomeFeedFilter = 'for_you' | 'following' | 'friends';
 
 /** Map hybrid FeedItem → ActivityItem shape for shared Home cards. */
 function feedItemToActivity(item: FeedItemResponse): ActivityItemResponse {
@@ -43,7 +50,8 @@ function feedItemToActivity(item: FeedItemResponse): ActivityItemResponse {
 export function useActivityFeed(filter: HomeFeedFilter = 'for_you') {
   const api = useApiClient();
   const queryClient = useQueryClient();
-  const feedFilter = filter === 'following' ? 'following' : 'for_you';
+  const feedFilter: HomeFeedFilter =
+    filter === 'following' || filter === 'friends' ? filter : 'for_you';
 
   const query = useInfiniteQuery({
     queryKey: queryKeys.feed.home(feedFilter),

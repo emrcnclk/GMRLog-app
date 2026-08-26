@@ -1,6 +1,18 @@
 import { ThemeProvider, type ThemeProviderProps } from '@gmrlog/ui';
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 import type { ReactElement } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+/**
+ * A fixed frame and a fixed set of insets, so a component reading
+ * `useSafeAreaInsets()` mounts instead of throwing "No safe area value
+ * available". The numbers are a phone with a notch — the case worth having as
+ * the default, since a zero inset is the one that hides top-inset bugs.
+ */
+const SAFE_AREA_METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
 
 /**
  * Mount a component the way the app mounts it.
@@ -25,9 +37,11 @@ export function renderWithTheme(
 
   return render(ui, {
     wrapper: ({ children }) => (
-      <ThemeProvider initialPreference={preference} initialAccent={accent}>
-        {children}
-      </ThemeProvider>
+      <SafeAreaProvider initialMetrics={SAFE_AREA_METRICS}>
+        <ThemeProvider initialPreference={preference} initialAccent={accent}>
+          {children}
+        </ThemeProvider>
+      </SafeAreaProvider>
     ),
     ...renderOptions,
   });
