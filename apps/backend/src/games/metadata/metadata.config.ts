@@ -17,6 +17,18 @@ export interface MetadataConfig {
   mediaMaxBytes: number;
   maxScreenshots: number;
   maxArtworks: number;
+  /**
+   * D11.3 — the earliest release year the catalog mirror walks, as a year.
+   *
+   * IGDB carries releases back to the 1950s, and the long tail before 1990 is
+   * arcade and home-computer entries almost nobody logs, each of which still
+   * costs a row, a search document and a cover download. 1990 is a product
+   * decision, not a technical limit: it is where the catalogue starts being
+   * the one players actually have a history with.
+   *
+   * Set `CATALOG_RELEASE_FLOOR_YEAR=0` to walk everything IGDB has.
+   */
+  catalogReleaseFloorYear: number;
 }
 
 export const DEFAULT_METADATA_CONFIG: MetadataConfig = {
@@ -32,7 +44,16 @@ export const DEFAULT_METADATA_CONFIG: MetadataConfig = {
   mediaMaxBytes: 8 * 1024 * 1024,
   maxScreenshots: 12,
   maxArtworks: 4,
+  catalogReleaseFloorYear: 1990,
 };
+
+function year(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) {
+    return fallback;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 function num(raw: string | undefined, fallback: number): number {
   if (raw === undefined) {
@@ -59,6 +80,9 @@ export function loadMetadataConfig(
     mediaMaxBytes: num(source.MEDIA_INGEST_MAX_BYTES, d.mediaMaxBytes),
     maxScreenshots: num(source.MEDIA_INGEST_MAX_SCREENSHOTS, d.maxScreenshots),
     maxArtworks: num(source.MEDIA_INGEST_MAX_ARTWORKS, d.maxArtworks),
+    // `num` refuses zero, and zero is this value's documented "walk
+    // everything" setting, so it gets its own parse rather than sharing one.
+    catalogReleaseFloorYear: year(source.CATALOG_RELEASE_FLOOR_YEAR, d.catalogReleaseFloorYear),
   };
 }
 
