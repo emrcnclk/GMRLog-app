@@ -247,6 +247,48 @@ describe('IgdbMetadataProvider.listCatalogPage', () => {
     expect(body).toContain('offset 0;');
   });
 
+  // D11.3 — the release floor is applied server-side. A client-side filter
+  // would still pay IGDB's page budget for rows it throws away, and since the
+  // cursor walks by `updated_at`, a discarded page is not a shorter run — it
+  // is the same run with holes in it.
+  it('adds the release floor to the where clause when one is set', async () => {
+    const fetchImpl = fetchWithToken([{ ...IGDB_GAME, game_type: 0, updated_at: 1_700_000_000 }]);
+    const provider = createProvider(fetchImpl);
+
+    await provider.listCatalogPage({
+      limit: 500,
+      offset: 0,
+      updatedAfterUnix: 0,
+      // 1990-01-01T00:00:00Z
+      releasedFromUnix: 631_152_000,
+    });
+
+    const body = String(
+      vi.mocked(fetchImpl).mock.calls.find(([input]) => String(input).includes('api.igdb.com'))?.[1]
+        ?.body ?? '',
+    );
+
+    expect(body).toContain('first_release_date >= 631152000');
+  });
+
+  it('omits the floor entirely when it is zero, rather than sending >= 0', async () => {
+    const fetchImpl = fetchWithToken([{ ...IGDB_GAME, game_type: 0, updated_at: 1_700_000_000 }]);
+    const provider = createProvider(fetchImpl);
+
+    await provider.listCatalogPage({
+      limit: 500,
+      offset: 0,
+      updatedAfterUnix: 0,
+      releasedFromUnix: 0,
+    });
+
+    const body = String(
+      vi.mocked(fetchImpl).mock.calls.find(([input]) => String(input).includes('api.igdb.com'))?.[1]
+        ?.body ?? '',
+    );
+
+    expect(body).not.toContain('first_release_date >=');
+  });
   it('maps each row to provider metadata plus its raw updated_at', async () => {
     const provider = createProvider(
       fetchWithToken([{ ...IGDB_GAME, game_type: 0, updated_at: 1_700_000_000 }]),

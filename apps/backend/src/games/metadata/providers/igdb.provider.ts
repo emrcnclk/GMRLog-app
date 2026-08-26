@@ -160,6 +160,12 @@ export interface IgdbCatalogPageParams {
   offset: number;
   /** Unix-seconds high-water mark; only rows with a later `updated_at` are returned. */
   updatedAfterUnix: number;
+  /**
+   * D11.3 — Unix-seconds release floor. Rows released before it are excluded
+   * server-side, so the long pre-1990 tail never costs a row, a search
+   * document or a cover download. Omit (or pass 0) to walk everything.
+   */
+  releasedFromUnix?: number;
 }
 
 export interface IgdbCatalogRow {
@@ -256,10 +262,16 @@ export class IgdbMetadataProvider implements GameMetadataProvider {
 
     const nowUnix = Math.floor(this.now() / 1000);
     const categories = IGDB_CATALOG_CATEGORIES.join(',');
+    const releasedFrom = params.releasedFromUnix ?? 0;
     const where = [
       `game_type = (${categories})`,
       'first_release_date != null',
       `first_release_date <= ${String(nowUnix)}`,
+      // Applied in the `where`, never after the fetch: a client-side filter
+      // would still pay IGDB's page budget for rows it throws away, and the
+      // cursor walks by `updated_at`, so a discarded page is not a shorter
+      // run — it is the same run with holes in it.
+      ...(releasedFrom > 0 ? [`first_release_date >= ${String(releasedFrom)}`] : []),
       `updated_at > ${String(params.updatedAfterUnix)}`,
     ].join(' & ');
 

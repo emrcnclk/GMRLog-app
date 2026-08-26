@@ -21,6 +21,7 @@ describe('loadMetadataConfig', () => {
       MEDIA_INGEST_MAX_BYTES: '1048576',
       MEDIA_INGEST_MAX_SCREENSHOTS: '4',
       MEDIA_INGEST_MAX_ARTWORKS: '2',
+      CATALOG_RELEASE_FLOOR_YEAR: '2000',
     });
 
     expect(config).toEqual({
@@ -36,7 +37,23 @@ describe('loadMetadataConfig', () => {
       mediaMaxBytes: 1_048_576,
       maxScreenshots: 4,
       maxArtworks: 2,
+      catalogReleaseFloorYear: 2000,
     });
+  });
+
+  // D11.3 — zero is the documented "walk everything IGDB has" setting, so it
+  // cannot share the positive-number parser every other value uses.
+  it('accepts a zero release floor instead of falling back to 1990', () => {
+    expect(loadMetadataConfig({ CATALOG_RELEASE_FLOOR_YEAR: '0' }).catalogReleaseFloorYear).toBe(0);
+  });
+
+  it('ignores a release floor that is not a whole year', () => {
+    expect(loadMetadataConfig({ CATALOG_RELEASE_FLOOR_YEAR: '199x' }).catalogReleaseFloorYear).toBe(
+      1990,
+    );
+    expect(
+      loadMetadataConfig({ CATALOG_RELEASE_FLOOR_YEAR: '1990.5' }).catalogReleaseFloorYear,
+    ).toBe(1990);
   });
 
   it('falls back per-key on an unparseable value rather than throwing', () => {

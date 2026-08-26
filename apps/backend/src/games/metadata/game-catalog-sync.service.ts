@@ -28,6 +28,22 @@ interface CreatedRow {
   durationMs: number;
 }
 
+/**
+ * D11.3 — a release-floor year as the Unix seconds IGDB compares against.
+ *
+ * Midnight UTC on 1 January of that year. `Date.UTC` rather than a local
+ * constructor on purpose: the floor is a property of the catalogue, and a
+ * machine in UTC+3 would otherwise walk three hours less of 1989 than a
+ * machine in UTC — a difference nobody would notice and nobody could
+ * reproduce. Zero means no floor.
+ */
+export function releaseFloorUnix(year: number): number {
+  if (year <= 0) {
+    return 0;
+  }
+
+  return Math.floor(Date.UTC(year, 0, 1) / 1000);
+}
 /** D11.1 — named high-water mark row for this sync. One cursor per source, so a
  * second bulk source (Steam, RAWG) can get its own row without colliding. */
 export const IGDB_CATALOG_CURSOR_NAME = 'igdb-catalog';
@@ -76,7 +92,8 @@ export interface CatalogSyncStats {
  *  2. Scope filter is IGDB's `game_type` field (main_game + close kin — see
  *     `IGDB_CATALOG_CATEGORIES`), applied server-side in
  *     `IgdbMetadataProvider.listCatalogPage`'s `where` clause, plus a real
- *     past `first_release_date`. NOT the older `category` field — verified
+ *     past `first_release_date` at or after `catalogReleaseFloorYear`
+ *     (D11.3, 1990 by default). NOT the older `category` field — verified
  *     live against the real API that `category` is a dead filter on this
  *     account's IGDB v4 access (see `igdb.provider.ts`'s `IgdbGame.game_type`
  *     doc comment for the count-based proof).
@@ -179,6 +196,7 @@ export class GameCatalogSyncService {
       const rows = await this.igdb.listCatalogPage({
         limit: pageSize,
         offset: page * pageSize,
+        releasedFromUnix: releaseFloorUnix(this.config.catalogReleaseFloorYear),
         updatedAfterUnix: cursorBefore,
       });
       pagesFetched += 1;
