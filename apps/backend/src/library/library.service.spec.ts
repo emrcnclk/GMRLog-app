@@ -16,7 +16,10 @@ import {
   type FakeNotificationRepository,
 } from '../notifications/testing/fake-repositories';
 
+import { resolveMediaUrl } from '../infrastructure/media/resolve-media-url';
+
 import { LibraryService } from './library.service';
+import { resolveCoverUrl } from './mappers/library.mapper';
 import {
   createFakeGameLogRepository,
   createFakeGameRepository,
@@ -404,5 +407,35 @@ describe('LibraryService completion percent (13.1)', () => {
     const entry = await service.upsertEntry('user-1', 'game-1', { status: 'completed' });
 
     expect(entry.completionPercent).toBeNull();
+  });
+});
+
+describe('library cover art', () => {
+  // The library mapper answered `null` for every key while the games,
+  // collections and posts mappers all resolved real URLs. Invisible while the
+  // catalogue was empty; the moment the mirror started downloading covers it
+  // meant a game showed its artwork everywhere except on the shelf of the
+  // player who logged it.
+  it('resolves a cover key the same way every other mapper does', () => {
+    expect(resolveCoverUrl('games/hollow-knight/cover.webp')).toBe(
+      resolveMediaUrl('games/hollow-knight/cover.webp'),
+    );
+    expect(resolveCoverUrl('games/hollow-knight/cover.webp')).not.toBeNull();
+  });
+
+  it('still answers null for a game that has no cover', () => {
+    expect(resolveCoverUrl(null)).toBeNull();
+    expect(resolveCoverUrl('')).toBeNull();
+  });
+
+  it('carries the URL into the entry the player sees', async () => {
+    games.rows.set(
+      'game-cover',
+      makeGame({ id: 'game-cover', slug: 'with-cover', coverKey: 'games/with-cover/cover.webp' }),
+    );
+
+    const entry = await service.upsertEntry('user-1', 'game-cover', { status: 'playing' });
+
+    expect(entry.game.coverUrl).toBe(resolveMediaUrl('games/with-cover/cover.webp'));
   });
 });

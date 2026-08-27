@@ -7,6 +7,8 @@ import type {
   WishlistMetadataResponse,
 } from '@gmrlog/types';
 
+import { resolveMediaUrl } from '../../infrastructure/media/resolve-media-url';
+
 /** Closed LibraryStatus vocabulary — hub counts always cover every shelf. */
 export const LIBRARY_STATUS_VALUES: readonly LibraryStatusValue[] = [
   'owned',
@@ -19,13 +21,22 @@ export const LIBRARY_STATUS_VALUES: readonly LibraryStatusValue[] = [
 ] as const;
 
 /**
- * Storage keys become public URLs through the uploads/storage foundation
- * (S1 §13.14 — not mounted yet). Until then the honest projection is `null`.
+ * The shared resolver, aliased — the same line `collection.mapper.ts` already
+ * carries.
+ *
+ * This used to be a stub returning `null` for every key, on the grounds that
+ * "the uploads/storage foundation (S1 §13.14) is not mounted yet". It is:
+ * `resolveMediaUrl` builds a real URL from `MEDIA_PUBLIC_BASE_URL`, and the
+ * games, collections and posts mappers have all been using it. Only the
+ * library was still answering `null`.
+ *
+ * That stayed invisible while the catalogue was empty and no game had a cover
+ * key at all. It stopped being invisible the moment the catalogue mirror
+ * started downloading covers: a game shows its artwork on the game hub and in
+ * a collection, then loses it the instant a player logs it — on their shelf,
+ * their profile, and the Platinum case §6 builds out of exactly those entries.
  */
-export function resolveCoverUrl(key: string | null): string | null {
-  void key;
-  return null;
-}
+export const resolveCoverUrl = resolveMediaUrl;
 
 export function toLibraryGameSummary(game: Game): LibraryGameSummary {
   return {
