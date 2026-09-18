@@ -185,6 +185,39 @@ describe('GameMediaIngestionService.ingest', () => {
     expect(storage.objects.size).toBe(0);
   });
 
+  // The repair path. A row can outlive its object — a storage move did
+  // exactly that to 3,904 covers — and the skip above would then keep the
+  // asset broken forever. A forced job re-downloads and rewrites the same
+  // keys; nothing is deleted to make it possible.
+  it('re-ingests a forced job even though its row already exists', async () => {
+    const fetchImpl = vi.fn(async () =>
+      imageResponse({ contentType: 'image/jpeg' }),
+    ) as unknown as typeof fetch;
+    const repository = new FakeGameMetadataRepository(
+      [],
+      [makeGameMedia({ gameId: 'game-1', kind: 'cover', sourceUrl: JOB.sourceUrl })],
+    );
+    const { service, storage } = createService(fetchImpl, repository);
+
+    const result = await service.ingest({ ...JOB, force: true });
+
+    expect(result.outcome).toBe('stored');
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(storage.objects.size).toBeGreaterThan(0);
+  });
+
+  it('writes a forced job to the same key the original ingest used', async () => {
+    const fetchImpl = vi.fn(async () =>
+      imageResponse({ contentType: 'image/jpeg' }),
+    ) as unknown as typeof fetch;
+    const first = createService(fetchImpl);
+    const original = await first.service.ingest(JOB);
+
+    const second = createService(fetchImpl, first.repository);
+    const repaired = await second.service.ingest({ ...JOB, force: true });
+
+    expect(repaired.storageKey).toBe(original.storageKey);
+  });
   it('rejects a non-https source', async () => {
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     const { service } = createService(fetchImpl);

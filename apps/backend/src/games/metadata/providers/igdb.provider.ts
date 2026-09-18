@@ -290,6 +290,35 @@ export class IgdbMetadataProvider implements GameMetadataProvider {
     }));
   }
 
+  /**
+   * The banner backfill's lookup: media refs for up to 500 known IGDB ids.
+   *
+   * Narrow on purpose. The catalog walk asks for the full `IGDB_FIELDS` set
+   * and measured ~30s a page for it; this asks for artworks and screenshots
+   * only, which is all a banner needs. Mapping goes through the same
+   * `toMediaRefs` the full path uses, so "the first artwork is the hero" is
+   * decided in exactly one place — with no `cover` field requested, the
+   * mapper simply has nothing to emit for it.
+   */
+  async listMediaByIgdbIds(igdbIds: readonly number[]): Promise<Map<number, ProviderMediaRef[]>> {
+    const result = new Map<number, ProviderMediaRef[]>();
+    if (!this.isEnabled() || igdbIds.length === 0) {
+      return result;
+    }
+
+    const body = [
+      'fields id,artworks.image_id,artworks.width,artworks.height,screenshots.image_id,screenshots.width,screenshots.height;',
+      `where id = (${igdbIds.join(',')});`,
+      `limit ${String(igdbIds.length)};`,
+    ].join(' ');
+
+    for (const game of await this.request(body)) {
+      if (game.id !== undefined) {
+        result.set(game.id, toMediaRefs(game));
+      }
+    }
+    return result;
+  }
   private async request(body: string): Promise<IgdbGame[]> {
     await this.limiter.acquire();
     const accessToken = await this.accessToken();
