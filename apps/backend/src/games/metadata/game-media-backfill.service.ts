@@ -66,13 +66,18 @@ export interface MediaRepairStats {
  * screenshot yet, and enqueues exactly one image per game: the provider's
  * hero, or failing that the first screenshot (`selectBannerRef`).
  *
- * **Repair.** A `game_media` row can outlive the object it points at — the
- * case that forced this: 3,904 covers whose rows survived a storage move
- * while the objects did not resolve. The ingest worker skips any asset it has
- * a row for, so those covers could never heal on their own. This HEADs each
- * row's object and re-enqueues the missing ones as forced jobs, which rewrite
- * the same keys (the key is a digest of the source URL) without deleting a
- * single row.
+ * **Repair.** A `game_media` row can outlive the object it points at — a
+ * lost bucket, a storage move that did not carry the data, a restore from an
+ * older backup. The ingest worker skips any asset it has a row for, so such an
+ * asset can never heal on its own. This HEADs each row's object and
+ * re-enqueues the missing ones as forced jobs, which rewrite the same keys
+ * (the key is a digest of the source URL) without deleting a single row.
+ *
+ * Its first run was on a false alarm, and that is worth knowing before
+ * trusting a `missing` count: the MinIO it checked had been started with its
+ * data path rewritten by Git Bash (CLAUDE.md, environment traps), so every
+ * object looked absent while the real ones sat intact on the mounted disk.
+ * A HEAD answers for the server it is pointed at, not for the data.
  */
 @Injectable()
 export class GameMediaBackfillService {
