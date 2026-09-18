@@ -320,3 +320,62 @@ describe('IgdbMetadataProvider.listCatalogPage', () => {
     expect(row?.updatedAtUnix).toBe(0);
   });
 });
+
+/** Banner backfill — the narrow artworks/screenshots lookup by known ids. */
+describe('IgdbMetadataProvider.listMediaByIgdbIds', () => {
+  const bodyOf = (fetchImpl: typeof fetch): string =>
+    String(
+      vi.mocked(fetchImpl).mock.calls.find(([input]) => String(input).includes('api.igdb.com'))?.[1]
+        ?.body ?? '',
+    );
+
+  it('asks only for artworks and screenshots of exactly the ids given', async () => {
+    const fetchImpl = fetchWithToken([]);
+    const provider = createProvider(fetchImpl);
+
+    await provider.listMediaByIgdbIds([11, 22, 33]);
+    const body = bodyOf(fetchImpl);
+
+    expect(body).toContain('where id = (11,22,33);');
+    expect(body).toContain('limit 3;');
+    expect(body).toContain('artworks.image_id');
+    expect(body).toContain('screenshots.image_id');
+    // Narrow on purpose — the full field set is what made the walk slow.
+    expect(body).not.toContain('summary');
+    expect(body).not.toContain('cover.image_id');
+  });
+
+  // One definition of the hero: the first artwork, decided in toMediaRefs.
+  it('maps the first artwork to the hero, through the same mapper the full path uses', async () => {
+    const fetchImpl = fetchWithToken([
+      {
+        id: 11,
+        artworks: [
+          { image_id: 'art-a', width: 1920, height: 1080 },
+          { image_id: 'art-b', width: 1920, height: 1080 },
+        ],
+        screenshots: [{ image_id: 'shot-a', width: 1280, height: 720 }],
+      },
+      { id: 22, screenshots: [{ image_id: 'shot-b', width: 1280, height: 720 }] },
+    ]);
+    const provider = createProvider(fetchImpl);
+
+    const media = await provider.listMediaByIgdbIds([11, 22]);
+
+    const first = media.get(11) ?? [];
+    expect(first.find((m) => m.kind === 'hero')?.url).toContain('/t_1080p/art-a.jpg');
+    expect(first.filter((m) => m.kind === 'hero')).toHaveLength(1);
+    expect(media.get(22)?.some((m) => m.kind === 'hero')).toBe(false);
+    expect(media.get(22)?.[0]?.kind).toBe('screenshot');
+  });
+
+  it('makes no request at all for an empty batch', async () => {
+    const fetchImpl = fetchWithToken([]);
+    const provider = createProvider(fetchImpl);
+
+    const media = await provider.listMediaByIgdbIds([]);
+
+    expect(media.size).toBe(0);
+    expect(vi.mocked(fetchImpl)).not.toHaveBeenCalled();
+  });
+});
