@@ -55,7 +55,12 @@ export class GameMetadataPublisher {
   }
 
   async enqueueMediaIngest(data: GameMediaIngestJobData): Promise<string | null> {
-    const idempotencyKey = `game.media:ingest:${data.gameId}:${data.kind}:${data.sourceUrl}`;
+    // A repair job gets its own key. Sharing the ordinary one would let a
+    // still-retained or still-pending ordinary job for the same asset swallow
+    // the repair silently, which is exactly the failure a repair exists for.
+    const idempotencyKey = `game.media:ingest:${data.gameId}:${data.kind}:${data.sourceUrl}${
+      data.force === true ? ':repair' : ''
+    }`;
     return this.enqueue(QUEUE_GAME_MEDIA, JOB_GAME_MEDIA_INGEST, data, idempotencyKey);
   }
 

@@ -22,6 +22,17 @@ export interface GameMediaIngestJobData {
   height: number | null;
   /** Promote to `games.cover_key` / `games.hero_key` once stored. */
   promote: boolean;
+  /**
+   * Re-ingest even though a `game_media` row for this (game, kind, source)
+   * already exists — the repair path, for when the row survived and the
+   * object behind it did not (a storage migration, a lost bucket).
+   *
+   * Safe to re-run by construction: `buildMediaKeyPrefix` is a digest of the
+   * source URL, so a forced re-ingest writes the exact keys the row already
+   * points at, and `upsertMedia` rewrites the row with the same values. No
+   * row is deleted to make the repair possible.
+   */
+  force?: boolean;
 }
 
 /** D11.1 — one page-bounded run of the IGDB catalog mirror. */

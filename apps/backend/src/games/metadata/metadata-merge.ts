@@ -259,17 +259,54 @@ export function toMediaJobs(
       counts.hero += 1;
     }
 
-    jobs.push({
-      gameId,
-      kind: item.kind,
-      sourceUrl: item.url,
-      provider: metadata.provider,
-      sortOrder: item.sortOrder,
-      width: item.width,
-      height: item.height,
-      promote: item.kind === 'cover' || item.kind === 'hero',
-    });
+    jobs.push(toMediaJob(gameId, metadata.provider, item));
   }
 
   return jobs;
+}
+
+/**
+ * One provider media ref as one ingest job — the single place the job shape
+ * and the promote rule live, shared by `toMediaJobs` and the banner backfill
+ * so neither can drift into its own idea of which kinds get promoted.
+ */
+export function toMediaJob(
+  gameId: string,
+  provider: ProviderGameMetadata['provider'],
+  item: ProviderGameMetadata['media'][number],
+): GameMediaIngestJobData {
+  return {
+    gameId,
+    kind: item.kind,
+    sourceUrl: item.url,
+    provider,
+    sortOrder: item.sortOrder,
+    width: item.width,
+    height: item.height,
+    promote: item.kind === 'cover' || item.kind === 'hero',
+  };
+}
+
+/**
+ * The one image a game's banner should come from, or `null`.
+ *
+ * The provider's own hero wins — for IGDB that is the first artwork, decided
+ * once in `toMediaRefs`. Without one, the first screenshot: not promoted, and
+ * not relabelled as a hero, because the game hub already walks
+ * hero → artwork → first screenshot → cover (`resolveHeroArtwork`). This
+ * feeds that chain's third link rather than inventing a fourth rule, and it
+ * keeps `hero_key` meaning what its name says.
+ */
+export function selectBannerRef(
+  media: ProviderGameMetadata['media'],
+): ProviderGameMetadata['media'][number] | null {
+  const hero = media.find((item) => item.kind === 'hero');
+  if (hero !== undefined) {
+    return hero;
+  }
+
+  const screenshots = media
+    .filter((item) => item.kind === 'screenshot')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return screenshots[0] ?? null;
 }

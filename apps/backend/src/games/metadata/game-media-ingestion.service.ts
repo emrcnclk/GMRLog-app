@@ -62,7 +62,11 @@ export class GameMediaIngestionService {
 
   async ingest(job: GameMediaIngestJobData): Promise<IngestResult> {
     // Cheap guard first — a fully-ingested game performs zero network I/O.
-    const existing = await this.repository.hasMedia(job.gameId, job.kind, job.sourceUrl);
+    // A forced job skips it: the row exists precisely because the asset was
+    // ingested once, and the repair path is for when the object behind that
+    // row is gone.
+    const existing =
+      job.force !== true && (await this.repository.hasMedia(job.gameId, job.kind, job.sourceUrl));
     if (existing) {
       return { outcome: 'skipped-existing', storageKey: null };
     }

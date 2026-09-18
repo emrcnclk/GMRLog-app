@@ -12,10 +12,14 @@ import { MediaProcessingService } from '../../infrastructure/media/media-process
 import { MediaModule } from '../../infrastructure/media/media.module';
 import { MeiliModule } from '../../infrastructure/search/meili.module';
 import { SearchIndexService } from '../../infrastructure/search/search-index.service';
+import type { ObjectStoragePort } from '../../infrastructure/storage/object-storage.port';
+import { StorageModule } from '../../infrastructure/storage/storage.module';
+import { OBJECT_STORAGE } from '../../infrastructure/storage/storage.tokens';
 import { GAME_METADATA_REPOSITORY, IGDB_METADATA_PROVIDER } from '../games.tokens';
 
 import { GameCatalogSyncProcessor } from './game-catalog-sync.processor';
 import { GameCatalogSyncService } from './game-catalog-sync.service';
+import { GameMediaBackfillService } from './game-media-backfill.service';
 import { GameMediaIngestionService } from './game-media-ingestion.service';
 import { GameMetadataBackfillService } from './game-metadata-backfill.service';
 import { GameMetadataProcessor } from './game-metadata.processor';
@@ -39,7 +43,15 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
  * The worker service is NOT provided here — only `WorkerModule` starts consumers.
  */
 @Module({
-  imports: [AppConfigModule, LoggerModule, PrismaModule, MediaModule, JobsModule, MeiliModule],
+  imports: [
+    AppConfigModule,
+    LoggerModule,
+    PrismaModule,
+    MediaModule,
+    JobsModule,
+    MeiliModule,
+    StorageModule,
+  ],
   providers: [
     {
       provide: METADATA_CONFIG,
@@ -125,6 +137,23 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
       ) => new GameMediaIngestionService(repository, mediaProcessing, logger, config),
     },
     GameMetadataProcessor,
+    {
+      provide: GameMediaBackfillService,
+      inject: [
+        IGDB_METADATA_PROVIDER,
+        PrismaService,
+        GameMetadataPublisher,
+        AppLogger,
+        OBJECT_STORAGE,
+      ],
+      useFactory: (
+        igdb: IgdbMetadataProvider,
+        prisma: PrismaService,
+        publisher: GameMetadataPublisher,
+        logger: AppLogger,
+        storage: ObjectStoragePort,
+      ) => new GameMediaBackfillService(igdb, prisma, publisher, logger, storage),
+    },
   ],
   exports: [
     GAME_METADATA_REPOSITORY,
@@ -137,6 +166,7 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
     MetadataProviderRegistry,
     GameCatalogSyncService,
     GameCatalogSyncProcessor,
+    GameMediaBackfillService,
   ],
 })
 export class MetadataModule {}

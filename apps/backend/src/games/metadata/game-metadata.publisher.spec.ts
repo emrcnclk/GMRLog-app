@@ -134,6 +134,20 @@ describe('GameMetadataPublisher media jobs', () => {
     expect(different).not.toBe(same);
   });
 
+  // A repair must never be swallowed by an ordinary job for the same asset
+  // that is still pending or still retained — that is the exact failure a
+  // repair exists to get past.
+  it('keys a forced repair apart from the ordinary job for the same asset', async () => {
+    const { jobs } = createJobs();
+    const publisher = new GameMetadataPublisher(createLogger(), jobs);
+
+    const ordinary = await publisher.enqueueMediaIngest(MEDIA_JOB);
+    const repair = await publisher.enqueueMediaIngest({ ...MEDIA_JOB, force: true });
+    const repairAgain = await publisher.enqueueMediaIngest({ ...MEDIA_JOB, force: true });
+
+    expect(repair).not.toBe(ordinary);
+    expect(repairAgain).toBe(repair);
+  });
   it('counts only the media jobs that were actually enqueued', async () => {
     const add = vi
       .fn()
