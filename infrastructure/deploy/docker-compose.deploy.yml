@@ -244,6 +244,11 @@ services:
       STEAM_WEB_API_KEY: ${STEAM_WEB_API_KEY}
       IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
       IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+      # Catalog bootstrap knobs (PRODUCTION_DEPLOY.md, "First-time catalog
+      # bootstrap"). Both default to what the app already uses; they are passed
+      # through so a one-off load can be tuned without editing this file.
+      GAME_MEDIA_WORKER_CONCURRENCY: ${GAME_MEDIA_WORKER_CONCURRENCY:-4}
+      CATALOG_RELEASE_FLOOR_YEAR: ${CATALOG_RELEASE_FLOOR_YEAR:-1990}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
       SENTRY_RELEASE: ${GMRLOG_IMAGE_TAG}

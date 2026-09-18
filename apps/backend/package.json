@@ -13,6 +13,7 @@
     "repair:index": "node dist/repair-index.main.js",
     "catalog:sync": "node dist/catalog-sync.main.js",
     "media:backfill": "node dist/media-backfill.main.js",
+    "queue:control": "node dist/queue-control.main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings 0",
     "test": "node ../../node_modules/vitest/vitest.mjs run",
