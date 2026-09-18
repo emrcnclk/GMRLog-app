@@ -70,9 +70,15 @@ function createHarness(rows: IgdbCatalogRow[][]) {
   listCatalogPage.mockResolvedValue([]);
   const igdb = { listCatalogPage } as unknown as IgdbMetadataProvider;
 
+  const callOrder: string[] = [];
+  const linkMediaRefs = vi.fn(async (refs: readonly { kind: string }[]) => {
+    callOrder.push('link');
+    return { inserted: refs.length, coversSet: 0, heroesSet: 0 };
+  });
   const repository = {
     applyMetadata: vi.fn().mockResolvedValue(undefined),
     recordRun: vi.fn().mockResolvedValue(undefined),
+    linkMediaRefs,
   } as unknown as GameMetadataRepository;
 
   let nextGameId = 1;
@@ -96,7 +102,10 @@ function createHarness(rows: IgdbCatalogRow[][]) {
   const enqueueMediaBatch = vi.fn(async (items: readonly unknown[]) => items.length);
   const publisher = { enqueueEnrich, enqueueMediaBatch } as unknown as GameMetadataPublisher;
 
-  const upsertMany = vi.fn(async (_type: string, ids: readonly string[]) => ids.length);
+  const upsertMany = vi.fn(async (_type: string, ids: readonly string[]) => {
+    callOrder.push('reindex');
+    return ids.length;
+  });
   const searchIndex = { upsertMany } as unknown as SearchIndexService;
 
   const service = new GameCatalogSyncService(
@@ -119,6 +128,8 @@ function createHarness(rows: IgdbCatalogRow[][]) {
     enqueueEnrich,
     enqueueMediaBatch,
     upsertMany,
+    linkMediaRefs,
+    callOrder,
   };
 }
 
@@ -226,26 +237,47 @@ describe('GameCatalogSyncService.syncPages', () => {
       expect(upsertMany).not.toHaveBeenCalled();
     });
 
-    it('enqueues cover-only media for a created row, via the same toMediaJobs shape the enrich path uses', async () => {
-      const { service, enqueueMediaBatch } = createHarness([[metadataRow()]]);
+    // Since 2026-09 images are provider URL references. A created game's
+    // cover and screenshots are linked, and nothing reaches the download queue.
+    it('links every image of a created row as a reference and downloads nothing', async () => {
+      const { service, enqueueMediaBatch, linkMediaRefs } = createHarness([[metadataRow()]]);
 
       const stats = await service.syncPages(1);
 
-      expect(enqueueMediaBatch).toHaveBeenCalledTimes(1);
-      const jobs = enqueueMediaBatch.mock.calls[0]?.[0] as { kind: string; gameId: string }[];
-      expect(jobs).toHaveLength(1);
-      expect(jobs[0]?.kind).toBe('cover');
-      expect(jobs[0]?.gameId).toBe('game-new-1');
-      expect(stats.mediaQueued).toBe(1);
+      expect(enqueueMediaBatch).not.toHaveBeenCalled();
+      expect(linkMediaRefs).toHaveBeenCalledTimes(1);
+      const refs = linkMediaRefs.mock.calls[0]?.[0] as {
+        kind: string;
+        gameId: string;
+        url: string;
+      }[];
+      expect(refs.map((ref) => ref.kind)).toEqual(['cover', 'screenshot']);
+      expect(refs[0]?.gameId).toBe('game-new-1');
+      expect(refs[0]?.url).toBe('https://images.igdb.com/cover.jpg');
+      expect(stats.mediaQueued).toBe(2);
     });
 
-    it('never enqueues media for an existing igdbId routed through enqueueEnrich', async () => {
-      const { service, enqueueMediaBatch, gameFindUnique } = createHarness([[metadataRow()]]);
+    // The search document reads the cover pointer at reindex time; linking
+    // after the reindex would index every new game without its cover.
+    it('links media before it reindexes the page', async () => {
+      const { service, callOrder } = createHarness([[metadataRow()]]);
+
+      await service.syncPages(1);
+
+      expect(callOrder).toEqual(['link', 'reindex']);
+    });
+
+    it('links nothing for an existing igdbId routed through enqueueEnrich', async () => {
+      const { service, enqueueMediaBatch, linkMediaRefs, gameFindUnique } = createHarness([
+        [metadataRow()],
+      ]);
       gameFindUnique.mockResolvedValue({ id: 'game-existing-1' });
 
       await service.syncPages(1);
 
       expect(enqueueMediaBatch).not.toHaveBeenCalled();
+      const refs = linkMediaRefs.mock.calls[0]?.[0] as unknown[] | undefined;
+      expect(refs ?? []).toHaveLength(0);
     });
 
     it('records one GameMetadataRun row per created game, reason bulk-sync, outcome from resolveMetadataStatus', async () => {
@@ -263,7 +295,8 @@ describe('GameCatalogSyncService.syncPages', () => {
           // is false and resolveMetadataStatus lands on 'partial' — matches
           // the same gate the enrich path applies (metadata-merge.ts).
           outcome: 'partial',
-          mediaQueued: 1,
+          // the fixture's cover and screenshot, both linked as references
+          mediaQueued: 2,
         }),
       );
       expect(stats.runsRecorded).toBe(1);

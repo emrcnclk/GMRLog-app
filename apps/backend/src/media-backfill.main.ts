@@ -20,27 +20,22 @@ setServers(['8.8.8.8', '1.1.1.1']);
 setGlobalDispatcher(new Agent({ connect: { timeout: 30_000 } }));
 
 /**
- * `pnpm --filter backend run media:backfill -- <banners|repair> [maxBatches]`.
+ * `pnpm --filter backend run media:backfill -- <link|repair> [maxBatches]`.
  *
- * - `banners` asks IGDB for artworks and screenshots of every game that has
- *   neither a hero nor a screenshot yet, and enqueues one banner per game.
- * - `repair` HEADs every provider media row's object and re-enqueues the
- *   missing ones as forced jobs, rewriting the same keys.
- *
- * Both only enqueue. The media worker (`pnpm --filter backend run worker`)
- * does the downloading, so this finishes in minutes while the downloads take
- * as long as the connection and `GAME_MEDIA_WORKER_CONCURRENCY` allow.
+ * - `link` asks IGDB for the cover, artworks and screenshots of every catalog
+ *   game and records them as URL references — nothing is downloaded. The
+ *   catalog's media model since 2026-09 (METADATA_LICENSING.md §5).
+ * - `repair` HEADs every *stored* provider row's object and re-enqueues the
+ *   missing ones as forced download jobs, rewriting the same keys. Referenced
+ *   rows are skipped.
  */
 async function bootstrap(): Promise<void> {
   const mode = process.argv[2];
   const maxBatchesArg = process.argv[3];
   const maxBatches = maxBatchesArg === undefined ? undefined : Number.parseInt(maxBatchesArg, 10);
 
-  if (
-    (mode !== 'banners' && mode !== 'repair') ||
-    (maxBatches !== undefined && !(maxBatches > 0))
-  ) {
-    console.error('Usage: media-backfill.main.js <banners|repair> [maxBatches]');
+  if ((mode !== 'link' && mode !== 'repair') || (maxBatches !== undefined && !(maxBatches > 0))) {
+    console.error('Usage: media-backfill.main.js <link|repair> [maxBatches]');
     process.exitCode = 1;
     return;
   }
@@ -50,22 +45,28 @@ async function bootstrap(): Promise<void> {
   app.useLogger(logger);
   const backfill = app.get(GameMediaBackfillService);
 
-  if (mode === 'banners') {
-    console.log('batch\tscanned\tigdb\thero\tscreenshot\tnoSource');
-    const stats = await backfill.enqueueBanners({
+  if (mode === 'link') {
+    console.log('batch\tscanned\tigdb\tlinked\tinserted\tcovers\theroes');
+    const stats = await backfill.linkProviderMedia({
       ...(maxBatches === undefined ? {} : { maxBatches }),
       onBatch: (b) => {
         console.log(
-          [b.batch, b.scanned, b.answeredByIgdb, b.heroQueued, b.screenshotQueued, b.noSource].join(
-            '\t',
-          ),
+          [
+            b.batch,
+            b.scanned,
+            b.answeredByIgdb,
+            b.linked,
+            b.inserted,
+            b.coversSet,
+            b.heroesSet,
+          ].join('\t'),
         );
       },
     });
     console.log(
-      `\nTotals: scanned=${String(stats.scanned)} heroQueued=${String(stats.heroQueued)} ` +
-        `screenshotQueued=${String(stats.screenshotQueued)} noSource=${String(stats.noSource)} ` +
-        `wallMs=${String(stats.wallMs)}`,
+      `\nTotals: scanned=${String(stats.scanned)} linked=${String(stats.linked)} ` +
+        `inserted=${String(stats.inserted)} coversSet=${String(stats.coversSet)} ` +
+        `heroesSet=${String(stats.heroesSet)} wallMs=${String(stats.wallMs)}`,
     );
   } else {
     console.log('batch\tchecked\tmissing\tqueued\tnoProvider');

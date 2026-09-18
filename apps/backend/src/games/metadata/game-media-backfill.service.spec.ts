@@ -5,10 +5,12 @@ import { AppLogger } from '../../infrastructure/logging/app-logger.service';
 import type { ObjectStoragePort } from '../../infrastructure/storage/object-storage.port';
 
 import { GameMediaBackfillService } from './game-media-backfill.service';
+import { DEFAULT_METADATA_CONFIG } from './metadata.config';
 import { GameMetadataPublisher } from './game-metadata.publisher';
 import type { GameMediaIngestJobData } from './metadata.job-data';
 import { IgdbMetadataProvider } from './providers/igdb.provider';
 import type { ProviderMediaRef } from './providers/metadata-provider.port';
+import { FakeGameMetadataRepository } from './testing/fake-metadata-repository';
 
 function createLogger(): AppLogger {
   return { event: vi.fn(), log: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as AppLogger;
@@ -57,72 +59,83 @@ function createHarness(options: {
   );
   const storage = { headObject } as unknown as ObjectStoragePort;
 
-  const service = new GameMediaBackfillService(igdb, prisma, publisher, createLogger(), storage);
-  return { service, gameFindMany, mediaFindMany, listMediaByIgdbIds, enqueued, headObject };
+  const repository = new FakeGameMetadataRepository();
+  const service = new GameMediaBackfillService(
+    igdb,
+    prisma,
+    publisher,
+    createLogger(),
+    storage,
+    repository,
+    DEFAULT_METADATA_CONFIG,
+  );
+  return {
+    service,
+    gameFindMany,
+    mediaFindMany,
+    listMediaByIgdbIds,
+    enqueued,
+    headObject,
+    repository,
+  };
 }
 
-describe('GameMediaBackfillService.enqueueBanners', () => {
-  it("enqueues the provider's hero, falls back to a screenshot, and counts games with neither", async () => {
-    const { service, enqueued } = createHarness({
+describe('GameMediaBackfillService.linkProviderMedia', () => {
+  // The catalog's media model since 2026-09: images are referenced by their
+  // provider URL. Nothing here may put a single job on the download queue.
+  it('records every image IGDB offers as a reference and downloads nothing', async () => {
+    const { service, repository, enqueued } = createHarness({
       gamePages: [
         [
           { id: 'g1', igdbId: 1 },
           { id: 'g2', igdbId: 2 },
-          { id: 'g3', igdbId: 3 },
         ],
       ],
       media: new Map([
-        [1, [ref('hero', 'art-1'), ref('artwork', 'art-1b', 1), ref('screenshot', 'shot-1')]],
-        [2, [ref('screenshot', 'shot-2b', 1), ref('screenshot', 'shot-2a', 0)]],
-        [3, []],
+        [1, [ref('cover', 'co-1'), ref('hero', 'art-1'), ref('screenshot', 'shot-1')]],
+        [2, [ref('cover', 'co-2')]],
       ]),
     });
 
-    const stats = await service.enqueueBanners();
+    const stats = await service.linkProviderMedia();
 
-    expect(stats.heroQueued).toBe(1);
-    expect(stats.screenshotQueued).toBe(1);
-    expect(stats.noSource).toBe(1);
-    expect(enqueued).toHaveLength(2);
-
-    const hero = enqueued.find((job) => job.gameId === 'g1');
-    expect(hero).toMatchObject({ kind: 'hero', provider: 'igdb', promote: true });
-    expect(hero?.sourceUrl).toContain('art-1.jpg');
-
-    // A screenshot stands in for a banner without becoming one: it is not
-    // promoted into `hero_key`, and it is the first by sort order.
-    const shot = enqueued.find((job) => job.gameId === 'g2');
-    expect(shot).toMatchObject({ kind: 'screenshot', promote: false });
-    expect(shot?.sourceUrl).toContain('shot-2a.jpg');
+    expect(enqueued).toHaveLength(0);
+    expect(stats.linked).toBe(4);
+    expect(repository.linkedRefs.map((row) => `${row.gameId}:${row.kind}`)).toEqual([
+      'g1:cover',
+      'g1:hero',
+      'g1:screenshot',
+      'g2:cover',
+    ]);
+    // The URL is the reference — the same string that will be served.
+    expect(repository.linkedRefs[0]?.url).toContain('co-1.jpg');
+    expect(repository.linkedRefs[0]?.provider).toBe('igdb');
   });
 
-  it('asks only for games that have neither a hero nor a screenshot yet', async () => {
-    const { service, gameFindMany } = createHarness({});
-
-    await service.enqueueBanners();
-
-    expect(gameFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          igdbId: { not: null },
-          heroKey: null,
-          media: { none: { kind: { in: ['hero', 'screenshot'] } } },
-        }),
-      }),
+  // One policy for how many images a game keeps, whichever way they are kept.
+  it('applies the same caps the enrich path uses', async () => {
+    const shots = Array.from({ length: 20 }, (_, index) =>
+      ref('screenshot', `s${String(index)}`, index),
     );
+    const { service, repository } = createHarness({
+      gamePages: [[{ id: 'g1', igdbId: 1 }]],
+      media: new Map([[1, shots]]),
+    });
+
+    await service.linkProviderMedia();
+
+    expect(repository.linkedRefs).toHaveLength(DEFAULT_METADATA_CONFIG.maxScreenshots);
   });
 
-  // Keyset, never offset — the set shrinks as jobs land, and an offset would
-  // silently skip rows.
-  it('walks by id cursor from one batch to the next', async () => {
+  it('walks every catalog game by id cursor, not only the ones missing media', async () => {
     const { service, gameFindMany } = createHarness({
       gamePages: [[{ id: 'g1', igdbId: 1 }], [{ id: 'g2', igdbId: 2 }]],
     });
 
-    const stats = await service.enqueueBanners();
+    const stats = await service.linkProviderMedia();
 
     expect(stats.batches).toHaveLength(2);
-    expect(gameFindMany.mock.calls[0]?.[0]?.where?.id).toBeUndefined();
+    expect(gameFindMany.mock.calls[0]?.[0]?.where).toEqual({ igdbId: { not: null } });
     expect(gameFindMany.mock.calls[1]?.[0]?.where?.id).toEqual({ gt: 'g1' });
     expect(gameFindMany.mock.calls[1]?.[0]?.orderBy).toEqual({ id: 'asc' });
   });
@@ -132,7 +145,7 @@ describe('GameMediaBackfillService.enqueueBanners', () => {
       gamePages: [[{ id: 'g1', igdbId: 1 }], [{ id: 'g2', igdbId: 2 }]],
     });
 
-    await service.enqueueBanners({ maxBatches: 1 });
+    await service.linkProviderMedia({ maxBatches: 1 });
 
     expect(listMediaByIgdbIds).toHaveBeenCalledOnce();
   });
@@ -190,6 +203,18 @@ describe('GameMediaBackfillService.repairMissingObjects', () => {
     expect(enqueued).toHaveLength(0);
   });
 
+  // A reference has no stored object; HEADing it against our bucket would
+  // report it missing and download it — the one thing a reference avoids.
+  it('never checks a referenced row, so never downloads one', async () => {
+    const { service, mediaFindMany } = createHarness({});
+
+    await service.repairMissingObjects();
+
+    expect(mediaFindMany.mock.calls[0]?.[0]?.where?.NOT).toEqual({
+      storageKey: { startsWith: 'https://' },
+    });
+  });
+
   it('only reads rows — no delete is ever reachable from the repair', async () => {
     const { service, mediaFindMany } = createHarness({
       mediaRows: [[row('m1', 'games/a/cover/x-standard.webp')]],
@@ -198,6 +223,9 @@ describe('GameMediaBackfillService.repairMissingObjects', () => {
     await service.repairMissingObjects();
 
     expect(mediaFindMany).toHaveBeenCalled();
-    expect(mediaFindMany.mock.calls[0]?.[0]?.where).toEqual({ sourceUrl: { not: null } });
+    expect(mediaFindMany.mock.calls[0]?.[0]?.where).toEqual({
+      sourceUrl: { not: null },
+      NOT: { storageKey: { startsWith: 'https://' } },
+    });
   });
 });
