@@ -145,6 +145,8 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
         GameMetadataPublisher,
         AppLogger,
         OBJECT_STORAGE,
+        GAME_METADATA_REPOSITORY,
+        METADATA_CONFIG,
       ],
       useFactory: (
         igdb: IgdbMetadataProvider,
@@ -152,7 +154,10 @@ import { SteamStoreMetadataProvider } from './providers/steam-store.provider';
         publisher: GameMetadataPublisher,
         logger: AppLogger,
         storage: ObjectStoragePort,
-      ) => new GameMediaBackfillService(igdb, prisma, publisher, logger, storage),
+        repository: ConstructorParameters<typeof GameMediaBackfillService>[5],
+        config: MetadataConfig,
+      ) =>
+        new GameMediaBackfillService(igdb, prisma, publisher, logger, storage, repository, config),
     },
   ],
   exports: [

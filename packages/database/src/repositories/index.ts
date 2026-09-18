@@ -79,6 +79,8 @@ export {
   type RelatedGameInput,
   type TagRefInput,
   type UpsertGameMediaInput,
+  type LinkGameMediaRefInput,
+  type LinkGameMediaRefResult,
 } from './game-metadata.repository';
 export {
   PrismaLibraryEntryRepository,

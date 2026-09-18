@@ -14,7 +14,11 @@
  * Pure functions only. No I/O.
  */
 
-import type { ApplyGameMetadataInput, GameMetadataStatus } from '@gmrlog/database';
+import type {
+  ApplyGameMetadataInput,
+  GameMetadataStatus,
+  LinkGameMediaRefInput,
+} from '@gmrlog/database';
 
 import type { GameMediaIngestJobData } from './metadata.job-data';
 import type { ProviderGameMetadata } from './providers/metadata-provider.port';
@@ -266,6 +270,28 @@ export function toMediaJobs(
 }
 
 /**
+ * Provider media as URL references — what a game's images are since 2026-09,
+ * in place of download jobs. Built on `toMediaJobs` so the selection and the
+ * caps (one cover, one hero, `maxArtworks`, `maxScreenshots`) stay a single
+ * policy whichever way an image is kept; only the destination differs.
+ */
+export function toMediaLinks(
+  gameId: string,
+  metadata: ProviderGameMetadata,
+  caps: { maxScreenshots: number; maxArtworks: number },
+): LinkGameMediaRefInput[] {
+  return toMediaJobs(gameId, metadata, caps).map((job) => ({
+    gameId: job.gameId,
+    kind: job.kind,
+    url: job.sourceUrl,
+    provider: job.provider,
+    sortOrder: job.sortOrder,
+    width: job.width,
+    height: job.height,
+  }));
+}
+
+/**
  * One provider media ref as one ingest job — the single place the job shape
  * and the promote rule live, shared by `toMediaJobs` and the banner backfill
  * so neither can drift into its own idea of which kinds get promoted.
@@ -285,28 +311,4 @@ export function toMediaJob(
     height: item.height,
     promote: item.kind === 'cover' || item.kind === 'hero',
   };
-}
-
-/**
- * The one image a game's banner should come from, or `null`.
- *
- * The provider's own hero wins — for IGDB that is the first artwork, decided
- * once in `toMediaRefs`. Without one, the first screenshot: not promoted, and
- * not relabelled as a hero, because the game hub already walks
- * hero → artwork → first screenshot → cover (`resolveHeroArtwork`). This
- * feeds that chain's third link rather than inventing a fourth rule, and it
- * keeps `hero_key` meaning what its name says.
- */
-export function selectBannerRef(
-  media: ProviderGameMetadata['media'],
-): ProviderGameMetadata['media'][number] | null {
-  const hero = media.find((item) => item.kind === 'hero');
-  if (hero !== undefined) {
-    return hero;
-  }
-
-  const screenshots = media
-    .filter((item) => item.kind === 'screenshot')
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  return screenshots[0] ?? null;
 }

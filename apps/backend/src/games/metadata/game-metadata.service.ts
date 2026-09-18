@@ -10,7 +10,7 @@ import {
   countPopulatedFields,
   resolveMetadataStatus,
   toApplyGameMetadataInput,
-  toMediaJobs,
+  toMediaLinks,
 } from './metadata-merge';
 import { parseReleaseYear } from './metadata-normalize';
 import { METADATA_CONFIG, type MetadataConfig } from './metadata.config';
@@ -151,6 +151,17 @@ export class GameMetadataService {
       toApplyGameMetadataInput(game.id, metadata, status, refreshedAt),
     );
 
+    // Images are linked as provider URL references, not downloaded — the
+    // catalog's media model since 2026-09 (METADATA_LICENSING.md §5). It also
+    // retires the reason `game.metadata` had to be paused: a refresh used to
+    // enqueue up to eighteen downloads a game, and now it writes rows.
+    // Linked before the reindex below, because the search document reads the
+    // game's cover pointer at reindex time.
+    const mediaLinks = toMediaLinks(game.id, metadata, this.config);
+    await this.repository.linkMediaRefs(mediaLinks);
+    // The audit column keeps its name; it now counts images referenced.
+    const mediaQueued = mediaLinks.length;
+
     // D3.25.1 — reindex AFTER the metadata transaction commits, never inside
     // it. Without this, a game's Meilisearch document never reflects its
     // enrichment: the same three-field skeleton (title/slug/id) stays
@@ -158,10 +169,6 @@ export class GameMetadataService {
     // Postgres. A failure here must not fail enrichment — search staleness
     // is recoverable via `pnpm repair:index`; losing a successful apply is not.
     await this.reindexForSearch(game.id);
-
-    // Media is enqueued AFTER the metadata transaction commits — never inside it.
-    const mediaJobs = toMediaJobs(game.id, metadata, this.config);
-    const mediaQueued = await this.publisher.enqueueMediaBatch(mediaJobs);
 
     // Late-bind provider "similar games" whose targets have since been created.
     await this.repository.resolveRelatedGameLinks(metadata.provider);

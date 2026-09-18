@@ -6,7 +6,6 @@ import {
   hasCoreFields,
   mergeProviderMetadata,
   toMediaJobs,
-  selectBannerRef,
   toMediaJob,
 } from './metadata-merge';
 import { emptyProviderMetadata } from './providers/metadata-provider.port';
@@ -236,47 +235,6 @@ describe('toMediaJobs', () => {
 
   it('returns an empty list for a record with no media', () => {
     expect(toMediaJobs('game-1', completeProviderMetadata({ media: [] }), caps)).toEqual([]);
-  });
-});
-
-describe('selectBannerRef', () => {
-  const ref = (
-    kind: 'cover' | 'hero' | 'artwork' | 'screenshot',
-    sortOrder: number,
-    url = `https://img/${kind}-${String(sortOrder)}.jpg`,
-  ) => ({
-    kind,
-    url,
-    width: null,
-    height: null,
-    sortOrder,
-  });
-
-  it("takes the provider's hero when there is one", () => {
-    const banner = selectBannerRef([ref('screenshot', 0), ref('hero', 0), ref('artwork', 1)]);
-
-    expect(banner?.kind).toBe('hero');
-  });
-
-  // The game hub already walks hero -> artwork -> first screenshot -> cover.
-  // This feeds its third link; it does not relabel a screenshot as a hero.
-  it('falls back to the first screenshot, by sort order, and keeps its kind', () => {
-    const banner = selectBannerRef([
-      ref('screenshot', 2),
-      ref('screenshot', 0),
-      ref('screenshot', 1),
-    ]);
-
-    expect(banner?.kind).toBe('screenshot');
-    expect(banner?.sortOrder).toBe(0);
-  });
-
-  it('never picks a cover or a secondary artwork as a banner', () => {
-    expect(selectBannerRef([ref('cover', 0), ref('artwork', 1)])).toBeNull();
-  });
-
-  it('answers null when the provider has nothing', () => {
-    expect(selectBannerRef([])).toBeNull();
   });
 });
 

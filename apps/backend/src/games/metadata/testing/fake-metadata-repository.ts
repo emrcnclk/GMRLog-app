@@ -17,6 +17,8 @@ import type {
   RecordMetadataRunInput,
   Tag,
   UpsertGameMediaInput,
+  LinkGameMediaRefInput,
+  LinkGameMediaRefResult,
 } from '@gmrlog/database';
 
 /**
@@ -101,6 +103,30 @@ export class FakeGameMetadataRepository implements GameMetadataRepository {
   ): Promise<void> {
     this.promotions.push({ gameId, kind, storageKey, blurhash, variants });
     return Promise.resolve();
+  }
+
+  readonly linkedRefs: LinkGameMediaRefInput[] = [];
+
+  /** Mirrors the real `ON CONFLICT DO NOTHING`: a (game, kind, url) seen
+   * before, or already present as media, is not inserted again. */
+  linkMediaRefs(refs: readonly LinkGameMediaRefInput[]): Promise<LinkGameMediaRefResult> {
+    let inserted = 0;
+    for (const ref of refs) {
+      const exists =
+        this.linkedRefs.some(
+          (row) => row.gameId === ref.gameId && row.kind === ref.kind && row.url === ref.url,
+        ) ||
+        this.existingMedia.some(
+          (row) => row.gameId === ref.gameId && row.kind === ref.kind && row.sourceUrl === ref.url,
+        );
+      if (!exists) {
+        this.linkedRefs.push(ref);
+        inserted += 1;
+      }
+    }
+    const games = (kind: GameMediaKind) =>
+      new Set(refs.filter((ref) => ref.kind === kind).map((ref) => ref.gameId)).size;
+    return Promise.resolve({ inserted, coversSet: games('cover'), heroesSet: games('hero') });
   }
 
   listMedia(gameId: string): Promise<GameMedia[]> {

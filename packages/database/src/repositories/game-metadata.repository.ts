@@ -17,6 +17,9 @@ import type {
 
 import { withTransaction, type DatabaseClient } from './types';
 
+/** Rows per `createMany` in `linkMediaRefs` — eight bind parameters each. */
+const LINK_CHUNK = 1000;
+
 /**
  * Catalog metadata persistence (D3.25 — docs/18_CATALOG/GAME_METADATA_ARCHITECTURE.md).
  *
@@ -108,6 +111,29 @@ export interface UpsertGameMediaInput {
   variants?: ImageVariantKeys | null;
 }
 
+/**
+ * A provider image referenced by its URL rather than stored — the catalog's
+ * media model since 2026-09. `GameMedia.storageKey` and `Game.coverKey`/
+ * `heroKey` hold either an object-storage key (player uploads, and catalog
+ * media downloaded before this) or an absolute provider URL; `resolveMediaUrl`
+ * tells the two apart at read time.
+ */
+export interface LinkGameMediaRefInput {
+  gameId: string;
+  kind: GameMediaKind;
+  url: string;
+  provider: MetadataProvider;
+  sortOrder: number;
+  width: number | null;
+  height: number | null;
+}
+
+export interface LinkGameMediaRefResult {
+  inserted: number;
+  coversSet: number;
+  heroesSet: number;
+}
+
 export interface BackfillCandidate {
   id: string;
   title: string;
@@ -155,6 +181,13 @@ export interface GameMetadataRepository {
     variants?: ImageVariantKeys | null,
   ): Promise<void>;
   listMedia(gameId: string): Promise<GameMedia[]>;
+  /**
+   * Record provider images as URL references — nothing is downloaded. Rows
+   * that already exist for (game, kind, source) are left exactly as they are,
+   * so an asset downloaded earlier keeps its stored key; a cover or hero
+   * pointer is filled only where it is still empty.
+   */
+  linkMediaRefs(refs: readonly LinkGameMediaRefInput[]): Promise<LinkGameMediaRefResult>;
   listRelatedGames(gameId: string, kind: GameRelatedKind): Promise<GameRelatedGame[]>;
   resolveRelatedGameLinks(provider: MetadataProvider): Promise<number>;
   loadCatalogMetadata(gameId: string): Promise<GameCatalogMetadataRecord | null>;
@@ -340,6 +373,73 @@ export class PrismaGameMetadataRepository implements GameMetadataRepository {
       select: { id: true },
     });
     return existing !== null;
+  }
+
+  async linkMediaRefs(refs: readonly LinkGameMediaRefInput[]): Promise<LinkGameMediaRefResult> {
+    let inserted = 0;
+    // Chunked so a large batch stays well under Postgres' bind-parameter limit
+    // (eight columns a row).
+    for (let start = 0; start < refs.length; start += LINK_CHUNK) {
+      const chunk = refs.slice(start, start + LINK_CHUNK);
+      const result = await this.db.gameMedia.createMany({
+        data: chunk.map((ref) => ({
+          gameId: ref.gameId,
+          kind: ref.kind,
+          storageKey: ref.url,
+          provider: ref.provider,
+          sourceUrl: ref.url,
+          sortOrder: ref.sortOrder,
+          width: ref.width,
+          height: ref.height,
+        })),
+        // ON CONFLICT DO NOTHING on (game, kind, source): an existing row —
+        // including one whose asset was downloaded — is never overwritten.
+        skipDuplicates: true,
+      });
+      inserted += result.count;
+    }
+
+    return {
+      inserted,
+      coversSet: await this.fillEmptyPointer(refs, 'cover'),
+      heroesSet: await this.fillEmptyPointer(refs, 'hero'),
+    };
+  }
+
+  /**
+   * One UPDATE for the whole batch rather than one per game — the catalog
+   * links ~229k games, and a statement per game is most of the run's time.
+   * The lowest `sortOrder` of the kind wins, the same rule the downloaded
+   * pipeline used when it promoted.
+   */
+  private async fillEmptyPointer(
+    refs: readonly LinkGameMediaRefInput[],
+    kind: 'cover' | 'hero',
+  ): Promise<number> {
+    const firstByGame = new Map<string, string>();
+    for (const ref of [...refs]
+      .filter((item) => item.kind === kind)
+      .sort((a, b) => a.sortOrder - b.sortOrder)) {
+      if (!firstByGame.has(ref.gameId)) {
+        firstByGame.set(ref.gameId, ref.url);
+      }
+    }
+    if (firstByGame.size === 0) {
+      return 0;
+    }
+
+    const values = Prisma.join(
+      [...firstByGame].map(([gameId, url]) => Prisma.sql`(${gameId}, ${url})`),
+    );
+    return kind === 'cover'
+      ? this.db.$executeRaw`
+          UPDATE games AS g SET cover_key = v.url, updated_at = NOW()
+          FROM (VALUES ${values}) AS v(id, url)
+          WHERE g.id = v.id AND g.cover_key IS NULL`
+      : this.db.$executeRaw`
+          UPDATE games AS g SET hero_key = v.url, updated_at = NOW()
+          FROM (VALUES ${values}) AS v(id, url)
+          WHERE g.id = v.id AND g.hero_key IS NULL`;
   }
 
   /** Promote a stored asset to the denormalized pointer, only when unset. */
