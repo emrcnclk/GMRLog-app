@@ -13,7 +13,7 @@ import {
   countPopulatedFields,
   resolveMetadataStatus,
   toApplyGameMetadataInput,
-  toMediaJobs,
+  toMediaLinks,
 } from './metadata-merge';
 import type { MetadataConfig } from './metadata.config';
 import { IgdbMetadataProvider, type IgdbCatalogRow } from './providers/igdb.provider';
@@ -127,31 +127,14 @@ export interface CatalogSyncStats {
  *     the same "one row per Meili call doesn't finish at this volume" problem
  *     (D3.25.1): one `SearchIndexService.upsertMany('game', ids)` call per
  *     page (≤500 ids), not 500 individual enqueues.
- *  7. Media is enqueued for **cover only**, eagerly; screenshots/artwork/hero
- *     are not. The enrich path's `toMediaJobs` (now shared, `metadata-merge.ts`)
- *     can request up to 1+1+4+12 = 18 media jobs per game — full parity at
- *     324k rows would mean up to ~5.8M real HTTP downloads + image-processing
- *     jobs, by far the largest cost in this phase, and the large majority of
- *     that catalog is never going to be looked at. Cover is kept eager
- *     because it is the one asset every list/grid/search-result surface in
- *     this app renders unconditionally (CLAUDE.md: geometry/rarity read off
- *     the card, which needs an image) — cutting it would make the whole
- *     mirrored catalog look broken by default. That keeps the eager cost at
- *     ~324k jobs, the same order of magnitude as the reindex, not 18x that.
- *     The rest is a real, named gap, not a silent one: those rows keep
- *     `metadataStatus complete/partial` (11.1's `hasCoreFields` gate already
- *     required media to reach `complete`, and cover alone satisfies that), so
- *     they are NOT re-selected by `GameMetadataBackfillService`'s backfill
- *     scan (pending/stale/failed only) — only the daily refresh scan
- *     (`runRefreshScan`, 500/day, 30-day staleness window) will eventually
- *     re-enrich them and, at that point, request the full media set through
- *     the ordinary enrich path. At 500/day against 324k rows that is
- *     ~648 days to reach full-catalog non-cover media — too slow to call
- *     "lazy", named here as a follow-up rather than fixed: either bump
- *     `refreshBatchSize`/`refreshIntervalDays` for catalog-sync-created rows
- *     specifically, or add a real on-first-view trigger (which the read path
- *     doesn't have today — `GamesService.getGame`'s own comment: "nothing
- *     here awaits a metadata provider").
+ *  7. Media is linked, not downloaded (since 2026-09). Every image the
+ *     provider offers — cover, hero, artworks, screenshots, under the same
+ *     caps as the enrich path — is written as a URL reference in one
+ *     `linkMediaRefs` call per page. D11.2 enqueued the cover only, because
+ *     each image was then a download and full media for ~324k rows meant up
+ *     to ~5.8M of them; a reference is a row, so that trade-off no longer
+ *     applies and the "~648 days to reach non-cover media" gap it left
+ *     closes with it. The history of that decision is in TASKS.md 11.2.
  *  8. Run-logging reuses `repository.recordRun` exactly as the enrich path
  *     does — one `GameMetadataRun` row per created game, not a log line per
  *     game (10.7's volume rule is about `AppLogger.event`, not this audit
@@ -238,12 +221,13 @@ export class GameCatalogSyncService {
       enqueuedForEnrich += pageEnqueued;
 
       // D11.2 — page-batched follow-ups for every row created this page.
-      // Reindex is one Meili call for up to `pageSize` ids (decision #6);
-      // media (cover-only, decision #7) and run-logging (decision #8 — a DB
-      // audit row, not a log line, so it does not trip 10.7's "no line per
-      // game" rule) are per-row, same as the enrich path does per game.
+      // Media is linked first: the search document reads the game's cover
+      // pointer at reindex time, so reindexing before the link would index
+      // every new game without its cover. Reindex is then one Meili call for
+      // up to `pageSize` ids (decision #6), and run-logging stays a DB audit
+      // row per game (decision #8), never a log line.
+      const pageMediaQueued = await this.linkMediaAndRecordRuns(pageCreatedRows);
       const pageReindexed = await this.reindexCreatedRows(pageCreatedRows);
-      const pageMediaQueued = await this.enqueueCoverMediaAndRecordRuns(pageCreatedRows);
       const pageRunsRecorded = pageCreatedRows.length;
 
       reindexed += pageReindexed;
@@ -335,19 +319,23 @@ export class GameCatalogSyncService {
   }
 
   /**
-   * D11.2, decisions #7 and #8. Cover-only eager media enqueue (see class doc
-   * for the cost math), then one `GameMetadataRun` row per created game —
-   * same shape the enrich path writes, `reason: 'bulk-sync'` distinguishing
-   * provenance. Combined into one per-row pass because `mediaQueued` on the
-   * audit row has to reflect what was actually queued for that row.
+   * Images as provider URL references — cover, hero, artworks and
+   * screenshots under the same caps the enrich path uses — written for the
+   * whole page in one call, then one `GameMetadataRun` row per created game
+   * (`reason: 'bulk-sync'`).
+   *
+   * D11.2 enqueued the cover only, because every image was a download and
+   * full media was up to eighteen per game. A reference is a row, not a
+   * download, so that trade-off is gone and the page links everything the
+   * provider offers; `mediaQueued` on the audit row now counts images linked.
    */
-  private async enqueueCoverMediaAndRecordRuns(rows: readonly CreatedRow[]): Promise<number> {
+  private async linkMediaAndRecordRuns(rows: readonly CreatedRow[]): Promise<number> {
+    const linksByRow = rows.map((row) => toMediaLinks(row.gameId, row.metadata, this.config));
+    await this.repository.linkMediaRefs(linksByRow.flat());
+
     let totalQueued = 0;
-    for (const row of rows) {
-      const coverJobs = toMediaJobs(row.gameId, row.metadata, this.config).filter(
-        (job) => job.kind === 'cover',
-      );
-      const mediaQueuedForRow = await this.publisher.enqueueMediaBatch(coverJobs);
+    for (const [index, row] of rows.entries()) {
+      const mediaQueuedForRow = linksByRow[index]?.length ?? 0;
       totalQueued += mediaQueuedForRow;
 
       await this.repository.recordRun({

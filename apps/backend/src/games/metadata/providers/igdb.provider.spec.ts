@@ -329,7 +329,7 @@ describe('IgdbMetadataProvider.listMediaByIgdbIds', () => {
         ?.body ?? '',
     );
 
-  it('asks only for artworks and screenshots of exactly the ids given', async () => {
+  it('asks only for the cover, artworks and screenshots of exactly the ids given', async () => {
     const fetchImpl = fetchWithToken([]);
     const provider = createProvider(fetchImpl);
 
@@ -342,7 +342,7 @@ describe('IgdbMetadataProvider.listMediaByIgdbIds', () => {
     expect(body).toContain('screenshots.image_id');
     // Narrow on purpose — the full field set is what made the walk slow.
     expect(body).not.toContain('summary');
-    expect(body).not.toContain('cover.image_id');
+    expect(body).toContain('cover.image_id');
   });
 
   // One definition of the hero: the first artwork, decided in toMediaRefs.

@@ -136,20 +136,26 @@ describe('GameMetadataService.enrich — successful application', () => {
     });
   });
 
-  it('enqueues media only after the metadata transaction', async () => {
-    const result = await harness.service.enrich('game-1', 'backfill');
+  // Since 2026-09 an enrichment — a refresh included — links images as
+  // provider URL references. That is also what retires the reason
+  // `game.metadata` had to be paused: a refresh used to enqueue up to
+  // eighteen downloads a game.
+  it('links media as references and downloads nothing', async () => {
+    const result = await harness.service.enrich('game-1', 'refresh');
 
     expect(result.mediaQueued).toBe(3);
-    expect(harness.publisher.enqueueMediaBatch).toHaveBeenCalledTimes(1);
+    expect(harness.publisher.enqueueMediaBatch).not.toHaveBeenCalled();
+    expect(harness.repository.linkedRefs).toHaveLength(3);
   });
 
-  it('flags cover and hero for promotion but not screenshots', async () => {
+  it('links the cover, the hero and the screenshots the provider offers', async () => {
     await harness.service.enrich('game-1', 'backfill');
 
-    const batch = vi.mocked(harness.publisher.enqueueMediaBatch).mock.calls[0]?.[0] ?? [];
-    expect(batch.find((item) => item.kind === 'cover')?.promote).toBe(true);
-    expect(batch.find((item) => item.kind === 'hero')?.promote).toBe(true);
-    expect(batch.find((item) => item.kind === 'screenshot')?.promote).toBe(false);
+    expect(harness.repository.linkedRefs.map((ref) => ref.kind).sort()).toEqual([
+      'cover',
+      'hero',
+      'screenshot',
+    ]);
   });
 
   it('records a success run with the field count', async () => {
@@ -265,14 +271,13 @@ describe('GameMetadataService.enrich — media caps', () => {
       height: null,
       sortOrder: index,
     }));
-    const { service, publisher } = createService([
+    const { service, repository } = createService([
       new FakeMetadataProvider({ result: completeProviderMetadata({ media }) }),
     ]);
 
     await service.enrich('game-1', 'backfill');
 
-    const batch = vi.mocked(publisher.enqueueMediaBatch).mock.calls[0]?.[0] ?? [];
-    expect(batch).toHaveLength(DEFAULT_METADATA_CONFIG.maxScreenshots);
+    expect(repository.linkedRefs).toHaveLength(DEFAULT_METADATA_CONFIG.maxScreenshots);
   });
 
   it('keeps at most one cover and one hero', async () => {
@@ -282,15 +287,14 @@ describe('GameMetadataService.enrich — media caps', () => {
       { kind: 'hero' as const, url: 'https://a/3.jpg', width: null, height: null, sortOrder: 0 },
       { kind: 'hero' as const, url: 'https://a/4.jpg', width: null, height: null, sortOrder: 1 },
     ];
-    const { service, publisher } = createService([
+    const { service, repository } = createService([
       new FakeMetadataProvider({ result: completeProviderMetadata({ media }) }),
     ]);
 
     await service.enrich('game-1', 'backfill');
 
-    const batch = vi.mocked(publisher.enqueueMediaBatch).mock.calls[0]?.[0] ?? [];
-    expect(batch.filter((item) => item.kind === 'cover')).toHaveLength(1);
-    expect(batch.filter((item) => item.kind === 'hero')).toHaveLength(1);
+    expect(repository.linkedRefs.filter((item) => item.kind === 'cover')).toHaveLength(1);
+    expect(repository.linkedRefs.filter((item) => item.kind === 'hero')).toHaveLength(1);
   });
 });
 

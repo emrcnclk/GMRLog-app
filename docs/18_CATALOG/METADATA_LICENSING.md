@@ -14,11 +14,11 @@ answer rather than an implicit one.
 
 ## 1. Summary table
 
-| Provider | Default state | Env gate | Attribution surfaced | Artwork mirrored |
+| Provider | Default state | Env gate | Attribution surfaced | Artwork |
 |---|---|---|---|---|
-| IGDB (Twitch) | **Enabled when credentialed** | `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET` | `metadata_provider = 'igdb'` per game; attribution string in `GET /games/:id/metadata` | Yes |
-| Steam Store | **Enabled when credentialed** | `STEAM_STORE_METADATA_ENABLED` | `metadata_provider = 'steam'` per game | Yes |
-| RAWG | **DISABLED** | `RAWG_ENABLED` + `RAWG_API_KEY` | wired, unused while disabled | Yes, when enabled |
+| IGDB (Twitch) | **Enabled when credentialed** | `IGDB_CLIENT_ID` + `IGDB_CLIENT_SECRET` | `metadata_provider = 'igdb'` per game; attribution string in `GET /games/:id/metadata` | Referenced (§5) |
+| Steam Store | **Enabled when credentialed** | `STEAM_STORE_METADATA_ENABLED` | `metadata_provider = 'steam'` per game | Referenced (§5) |
+| RAWG | **DISABLED** | `RAWG_ENABLED` + `RAWG_API_KEY` | wired, unused while disabled | Referenced when enabled (§5) |
 
 Provenance is persisted per game (`Game.metadataProvider`) and per media row
 (`GameMedia.provider`), so an attribution or takedown obligation can always be
@@ -55,8 +55,8 @@ consumption.
 - Conservative self-imposed rate limit (`STEAM_STORE_RATE_LIMIT_RPS`, default `1`).
 - Used only to (a) fill fields IGDB did not return, or (b) resolve games that
   IGDB could not match at all — most commonly Steam-exclusive and early-access titles.
-- Steam header/capsule artwork is mirrored, not hotlinked, so GMRLOG never drives
-  traffic to Valve's CDN from user devices.
+- Steam header/capsule artwork is referenced by its CDN URL since 2026-09, so player
+  devices do request it from Valve's CDN — see §5 for what that implies.
 
 ## 4. RAWG — conditional, disabled
 
@@ -87,19 +87,40 @@ rather than guessed.
 > boundary. Engineering has deliberately not made this call. Nothing in D3.25 is
 > blocked by it — the sprint ships with RAWG off.
 
-## 5. Artwork and the no-hotlink rule
+## 5. Artwork: referenced, not mirrored (reversed 2026-09)
 
-All raster artwork from every provider is downloaded once and stored in GMRLOG's
-own object storage (`MEDIA_INGESTION.md`). Consequences that matter here:
+**Current rule.** Catalog images — covers, banners, artworks, screenshots — are stored
+as the provider's own image URL and served from the provider's CDN. Nothing is
+downloaded. `resolveMediaUrl` passes an allowlisted provider URL (`images.igdb.com`,
+`*.steamstatic.com`, `steamcdn-a.akamaihd.net`, `media.rawg.io`) through untouched and
+treats anything else as a storage key; IGDB's other sizes come from swapping the size
+token, so there is no image processing either. Player uploads are unaffected and still
+live in GMRLOG's own object storage.
 
-- No provider CDN sees GMRLOG end-user traffic.
-- Removing a provider's data is a bounded delete over `GameMedia.provider`.
-- Availability of a game page does not depend on a third-party CDN.
+**Why it changed.** This section used to require that all artwork be downloaded once
+and served from GMRLOG's storage. Measured against the real catalog that meant ~35 GB
+for ~229k games and hours of worker time per environment, most of it art for games
+nobody will open. The product owner chose references, as most catalog sites do.
 
-**Exception:** `Game.trailerUrl` stores a third-party video URL (YouTube/Vimeo).
-Video is not mirrored — re-hosting video carries a materially different licensing
-profile than caching a cover image, and embedding via the original host is the
-posture those platforms' terms are written for.
+**What that gives up — each of these was a reason for the old rule:**
+
+- **Provider CDNs now see end-user traffic.** A player's browser requests every image
+  directly from IGDB (Twitch) or Valve, so those companies receive the player's IP
+  address and user agent. Under KVKK and GDPR they are recipients of personal data, and
+  the Privacy Policy and the KVKK disclosure notice must name them before launch.
+  **Open, tracked in TASKS.md** — the legal texts are being finalised for production and
+  this has to be part of that pass, not after it.
+- **A game page depends on a third-party CDN being up.** If IGDB's image host is down,
+  images do not load; the pages still render, falling back to their placeholder surface.
+- **Removing a provider's data is still bounded** — a delete over `GameMedia.provider`
+  and a reset of `Game.coverKey`/`heroKey` where they hold that provider's URLs — but
+  there is no longer a stored copy to remove.
+
+Media downloaded before the switch still works: its rows keep their storage keys, and
+the link pass never overwrites an existing row.
+
+**Exception, unchanged:** `Game.trailerUrl` stores a third-party video URL
+(YouTube/Vimeo) and embeds it via the original host.
 
 ## 6. Takedown / purge runbook
 
