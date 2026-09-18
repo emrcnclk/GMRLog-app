@@ -16,6 +16,10 @@ health gate).
 - [ ] `API_DOMAIN`'s DNS **A/AAAA record already pointing at the host's public IP**
       (required before step 3 — Let's Encrypt validates over HTTP-01, and a wrong
       record burns one of its 5-per-hour rate-limit attempts)
+- [ ] **At least 100 GB of disk and 4 GB of RAM** (8 GB is comfortable). The game catalog
+      alone is ~35 GB of media once bootstrapped — see
+      [First-time catalog bootstrap](#first-time-catalog-bootstrap-once-per-new-environment).
+      Plan for that from the first deploy: growing a disk later means downtime.
 - [ ] Ports 80 and 443 open inbound from the internet; 5432/6379/9000/7700 **not**
       published at all (the deploy compose file doesn't publish them — see
       [`VERIFICATION_CHECKLIST.md`](VERIFICATION_CHECKLIST.md))
@@ -35,8 +39,9 @@ ssh -i ./gmrlog_deploy_key deploy@api.gmrlog.com "echo ok"
 # Docker version
 ssh deploy@api.gmrlog.com "docker --version && docker compose version"
 
-# Disk space — the image + Postgres + Redis + Meili volumes need headroom;
-# 10GB+ free is a reasonable floor for a small instance
+# Disk space. The old "10GB+ is enough" floor predates the game catalog: covers and
+# banners for ~229k games are ~35 GB, Postgres + Meili add ~5-8 GB, images and logs
+# ~10 GB. 100 GB free before the catalog bootstrap is the working floor.
 ssh deploy@api.gmrlog.com "df -h /"
 
 # DNS actually resolves to this host
@@ -169,6 +174,130 @@ curl -fsS -X POST https://api.gmrlog.com/api/v1/sessions/register \
 Use a fresh, obviously-fixture email/handle per run (e.g. suffix with a timestamp) —
 this hits the real production database, so don't reuse a handle across runs or leave
 test accounts undocumented.
+
+## First-time catalog bootstrap (once per new environment)
+
+A fresh production database has no games, and a player cannot log a game that is not in
+the catalog. This runs **once**, right after the first deploy passes its health gate. It is
+deliberately not part of `deploy.sh`: it takes hours, spends IGDB quota, and must never
+re-run on an ordinary release.
+
+**Do not copy the development database or its MinIO bucket instead.** The local dev
+database has no migration history, so `migrate deploy` cannot reason about it; it carries
+~100k rows the release-gate script leaves behind plus smoke-test accounts; and every media
+key embeds a game id (`games/<gameId>/…`) that only means something next to the exact
+rows that generated it. Regenerating on the host is also faster than uploading ~35 GB over
+a home connection.
+
+What it produces, measured on the development catalog in 2026-09:
+
+|                                                                                       | Count    | Stored size |
+| ------------------------------------------------------------------------------------- | -------- | ----------- |
+| Games — IGDB main games, remakes, remasters, expansions and ports released since 1990 | ~229,000 | —           |
+| Covers (three WebP variants each, ~35 KB)                                             | ~218,000 | ~7.5 GB     |
+| Banners from an IGDB artwork (~156 KB)                                                | ~133,000 | ~20 GB      |
+| Banners from the first screenshot (~100 KB)                                           | ~70,000  | ~7 GB       |
+| **Media total**                                                                       |          | **~35 GB**  |
+
+Times were measured over a home connection, not on a server: the catalog walk took about
+five hours and the media about three at worker concurrency 12.
+
+All commands run on the host from `/opt/gmrlog/deploy`:
+
+```bash
+C="docker compose -f docker-compose.deploy.yml --env-file .env.deploy.local"
+```
+
+### 0. Preconditions
+
+- The health gate above has passed.
+- `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` are set in `.env.deploy.local` (Twitch
+  application credentials). **Without both, the IGDB provider disables itself and every
+  step below quietly does nothing** — check before starting, not after five hours.
+- `df -h /` shows the headroom from [Prerequisites](#prerequisites).
+
+### 1. Pause the enrich queue
+
+```bash
+$C run --rm worker node dist/queue-control.main.js pause game.metadata
+```
+
+The walk re-fetches some games it already created (step 2 explains why), and re-fetching
+a known game routes it to an enrich job. The enrich path enqueues media **unfiltered** —
+up to eighteen images a game, twelve of them screenshots. On the development walk that
+was 56,547 jobs and would have been roughly half a million downloads nobody asked for.
+Pausing moves jobs aside without deleting any.
+
+### 2. Walk the catalog
+
+```bash
+while :; do
+  out=$($C run --rm worker node dist/catalog-sync.main.js 20 250 | grep '^Totals:')
+  echo "$(date +%T) $out"
+  echo "$out" | grep -q 'rawFetched=0 ' && break
+done
+```
+
+Small runs on purpose. The sync cursor is persisted only when a run finishes, so a run
+that dies is re-fetched from the start of that run — harmless, since a known `igdbId` is
+never created twice, but it costs time. Page size 250 rather than the maximum 500: at 500
+the development walk repeatedly hit Prisma's 5-second interactive-transaction timeout.
+A failed run needs no action; the loop simply starts the next one from the cursor. It
+stops when a run fetches nothing. Covers are queued as games are created.
+
+Known gap: roughly 2 % of IGDB's count is skipped where many rows share one `updated_at`
+second — see TASKS.md 13.9.
+
+### 3. Queue a banner for every game
+
+```bash
+$C run --rm worker node dist/media-backfill.main.js banners
+```
+
+About eight minutes. One job per game: IGDB's hero (the first artwork), or failing that
+the first screenshot, which the game hub already falls back to. It only enqueues; the
+worker does the downloading.
+
+### 4. Let the worker drain the media queue
+
+The running `worker` service downloads on its own. For the one-off load, raise its
+concurrency in `.env.deploy.local` and recreate only the worker:
+
+```bash
+# in .env.deploy.local:  GAME_MEDIA_WORKER_CONCURRENCY=12
+$C up -d worker
+
+# progress — done when waiting=0
+$C run --rm worker node dist/queue-control.main.js status game.media
+```
+
+Set it back to `4` and `$C up -d worker` again when the queue is empty.
+
+### 5. Verify
+
+```bash
+# counts
+$C exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) as games, count(cover_key) as covers, count(hero_key) as banners from games;"'
+
+# a stored cover is publicly served
+KEY=$($C exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select cover_key from games where cover_key is not null limit 1;"')
+curl -sI "https://api.gmrlog.com/media/$KEY" | head -1   # expect 200
+
+# the catalog is searchable without signing in
+curl -fsS "https://api.gmrlog.com/api/v1/search?q=hollow&types=game" | jq '.data | length'
+```
+
+### 6. After the bootstrap — what does not happen on its own
+
+- **The catalog does not refresh itself.** No scheduled job enqueues a catalog sync —
+  `GameMetadataPublisher.enqueueCatalogSync` has no caller. A game released after the
+  bootstrap will not appear until steps 2–3 run again. Until TASKS.md 13.10 lands, re-run
+  steps 1–3 by hand on a schedule (weekly is reasonable); both are incremental and
+  idempotent.
+- **`game.metadata` stays paused until someone decides otherwise.** While it is paused,
+  the hourly backfill scan and the nightly refresh scan queue up but do not run. Resuming
+  it (`queue-control.main.js resume game.metadata`) releases the paused jobs, each with
+  its full unfiltered media set. That trade-off is TASKS.md 13.10's to settle.
 
 ## Rollback procedure
 
