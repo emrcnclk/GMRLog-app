@@ -61,10 +61,19 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
-  // Built exactly the way `JobsModule` builds the app's own connection, so
-  // this reaches the same Redis the workers do, with the options BullMQ
-  // requires of a shared connection.
-  const connection = new Redis(url, { maxRetriesPerRequest: null, enableReadyCheck: false });
+  // The same Redis the workers use, but unlike their connection this one does
+  // not wait for Redis to come back: an operator command against a stopped
+  // Redis has to fail in seconds, not sit retrying forever. That is exactly
+  // what the first version did when Docker was down.
+  const connection = new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    connectTimeout: 5_000,
+    retryStrategy: () => null,
+  });
+  connection.on('error', () => {
+    // Reported once, below, as the command's failure — not once per retry.
+  });
   const queue = new Queue(name, { connection });
   try {
     if (action === 'pause') {
